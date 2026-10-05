@@ -1,0 +1,23 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JARVIS: autonomous ecommerce exception resolver (duplicate charge workflow)",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/main.ts",
+    "typecheck": "tsc",
+    "test": "node --test test/*.test.ts",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "typescript": "^7.0.2"
+  }
+}
