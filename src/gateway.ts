@@ -26,7 +26,7 @@ export class MockGateway implements PaymentsGateway {
   async createRefund(plan: RefundPlan): Promise<Refund> {
     const fault = this.nextFault;
     this.nextFault = null;
-    if (fault === "fail_before_commit") throw new Error("gateway: connection reset");
+    if (fault === "fail_before_commit") throw new Error("gateway: timeout (request never reached provider)");
 
     const existing = this.#store.findRefundByIdempotencyKey(plan.idempotencyKey);
     if (existing) return existing;

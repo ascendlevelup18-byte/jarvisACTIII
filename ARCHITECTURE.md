@@ -16,11 +16,16 @@ There's no web framework, agent framework, queue or database. In-memory stores s
 
 ```
 POST /cases ─► pipeline.processCase (linear, bounded, no loops)
-   received ─► extracted ─► evidence_gathered ─► decided ─► approved ─► executed ─► resolved
-      │            │              │                 │           │           │
-      └────────────┴──────────────┴─────────────────┴───────────┴───────────┴──► escalated
+   received ─► extracted ─► evidence_gathered ─► decided ─► approved ─► executing ─► verifying ─► resolved
+      │            │              │                 │           │           │            │
+      └────────────┴──────────────┴─────────────────┴───────────┴───────────┴────────────┴──► escalated
                                                     └──► closed_no_action
 ```
+
+- `approved`: the validator passed on the evidence snapshot. The pipeline re-reads the records and re-validates before leaving this state.
+- `executing`: the refund call is being made, so the outcome is unknown. A case found stuck here needs a manual check with the provider.
+- `verifying`: the call has returned or thrown, and the system of record is being read back.
+- `resolved` can only be reached from `verifying`, and only when `verification.ok === true`. `transition()` also enforces this as an invariant, so a coding error can't bypass it.
 
 | Step | Owner | Notes |
 |---|---|---|
@@ -30,8 +35,8 @@ POST /cases ─► pipeline.processCase (linear, bounded, no loops)
 | 4 Policy | code | Versioned policy lookup by issue type: prose for the LLM, numeric params for the validator. |
 | 5 Assemble evidence | code | Deterministic duplicate groups (same amount and currency, captured, within N minutes) and contradiction checks (claimed amount or currency mismatch). |
 | 6–7 Reason / decide | **LLM** | Returns `DecisionSchema`: `refund_duplicate`, `no_action` or `escalate`, with tx IDs and confidence. **No money amount**: code derives it. |
-| 8 Validate | code | Permission (kill switch), ID existence, same duplicate group, not already refunded, limit per currency, refund window, confidence floor, and the "order stays fully paid" invariant. |
-| 9 Execute | code | `gateway.createRefund`. The idempotency key is derived from the **transaction**, not the case, so concurrent cases can't double-refund. |
+| 8 Validate | code | Permission (kill switch), ID existence, same duplicate group, not already refunded, limit per currency, refund window, confidence floor, and the "customer pays exactly the order total" invariant (not below it, not above it). |
+| 9 Execute | code | First, **revalidation** (time-of-check/time-of-use guard). Evidence is re-derived from current records and the validator re-runs. The plan must be unchanged, otherwise `stale_evidence` → escalate. Then `gateway.createRefund`. Nothing asynchronous runs between the re-check and the call. The idempotency key is derived from the **transaction**, not the case. |
 | 10 Verify | code | Reads back from the gateway by idempotency key and checks tx, amount, currency and status. This also covers "timed out but actually succeeded". |
 | 11 State | code | An explicit transition table. Illegal transitions throw, and the case escalates. |
 | 12 Audit | code | Append-only events, including raw LLM output, model and latency. Optional JSONL file. |
@@ -64,7 +69,7 @@ test/*.test.ts     node:test suites
 2. Code looks up the `Order` and its `Transaction[]`/`Refund[]` and the `Policy`, then computes `DuplicateGroup[]` and contradictions. Together these are the `Evidence`.
 3. LLM returns a `Decision`.
 4. `validateDecision` returns `approve_refund{plan}`, `close_no_action` or `escalate{violations}`.
-5. If approved, the gateway runs `createRefund(plan)`.
+5. If approved, the pipeline revalidates against current records, then the gateway runs `createRefund(plan)`.
 6. `findRefundByIdempotencyKey` confirms the refund. The case ends as `resolved` or `escalated`.
 7. Every step writes `AuditEvent[]`.
 
@@ -80,7 +85,10 @@ test/*.test.ts     node:test suites
 | Customer names someone else's order | `order_customer_mismatch` (before the LLM decides) |
 | Claimed amount ≠ any charge | `claimed_amount_mismatch` contradiction → escalate |
 | Already refunded / resubmitted case | `already_refunded` |
-| Concurrent cases on the same tx | Per-tx idempotency key, so the gateway returns the same refund |
+| Records change between the evidence snapshot and execution (e.g. a human refunds a charge while the model is deciding) | Pre-execution revalidation → `stale_evidence` → escalate. No refund call is made |
+| Concurrent cases on the same tx | In process: the later case's revalidation sees the first refund and escalates. Across processes: the per-tx idempotency key, plus the provider rejecting refunds above the refundable amount |
+| Three or more identical charges | A single refund would leave the customer overcharged → `would_leave_overcharge` → escalate |
+| Partially refunded charge in the group | `already_refunded` or `keep_transaction_invalid` → escalate |
 | Refund call throws after the refund was committed | Verification finds it → `resolved` |
 | Refund call throws before committing | Verification finds nothing → `execution_unverified` → escalate |
 | Kill switch `AUTO_REFUND_ENABLED=false` | `permission_denied` → escalate |

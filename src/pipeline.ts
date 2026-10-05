@@ -9,6 +9,9 @@ import {
   type CaseInput,
   type CaseRecord,
   type CaseState,
+  type Decision,
+  type Extraction,
+  type RefundPlan,
   type Violation,
 } from "./contracts.ts";
 import type { AuditLog } from "./audit.ts";
@@ -34,8 +37,9 @@ const TRANSITIONS: Record<CaseState, readonly CaseState[]> = {
   extracted: ["evidence_gathered", "escalated"],
   evidence_gathered: ["decided", "escalated"],
   decided: ["approved", "closed_no_action", "escalated"],
-  approved: ["executed", "escalated"],
-  executed: ["resolved", "escalated"],
+  approved: ["executing", "escalated"],
+  executing: ["verifying", "escalated"],
+  verifying: ["resolved", "escalated"],
   resolved: [],
   closed_no_action: [],
   escalated: [],
@@ -108,22 +112,31 @@ async function run(rec: CaseRecord, deps: Deps): Promise<void> {
   deps.audit.append(rec.id, "validation", outcome);
   if (outcome.kind === "escalate") return escalate(rec, deps, outcome.violations);
   if (outcome.kind === "close_no_action") return transition(rec, deps, "closed_no_action", {});
-  rec.plan = outcome.plan;
-  transition(rec, deps, "approved", { plan: rec.plan });
+  const plan = outcome.plan;
+  rec.plan = plan;
+  transition(rec, deps, "approved", { plan });
+
+  // Time-of-check/time-of-use guard. The decision was validated against a snapshot
+  // taken before the model call; re-read the system of record and re-validate.
+  // Everything from here to createRefund is synchronous, so no other in-process
+  // work can interleave between this check and the financial action.
+  const stale = revalidate(rec.customerId, rec.extraction, rec.decision, plan, deps);
+  deps.audit.append(rec.id, "revalidation", { ok: stale.length === 0, violations: stale });
+  if (stale.length > 0) return escalate(rec, deps, stale);
 
   // 9. Execute. A thrown error does not mean nothing happened; verification decides.
+  transition(rec, deps, "executing", { plan });
   let refundId: string | null = null;
   let error: string | null = null;
   try {
-    refundId = (await deps.gateway.createRefund(rec.plan)).id;
+    refundId = (await deps.gateway.createRefund(plan)).id;
   } catch (e) {
     error = errorMessage(e);
   }
   rec.execution = { refundId, error };
-  transition(rec, deps, "executed", { execution: rec.execution });
+  transition(rec, deps, "verifying", { execution: rec.execution });
 
   // 10. Verify against the external system of record.
-  const plan = rec.plan;
   let detail: string;
   let found = null;
   try {
@@ -140,8 +153,39 @@ async function run(rec: CaseRecord, deps: Deps): Promise<void> {
   }
   const ok = detail === "ok";
   rec.verification = { ok, refundId: found?.id ?? null, detail };
+  deps.audit.append(rec.id, "verification", rec.verification);
   if (!ok) return escalate(rec, deps, [{ code: "execution_unverified", detail }]);
   transition(rec, deps, "resolved", { verification: rec.verification });
+}
+
+// Re-derives evidence from current records and re-runs the validator. Returns
+// violations (empty = still safe to execute exactly the approved plan).
+function revalidate(
+  customerId: string,
+  extraction: Extraction,
+  decision: Decision,
+  plan: RefundPlan,
+  deps: Deps,
+): Violation[] {
+  const stale = (detail: string): Violation => ({ code: "stale_evidence", detail });
+  const ev = assembleEvidence(customerId, extraction, deps.commerce);
+  if (!ev.ok) return [stale("evidence no longer available"), ...ev.violations];
+  if (ev.evidence.contradictions.length > 0) {
+    return [stale("records now contradict the claim"), ...ev.evidence.contradictions.map((d) => stale(d))];
+  }
+  const outcome = validateDecision(decision, ev.evidence, deps.actor, deps.clock());
+  if (outcome.kind === "escalate") return [stale("decision no longer valid on current records"), ...outcome.violations];
+  if (outcome.kind !== "approve_refund") return [stale(`current records yield ${outcome.kind}`)];
+  const p = outcome.plan;
+  if (
+    p.transactionId !== plan.transactionId ||
+    p.amountMinor !== plan.amountMinor ||
+    p.currency !== plan.currency ||
+    p.idempotencyKey !== plan.idempotencyKey
+  ) {
+    return [stale("approved plan differs from plan on current records")];
+  }
+  return [];
 }
 
 async function callModel<T>(
@@ -175,6 +219,9 @@ async function callModel<T>(
 function transition(rec: CaseRecord, deps: Deps, to: CaseState, data: Record<string, unknown>): void {
   const from = rec.state;
   if (!TRANSITIONS[from].includes(to)) throw new Error(`illegal transition ${from} -> ${to}`);
+  if (to === "resolved" && rec.verification?.ok !== true) {
+    throw new Error("invariant: resolved requires successful verification");
+  }
   rec.state = to;
   rec.updatedAt = deps.clock().toISOString();
   deps.cases.save(rec);

@@ -4,8 +4,9 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { DecisionSchema, ExtractionSchema } from "../src/contracts.ts";
 import { parseStructured, VllmClient } from "../src/llm.ts";
+import { processCase } from "../src/pipeline.ts";
 import { decisionRequest, extractionRequest } from "../src/prompts.ts";
-import { decision, evidenceFor, extraction } from "./helpers.ts";
+import { decision, evidenceFor, extraction, makeDeps } from "./helpers.ts";
 
 test("parseStructured: plain, fenced and reasoning-prefixed JSON", () => {
   assert.ok(parseStructured(extraction(), ExtractionSchema).ok);
@@ -89,4 +90,16 @@ test("VllmClient surfaces HTTP errors, missing content and timeouts", async () =
   await assert.rejects(client({ timeoutMs: 100 }).complete(extractionRequest("x")), (e: Error) =>
     ["TimeoutError", "AbortError"].includes(e.name),
   );
+});
+
+test("model timeout inside the pipeline escalates as llm_unavailable", async () => {
+  mode = "hang";
+  const deps = makeDeps(client({ timeoutMs: 100 }));
+  const c = await processCase({ customerId: "cus_alice", message: "charged twice ORD-1001" }, deps);
+  assert.equal(c.state, "escalated");
+  assert.deepEqual(
+    c.escalation?.reasons.map((r) => r.code),
+    ["llm_unavailable"],
+  );
+  assert.ok(deps.audit.forCase(c.id).some((e) => e.type === "llm.extraction.error"));
 });

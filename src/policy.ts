@@ -10,6 +10,7 @@ const DUPLICATE_CHARGE_POLICY: Policy = {
   text: [
     "A duplicate charge is two or more captured transactions on the same order, with identical amount and currency, created within the duplicate window.",
     "If a duplicate exists, refund exactly one of the duplicate transactions in full and keep the other. Never refund the only remaining payment for an order.",
+    "After the refund the customer must have paid exactly the order total; if one refund cannot achieve that (e.g. three identical charges), escalate.",
     "Do not refund if the duplicate was already refunded, if amounts differ, if the customer's account of the charge contradicts the records, or if you are not confident.",
     "When in doubt, escalate to a human agent.",
   ].join("\n"),
@@ -119,17 +120,19 @@ export function validateDecision(decision: Decision, ev: Evidence, actor: Actor,
     violations.push(v("low_confidence", `${decision.confidence} < ${params.minConfidence}`));
   }
 
-  // Invariant: after the refund, captured net of refunds must still cover the order.
+  // Invariant: after the refund, the customer has paid exactly the order total.
+  // Below -> we'd refund a legitimate payment. Above -> the case would close while
+  // the customer is still overcharged (e.g. three identical charges).
   const netCaptured = ev.transactions
     .filter((t) => t.status === "captured" && t.currency === ev.order.currency)
     .reduce((sum, t) => sum + (t.amountMinor - t.refundedMinor), 0);
-  if (currency !== ev.order.currency || netCaptured - amountMinor < ev.order.totalMinor) {
-    violations.push(
-      v(
-        "would_underpay_order",
-        `net after refund ${formatMinor(netCaptured - amountMinor, ev.order.currency)} < order total ${formatMinor(ev.order.totalMinor, ev.order.currency)}`,
-      ),
-    );
+  const netAfter = netCaptured - amountMinor;
+  const net = formatMinor(netAfter, ev.order.currency);
+  const total = formatMinor(ev.order.totalMinor, ev.order.currency);
+  if (currency !== ev.order.currency || netAfter < ev.order.totalMinor) {
+    violations.push(v("would_underpay_order", `net after refund ${net} < order total ${total}`));
+  } else if (netAfter > ev.order.totalMinor) {
+    violations.push(v("would_leave_overcharge", `net after refund ${net} > order total ${total}`));
   }
 
   if (violations.length > 0) return { kind: "escalate", violations };

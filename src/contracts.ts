@@ -115,8 +115,9 @@ export type CaseState =
   | "evidence_gathered"
   | "decided"
   | "approved"
-  | "executed"
-  | "resolved"
+  | "executing" // refund call about to be / being made; outcome unknown
+  | "verifying" // call returned or threw; reading back the system of record
+  | "resolved" // only reachable from verifying with verification.ok === true
   | "closed_no_action"
   | "escalated";
 
@@ -146,8 +147,10 @@ export type ReasonCode =
   | "outside_refund_window"
   | "low_confidence"
   | "would_underpay_order"
+  | "would_leave_overcharge"
   | "no_action_contradicts_evidence"
   // execution
+  | "stale_evidence"
   | "execution_unverified"
   | "internal_error";
 

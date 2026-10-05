@@ -11,7 +11,11 @@
     "start": "node --env-file-if-exists=.env src/main.ts",
     "typecheck": "tsc",
     "test": "node --test test/*.test.ts",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "api:start": "node apps/api/src/main.ts",
+    "api:typecheck": "tsc -p apps/api",
+    "api:test": "node --test apps/api/test/*.test.ts",
+    "api:check": "npm run api:typecheck && npm run api:test"
   },
   "dependencies": {
     "zod": "^4.6.5"

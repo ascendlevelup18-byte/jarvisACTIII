@@ -1,0 +1,23 @@
+import { CommerceStore, REFUND_POLICY, seedFixtures } from "./fixtures.ts";
+import { SimulatedPaymentGateway } from "./gateway.ts";
+import { FixtureModelAdapter } from "./model-adapter.ts";
+import { createApp } from "./server.ts";
+
+const port = Number(process.env.PORT ?? 3000);
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`invalid PORT: ${process.env.PORT}`);
+
+const clock = () => new Date();
+const store = new CommerceStore();
+seedFixtures(store, clock());
+
+createApp({
+  store,
+  gateway: new SimulatedPaymentGateway(store, clock),
+  model: new FixtureModelAdapter(),
+  policy: REFUND_POLICY,
+  permissions: { autoRefund: true },
+  clock,
+  modelTimeoutMs: 10_000,
+}).listen(port, () => {
+  console.log(`[jarvis] POST http://localhost:${port}/cases  (fixture model, simulated payments, synthetic data)`);
+});
