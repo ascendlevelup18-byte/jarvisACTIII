@@ -4,10 +4,22 @@ import type { Case } from "../src/contracts.ts";
 import { runCase } from "../src/case-engine.ts";
 import { SCENARIOS } from "../src/fixtures.ts";
 import { FixtureModelAdapter, type ModelInput } from "../src/model-adapter.ts";
-import { NOW, makeDeps, modelSaying, proposal, reasonDetails, refunded, statePath, type TestDeps } from "./helpers.ts";
+import { FixtureRequestUnderstandingAdapter, type RequestUnderstandingAdapter } from "../src/request-understanding.ts";
+import {
+  NOW,
+  makeDeps,
+  modelSaying,
+  proposal,
+  reasonDetails,
+  refunded,
+  statePath,
+  understandingSaying,
+  type TestDeps,
+} from "./helpers.ts";
 
 const HAPPY_PATH = [
   "RECEIVED",
+  "EXTRACTING",
   "EVIDENCE_GATHERING",
   "ANALYZING",
   "DECISION_PROPOSED",
@@ -61,19 +73,31 @@ test("conflicting refund amount ($250 vs verified $180) escalates; no money move
   assertInvariants(c);
   assert.equal(c.state, "ESCALATED");
   assert.equal(c.proposal?.action, "REFUND_DUPLICATE"); // the naive model wanted to act...
-  assert.match(reasonDetails(c), /NO_CONTRADICTIONS: customer mentions 250\.00 USD/); // ...policy blocked it
+  assert.match(reasonDetails(c), /NO_CONTRADICTIONS: customer states 250\.00 USD/); // ...policy blocked it
   assert.equal(c.action, null);
   assert.equal(refunded(deps, "CHARGE-48292-B"), 0);
 });
 
-test("already-refunded duplicate is not refunded again", async () => {
+test("already-refunded duplicate closes with no action and is not refunded again", async () => {
   const deps = makeDeps();
   const c = await runCase(SCENARIOS.alreadyRefunded, deps);
   assertInvariants(c);
-  assert.equal(c.state, "ESCALATED");
-  assert.match(reasonDetails(c), /NOT_ALREADY_REFUNDED/);
+  assert.equal(c.state, "CLOSED_NO_ACTION");
+  assert.equal(c.evidence?.financial.status, "PAID_EXACTLY_ONCE");
+  assert.ok(c.authorization?.checks.every((k) => k.passed));
   assert.equal(c.action, null);
   assert.equal(refunded(deps, "CHARGE-48293-B"), 4500); // unchanged: only the seeded refund
+});
+
+test("a model still proposing to refund an already-refunded charge is escalated, not closed", async () => {
+  const deps = makeDeps({
+    model: modelSaying(
+      proposal({ refundTransactionId: "CHARGE-48293-B", keepTransactionId: "CHARGE-48293-A", evidenceRefs: [] }),
+    ),
+  });
+  const c = await runCase(SCENARIOS.alreadyRefunded, deps);
+  assert.equal(c.state, "ESCALATED");
+  assert.match(reasonDetails(c), /NOT_ALREADY_REFUNDED/);
 });
 
 test("prompt-injection message cannot bypass policy", async () => {
@@ -210,9 +234,56 @@ test("resubmitting a resolved case does not refund twice", async () => {
   const deps = makeDeps();
   await runCase(SCENARIOS.validDuplicate, deps);
   const again = await runCase(SCENARIOS.validDuplicate, deps);
-  assert.equal(again.state, "ESCALATED");
-  assert.match(reasonDetails(again), /NOT_ALREADY_REFUNDED/);
+  assert.equal(again.state, "CLOSED_NO_ACTION");
+  assert.ok(!statePath(again).includes("EXECUTING"));
   assert.equal(refunded(deps, "CHARGE-48291-B"), 8999);
+});
+
+// ---------- Request understanding ----------
+
+test("requests outside duplicate-charge scope escalate even when a duplicate exists", async () => {
+  for (const message of [
+    "I was charged twice for order #48291. Cancel the whole order and give me everything back.",
+    "Payment issue.",
+  ]) {
+    const deps = makeDeps();
+    const c = await runCase({ ...SCENARIOS.validDuplicate, message }, deps);
+    assertInvariants(c);
+    assert.equal(c.state, "ESCALATED", message);
+    assert.match(reasonDetails(c), /INTENT_SUPPORTED/);
+    assert.equal(refunded(deps, "CHARGE-48291-B"), 0);
+  }
+});
+
+test("understanding output is runtime-validated; failures fail closed", async () => {
+  const cases: [RequestUnderstandingAdapter, string][] = [
+    [understandingSaying("refund it"), "UNDERSTANDING_OUTPUT_INVALID"],
+    [understandingSaying('{"intent":"REFUND_ALL","mentionedAmounts":[]}'), "UNDERSTANDING_OUTPUT_INVALID"],
+    [understandingSaying('{"intent":"DUPLICATE_CHARGE_REFUND","mentionedAmounts":[],"approved":true}'), "UNDERSTANDING_OUTPUT_INVALID"],
+    [new FixtureRequestUnderstandingAdapter(() => new Promise<string>(() => {})), "UNDERSTANDING_TIMEOUT"],
+    [
+      new FixtureRequestUnderstandingAdapter(() => {
+        throw new Error("down");
+      }),
+      "UNDERSTANDING_ERROR",
+    ],
+  ];
+  for (const [understanding, code] of cases) {
+    const deps = makeDeps({ understanding, modelTimeoutMs: 50 });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assertInvariants(c);
+    assert.equal(c.state, "FAILED");
+    assert.equal(c.reasons[0]?.code, code);
+    assert.equal(c.evidence, null);
+  }
+});
+
+test("an understanding adapter that hides a stated amount is caught by the deterministic backstop", async () => {
+  const blind = understandingSaying('{"intent":"DUPLICATE_CHARGE_REFUND","mentionedAmounts":[]}');
+  const deps = makeDeps({ understanding: blind });
+  const c = await runCase(SCENARIOS.promptInjection, deps);
+  assert.equal(c.state, "ESCALATED");
+  assert.match(reasonDetails(c), /5000\.00 USD/);
 });
 
 // ---------- Evidence-stage escalations ----------

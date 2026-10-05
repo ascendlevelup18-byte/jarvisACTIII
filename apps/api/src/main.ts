@@ -1,6 +1,7 @@
 import { CommerceStore, REFUND_POLICY, seedFixtures } from "./fixtures.ts";
 import { SimulatedPaymentGateway } from "./gateway.ts";
 import { FixtureModelAdapter } from "./model-adapter.ts";
+import { FixtureRequestUnderstandingAdapter } from "./request-understanding.ts";
 import { createApp } from "./server.ts";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -13,6 +14,7 @@ seedFixtures(store, clock());
 createApp({
   store,
   gateway: new SimulatedPaymentGateway(store, clock),
+  understanding: new FixtureRequestUnderstandingAdapter(),
   model: new FixtureModelAdapter(),
   policy: REFUND_POLICY,
   permissions: { autoRefund: true },

@@ -16,7 +16,8 @@
     "api:typecheck": "tsc -p apps/api",
     "api:test": "node --test apps/api/test/*.test.ts",
     "api:check": "npm run api:typecheck && npm run api:test",
-    "api:bench": "node apps/api/eval/run-benchmark.ts"
+    "api:bench": "node apps/api/eval/run-benchmark.ts",
+    "api:bench:ci": "node apps/api/eval/run-benchmark.ts --ci"
   },
   "dependencies": {
     "zod": "^4.6.5"

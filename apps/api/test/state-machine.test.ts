@@ -9,6 +9,7 @@ const blank = (over: Partial<Case>): Case => ({
   state: "RECEIVED",
   createdAt: "",
   updatedAt: "",
+  understanding: null,
   evidence: null,
   proposal: null,
   authorization: null,

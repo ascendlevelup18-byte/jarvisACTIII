@@ -1,14 +1,20 @@
-// Deterministic evidence gathering. Model output is never an input here.
-import type {
-  CaseRequest,
-  DuplicateGroup,
-  EvidenceBundle,
-  PaymentTransaction,
-  Reason,
-  RefundPolicy,
+// Deterministic evidence gathering. The structured request is used only as stated
+// claims to check against records; it never substitutes for a record.
+import {
+  CURRENCIES,
+  type CaseRequest,
+  type DuplicateGroup,
+  type EvidenceBundle,
+  type FinancialState,
+  type MoneyMention,
+  type Order,
+  type PaymentTransaction,
+  type Reason,
+  type RefundPolicy,
+  type StructuredRequest,
 } from "./contracts.ts";
 import type { CommerceStore } from "./fixtures.ts";
-import { formatMinor, findMoneyMentions } from "./money.ts";
+import { findMoneyMentions, formatMinor } from "./money.ts";
 
 export type GatherResult = { ok: true; evidence: EvidenceBundle } | { ok: false; reason: Reason };
 
@@ -46,7 +52,30 @@ export function findDuplicateGroups(txs: readonly PaymentTransaction[], windowMi
   return groups;
 }
 
-export function gatherEvidence(req: CaseRequest, store: CommerceStore, policy: RefundPolicy): GatherResult {
+// What the customer has actually paid for this order, net of refunds.
+export function financialState(order: Order, txs: readonly PaymentTransaction[]): FinancialState {
+  const netPaidMinor = txs
+    .filter((t) => t.status === "SUCCEEDED" && t.currency === order.currency)
+    .reduce((sum, t) => sum + t.amountMinor - t.refundedMinor, 0);
+  const status =
+    netPaidMinor === order.totalMinor ? "PAID_EXACTLY_ONCE" : netPaidMinor > order.totalMinor ? "OVERPAID" : "UNDERPAID";
+  return { netPaidMinor, orderTotalMinor: order.totalMinor, status };
+}
+
+function dedupe(mentions: MoneyMention[]): MoneyMention[] {
+  const seen = new Set<string>();
+  return mentions.filter((m) => {
+    const k = `${m.amountMinor}:${m.currency}`;
+    return seen.has(k) ? false : (seen.add(k), true);
+  });
+}
+
+export function gatherEvidence(
+  req: CaseRequest,
+  understanding: StructuredRequest,
+  store: CommerceStore,
+  policy: RefundPolicy,
+): GatherResult {
   const customer = store.getCustomer(req.customerId);
   if (!customer) return { ok: false, reason: { code: "CUSTOMER_NOT_FOUND", detail: req.customerId } };
   const orderId = normalizeOrderId(req.orderId);
@@ -59,23 +88,33 @@ export function gatherEvidence(req: CaseRequest, store: CommerceStore, policy: R
   const transactions = store.transactionsForOrder(order.id);
   const refunds = store.refundsForTransactions(transactions.map((t) => t.id));
   const duplicateGroups = findDuplicateGroups(transactions, policy.duplicateWindowMinutes);
-  const mentionedAmounts = findMoneyMentions(req.message);
+  const financial = financialState(order, transactions);
+  // Structured understanding plus a deterministic scan of the raw message as a backstop,
+  // so an understanding adapter that omits an amount cannot hide a conflict.
+  const mentionedAmounts = dedupe([...understanding.mentionedAmounts, ...findMoneyMentions(req.message)]);
 
   const contradictions: string[] = [];
   for (const t of transactions) {
     if (t.customerId !== customer.id) contradictions.push(`transaction ${t.id} belongs to another customer`);
     if (t.currency !== order.currency) contradictions.push(`transaction ${t.id} currency ${t.currency} != order ${order.currency}`);
+    if (t.refundedMinor > t.amountMinor) {
+      contradictions.push(`transaction ${t.id} refunded ${formatMinor(t.refundedMinor, t.currency)} exceeds its charge`);
+    }
   }
   // Amounts a customer could legitimately quote: one charge, the order total, or a duplicate group's total.
   const plausible = new Set<number>([order.totalMinor]);
   for (const t of transactions) if (t.status === "SUCCEEDED") plausible.add(t.amountMinor);
   for (const g of duplicateGroups) plausible.add(g.amountMinor * g.transactionIds.length);
   for (const m of mentionedAmounts) {
-    if (m.currency !== order.currency) {
-      contradictions.push(`customer mentions ${m.text} but order currency is ${order.currency}`);
+    if (m.currency === null) {
+      contradictions.push(`customer states amount "${m.text}" without a currency`);
+    } else if (!(CURRENCIES as readonly string[]).includes(m.currency)) {
+      contradictions.push(`customer states amount "${m.text}" in unsupported currency ${m.currency}`);
+    } else if (m.currency !== order.currency) {
+      contradictions.push(`customer states amount "${m.text}" in ${m.currency} but order currency is ${order.currency}`);
     } else if (!plausible.has(m.amountMinor)) {
       contradictions.push(
-        `customer mentions ${formatMinor(m.amountMinor, m.currency)}, which matches no verified charge or order total`,
+        `customer states ${formatMinor(m.amountMinor, m.currency)}, which matches no verified charge or order total`,
       );
     }
   }
@@ -90,6 +129,18 @@ export function gatherEvidence(req: CaseRequest, store: CommerceStore, policy: R
 
   return {
     ok: true,
-    evidence: { customer, order, transactions, refunds, policy, duplicateGroups, mentionedAmounts, contradictions, sourceIds },
+    evidence: {
+      customer,
+      order,
+      transactions,
+      refunds,
+      policy,
+      customerIntent: understanding.intent,
+      duplicateGroups,
+      financial,
+      mentionedAmounts,
+      contradictions,
+      sourceIds,
+    },
   };
 }

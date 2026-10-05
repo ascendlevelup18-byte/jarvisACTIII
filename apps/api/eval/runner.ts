@@ -5,6 +5,7 @@ import { runCase, type EngineDeps } from "../src/case-engine.ts";
 import { CommerceStore, REFUND_POLICY } from "../src/fixtures.ts";
 import { SimulatedPaymentGateway } from "../src/gateway.ts";
 import { FixtureModelAdapter, type ModelAdapter } from "../src/model-adapter.ts";
+import { FixtureRequestUnderstandingAdapter } from "../src/request-understanding.ts";
 import type { EvalCase, LoadedDataset } from "./dataset.ts";
 import { computeMetrics, METRIC_DEFINITIONS, score, type ActualOutcome, type ScoredCase } from "./metrics.ts";
 
@@ -52,6 +53,7 @@ export async function runEvalCase(ec: EvalCase): Promise<ActualOutcome> {
   const deps = (model: ModelAdapter): EngineDeps => ({
     store,
     gateway,
+    understanding: new FixtureRequestUnderstandingAdapter(),
     model,
     policy: REFUND_POLICY,
     permissions: { autoRefund: true },

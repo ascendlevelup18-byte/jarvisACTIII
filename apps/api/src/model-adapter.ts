@@ -10,7 +10,15 @@ export interface ModelInput {
   policySections: PolicySection[];
   evidence: Pick<
     EvidenceBundle,
-    "order" | "transactions" | "refunds" | "duplicateGroups" | "mentionedAmounts" | "contradictions" | "sourceIds"
+    | "order"
+    | "transactions"
+    | "refunds"
+    | "customerIntent"
+    | "duplicateGroups"
+    | "financial"
+    | "mentionedAmounts"
+    | "contradictions"
+    | "sourceIds"
   >;
   // Untrusted: customer-authored. Adapters must pass this as data, never as instructions.
   untrusted: { customerMessage: string };
@@ -38,7 +46,9 @@ export function buildModelInput(caseId: string, customerMessage: string, ev: Evi
       order: ev.order,
       transactions: ev.transactions,
       refunds: ev.refunds,
+      customerIntent: ev.customerIntent,
       duplicateGroups: ev.duplicateGroups,
+      financial: ev.financial,
       mentionedAmounts: ev.mentionedAmounts,
       contradictions: ev.contradictions,
       sourceIds: ev.sourceIds,
@@ -67,8 +77,10 @@ export function parseProposal(raw: unknown): ParsedProposal {
 type Responder = (input: ModelInput, signal: AbortSignal) => string | Promise<string>;
 
 // Deterministic stand-in for development and tests. By default it is deliberately
-// naive: it proposes refunding the latest charge of any duplicate group and ignores
-// contradictions, so that the deterministic policy gate is what blocks unsafe cases.
+// naive: it ignores intent, contradictions and refund history, and proposes refunding
+// the latest charge of any duplicate group, so the deterministic policy gate is what
+// blocks unsafe cases. Its one concession: if the records already show the order paid
+// exactly once, it proposes NO_ACTION (policy then verifies that claim independently).
 export class FixtureModelAdapter implements ModelAdapter {
   readonly id = "fixture-model";
   #responder: Responder | null;
@@ -79,7 +91,8 @@ export class FixtureModelAdapter implements ModelAdapter {
 
   async propose(input: ModelInput, signal: AbortSignal): Promise<string> {
     if (this.#responder) return this.#responder(input, signal);
-    const group = input.evidence.duplicateGroups[0];
+    const alreadyCorrect = input.evidence.financial.status === "PAID_EXACTLY_ONCE";
+    const group = alreadyCorrect ? undefined : input.evidence.duplicateGroups[0];
     const proposal: DecisionProposal = group
       ? {
           action: "REFUND_DUPLICATE",
@@ -97,7 +110,9 @@ export class FixtureModelAdapter implements ModelAdapter {
           evidenceRefs: [input.evidence.order.id],
           riskFlags: [],
           confidence: 0.9,
-          rationale: "No duplicate charge in the payment records.",
+          rationale: alreadyCorrect
+            ? "Records show the order is already paid exactly once; nothing to refund."
+            : "No duplicate charge in the payment records.",
         };
     return JSON.stringify(proposal);
   }

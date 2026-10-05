@@ -28,9 +28,24 @@ export function authorize(
   const deny = (): AuthorizationDecision => ({ outcome: "DENY", checks, action: null });
   const allPassed = () => checks.every((c) => c.passed);
 
-  // Checks that apply to every outcome.
+  // Evidence completeness: checks that apply to every autonomous outcome, including
+  // closing with no action. Unknown or missing evidence is never treated as safe.
+  check(
+    "INTENT_SUPPORTED",
+    ev.customerIntent === "DUPLICATE_CHARGE_REFUND",
+    `customer intent ${ev.customerIntent}; autonomous scope is DUPLICATE_CHARGE_REFUND only`,
+  );
+  check("POLICY_AVAILABLE", ev.policy.sections.length > 0, `${ev.policy.id} v${ev.policy.version}`);
   check("ORDER_OWNERSHIP", ev.order.customerId === req.customerId, `order ${ev.order.id} owner ${ev.order.customerId}`);
-  const currencies = new Set([ev.order.currency, ...ev.transactions.map((t) => t.currency), ...ev.mentionedAmounts.map((m) => m.currency)]);
+  const succeeded = ev.transactions.filter((t) => t.status === "SUCCEEDED").length;
+  check("PAYMENT_RECORDS_PRESENT", succeeded > 0, `${succeeded} successful payment record(s)`);
+  const pending = ev.transactions.filter((t) => t.status === "PENDING").map((t) => t.id);
+  check("PAYMENT_STATES_FINAL", pending.length === 0, pending.length ? `pending: ${pending.join(", ")}` : "all final");
+  const currencies = new Set<string>([
+    ev.order.currency,
+    ...ev.transactions.map((t) => t.currency),
+    ...ev.mentionedAmounts.flatMap((m) => (m.currency ? [m.currency] : [])),
+  ]);
   check("CURRENCY_CONSISTENT", currencies.size === 1, [...currencies].join(", "));
   check(
     "NO_CONTRADICTIONS",
@@ -46,7 +61,14 @@ export function authorize(
   }
 
   if (proposal.action === "NO_ACTION") {
-    check("NO_DUPLICATE_IN_RECORDS", ev.duplicateGroups.length === 0, `${ev.duplicateGroups.length} duplicate group(s)`);
+    // Closing is allowed only when records positively show the customer is already
+    // correctly charged, never merely because no duplicate was found.
+    const f = ev.financial;
+    check(
+      "ORDER_PAID_EXACTLY_ONCE",
+      f.status === "PAID_EXACTLY_ONCE",
+      `${f.status}: net paid ${formatMinor(f.netPaidMinor, ev.order.currency)}, order total ${formatMinor(f.orderTotalMinor, ev.order.currency)}`,
+    );
     return allPassed() ? { outcome: "NO_ACTION", checks, action: null } : deny();
   }
 

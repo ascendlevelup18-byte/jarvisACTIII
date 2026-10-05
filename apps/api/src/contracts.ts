@@ -16,6 +16,36 @@ export const CaseRequestSchema = z
   .strict();
 export type CaseRequest = z.infer<typeof CaseRequestSchema>;
 
+// ---------- Structured request (output of request understanding; untrusted) ----------
+
+// Only DUPLICATE_CHARGE_REFUND is inside autonomous scope; everything else escalates.
+export const CUSTOMER_INTENTS = [
+  "DUPLICATE_CHARGE_REFUND",
+  "FULL_ORDER_CANCELLATION",
+  "GENERAL_REFUND",
+  "UNKNOWN",
+  "OTHER",
+] as const;
+export type CustomerIntent = (typeof CUSTOMER_INTENTS)[number];
+
+export const MoneyMentionSchema = z
+  .object({
+    text: z.string().max(64),
+    amountMinor: z.number().int().nonnegative(),
+    // ISO-4217-style code as stated (may be unsupported, e.g. "CAD"); null = no currency stated.
+    currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+  })
+  .strict();
+export type MoneyMention = z.infer<typeof MoneyMentionSchema>;
+
+export const StructuredRequestSchema = z
+  .object({
+    intent: z.enum(CUSTOMER_INTENTS),
+    mentionedAmounts: z.array(MoneyMentionSchema).max(10),
+  })
+  .strict();
+export type StructuredRequest = z.infer<typeof StructuredRequestSchema>;
+
 // ---------- Commerce records (system of record; never model output) ----------
 
 export interface Customer {
@@ -74,10 +104,11 @@ export interface DuplicateGroup {
   currency: Currency;
 }
 
-export interface MoneyMention {
-  text: string;
-  amountMinor: number;
-  currency: Currency;
+// Derived deterministically from successful charges net of refunds.
+export interface FinancialState {
+  netPaidMinor: number;
+  orderTotalMinor: number;
+  status: "PAID_EXACTLY_ONCE" | "OVERPAID" | "UNDERPAID";
 }
 
 export interface EvidenceBundle {
@@ -86,8 +117,10 @@ export interface EvidenceBundle {
   transactions: PaymentTransaction[];
   refunds: Refund[];
   policy: RefundPolicy;
+  customerIntent: CustomerIntent;
   duplicateGroups: DuplicateGroup[];
-  // Amounts found in the customer message by deterministic parsing.
+  financial: FinancialState;
+  // Amounts the customer stated: structured understanding output plus a deterministic scan.
   mentionedAmounts: MoneyMention[];
   contradictions: string[];
   // Every id the model may legitimately cite.
@@ -147,6 +180,7 @@ export interface VerificationResult {
 
 export const CASE_STATES = [
   "RECEIVED",
+  "EXTRACTING",
   "EVIDENCE_GATHERING",
   "ANALYZING",
   "DECISION_PROPOSED",
@@ -167,6 +201,9 @@ export type ReasonCode =
   | "ORDER_OWNERSHIP_MISMATCH"
   | "POLICY_DENIED"
   | "STALE_EVIDENCE"
+  | "UNDERSTANDING_TIMEOUT"
+  | "UNDERSTANDING_ERROR"
+  | "UNDERSTANDING_OUTPUT_INVALID"
   | "MODEL_TIMEOUT"
   | "MODEL_ERROR"
   | "MODEL_OUTPUT_INVALID"
@@ -182,7 +219,7 @@ export interface AuditEvent {
   seq: number;
   caseId: string;
   at: string;
-  type: "STATE_TRANSITION" | "MODEL_CALL" | "POLICY_EVALUATED" | "ACTION_ATTEMPTED" | "VERIFICATION";
+  type: "STATE_TRANSITION" | "UNDERSTANDING_CALL" | "MODEL_CALL" | "POLICY_EVALUATED" | "ACTION_ATTEMPTED" | "VERIFICATION";
   from: CaseState | null;
   to: CaseState | null;
   data: unknown;
@@ -194,6 +231,7 @@ export interface Case {
   state: CaseState;
   createdAt: string;
   updatedAt: string;
+  understanding: StructuredRequest | null;
   evidence: EvidenceBundle | null;
   proposal: DecisionProposal | null;
   authorization: AuthorizationDecision | null;

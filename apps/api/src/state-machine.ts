@@ -3,7 +3,8 @@
 import type { Case, CaseState } from "./contracts.ts";
 
 export const TRANSITIONS: Readonly<Record<CaseState, readonly CaseState[]>> = {
-  RECEIVED: ["EVIDENCE_GATHERING", "FAILED"],
+  RECEIVED: ["EXTRACTING", "FAILED"],
+  EXTRACTING: ["EVIDENCE_GATHERING", "FAILED"],
   EVIDENCE_GATHERING: ["ANALYZING", "ESCALATED", "FAILED"],
   ANALYZING: ["DECISION_PROPOSED", "FAILED"],
   DECISION_PROPOSED: ["POLICY_VALIDATION", "FAILED"],

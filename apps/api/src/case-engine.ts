@@ -1,5 +1,6 @@
-// Runs one case from RECEIVED to a terminal state. Linear and bounded: one model
-// call, at most one refund call, one read-back. Every transition is audited.
+// Runs one case from RECEIVED to a terminal state. Linear and bounded: one
+// understanding call, one model call, at most one refund call, one read-back.
+// Every transition is audited.
 import { randomUUID } from "node:crypto";
 import type {
   AuditEvent,
@@ -13,13 +14,15 @@ import type {
 import { gatherEvidence } from "./evidence.ts";
 import type { CommerceStore } from "./fixtures.ts";
 import type { PaymentGateway } from "./gateway.ts";
-import { buildModelInput, parseProposal, type ModelAdapter, type ModelInput } from "./model-adapter.ts";
+import { buildModelInput, parseProposal, type ModelAdapter } from "./model-adapter.ts";
 import { authorize, type Permissions } from "./policy-engine.ts";
+import { parseStructuredRequest, type RequestUnderstandingAdapter } from "./request-understanding.ts";
 import { assertTransition, isTerminal } from "./state-machine.ts";
 
 export interface EngineDeps {
   store: CommerceStore;
   gateway: PaymentGateway;
+  understanding: RequestUnderstandingAdapter;
   model: ModelAdapter;
   policy: RefundPolicy;
   permissions: Permissions;
@@ -37,6 +40,7 @@ export async function runCase(request: CaseRequest, deps: EngineDeps): Promise<C
     state: "RECEIVED",
     createdAt: now,
     updatedAt: now,
+    understanding: null,
     evidence: null,
     proposal: null,
     authorization: null,
@@ -57,8 +61,17 @@ export async function runCase(request: CaseRequest, deps: EngineDeps): Promise<C
 }
 
 async function advance(c: Case, deps: EngineDeps): Promise<void> {
-  move(c, deps, "EVIDENCE_GATHERING");
-  const gathered = gatherEvidence(c.request, deps.store, deps.policy);
+  move(c, deps, "EXTRACTING");
+  const understood = await boundedCall(c, deps, "UNDERSTANDING", deps.understanding.id, (signal) =>
+    deps.understanding.understand({ untrusted: { customerMessage: c.request.message } }, signal),
+  );
+  if (!understood.ok) return finish(c, deps, "FAILED", [understood.reason]);
+  const request = parseStructuredRequest(understood.raw);
+  if (!request.ok) return finish(c, deps, "FAILED", [{ code: "UNDERSTANDING_OUTPUT_INVALID", detail: request.error }]);
+  c.understanding = request.value;
+
+  move(c, deps, "EVIDENCE_GATHERING", { understanding: c.understanding });
+  const gathered = gatherEvidence(c.request, c.understanding, deps.store, deps.policy);
   if (!gathered.ok) return finish(c, deps, "ESCALATED", [gathered.reason]);
   c.evidence = gathered.evidence;
 
@@ -66,9 +79,11 @@ async function advance(c: Case, deps: EngineDeps): Promise<void> {
     orderId: c.evidence.order.id,
     transactionIds: c.evidence.transactions.map((t) => t.id),
     duplicateGroups: c.evidence.duplicateGroups,
+    financial: c.evidence.financial,
     contradictions: c.evidence.contradictions,
   });
-  const model = await callModel(c, deps, buildModelInput(c.id, c.request.message, c.evidence));
+  const input = buildModelInput(c.id, c.request.message, c.evidence);
+  const model = await boundedCall(c, deps, "MODEL", deps.model.id, (signal) => deps.model.propose(input, signal));
   if (!model.ok) return finish(c, deps, "FAILED", [model.reason]);
   const parsed = parseProposal(model.raw);
   if (!parsed.ok) return finish(c, deps, "FAILED", [{ code: "MODEL_OUTPUT_INVALID", detail: parsed.error }]);
@@ -132,7 +147,7 @@ async function advance(c: Case, deps: EngineDeps): Promise<void> {
 }
 
 function revalidate(c: Case, deps: EngineDeps, action: RefundAction): Reason[] {
-  const fresh = gatherEvidence(c.request, deps.store, deps.policy);
+  const fresh = gatherEvidence(c.request, c.understanding!, deps.store, deps.policy);
   if (!fresh.ok) return [{ code: "STALE_EVIDENCE", detail: `evidence no longer available: ${fresh.reason.detail}` }];
   const again = authorize(c.proposal!, fresh.evidence, c.request, deps.permissions);
   audit(c, deps, "POLICY_EVALUATED", null, null, { revalidation: true, ...again });
@@ -148,45 +163,53 @@ function revalidate(c: Case, deps: EngineDeps, action: RefundAction): Reason[] {
   return [];
 }
 
-async function callModel(
+const STAGES = {
+  UNDERSTANDING: { audit: "UNDERSTANDING_CALL", timeout: "UNDERSTANDING_TIMEOUT", error: "UNDERSTANDING_ERROR" },
+  MODEL: { audit: "MODEL_CALL", timeout: "MODEL_TIMEOUT", error: "MODEL_ERROR" },
+} as const;
+
+// Calls an untrusted adapter with a hard timeout and audits the raw result.
+async function boundedCall(
   c: Case,
   deps: EngineDeps,
-  input: ModelInput,
+  stage: keyof typeof STAGES,
+  adapterId: string,
+  call: (signal: AbortSignal) => Promise<string>,
 ): Promise<{ ok: true; raw: unknown } | { ok: false; reason: Reason }> {
+  const s = STAGES[stage];
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       controller.abort();
-      reject(new ModelTimeoutError(deps.modelTimeoutMs));
+      reject(new AdapterTimeoutError(adapterId, deps.modelTimeoutMs));
     }, deps.modelTimeoutMs);
   });
   const started = performance.now();
   try {
     // Race so a misbehaving adapter that ignores the signal still cannot hang the case.
-    const raw: unknown = await Promise.race([deps.model.propose(input, controller.signal), timeout]);
-    audit(c, deps, "MODEL_CALL", null, null, {
-      model: deps.model.id,
+    const raw: unknown = await Promise.race([call(controller.signal), timeout]);
+    audit(c, deps, s.audit, null, null, {
+      adapter: adapterId,
       latencyMs: Math.round(performance.now() - started),
       output: typeof raw === "string" ? raw.slice(0, MAX_AUDITED_MODEL_OUTPUT) : raw,
     });
     return { ok: true, raw };
   } catch (e) {
-    const code = e instanceof ModelTimeoutError ? "MODEL_TIMEOUT" : "MODEL_ERROR";
-    audit(c, deps, "MODEL_CALL", null, null, {
-      model: deps.model.id,
+    audit(c, deps, s.audit, null, null, {
+      adapter: adapterId,
       latencyMs: Math.round(performance.now() - started),
       error: message(e),
     });
-    return { ok: false, reason: { code, detail: message(e) } };
+    return { ok: false, reason: { code: e instanceof AdapterTimeoutError ? s.timeout : s.error, detail: message(e) } };
   } finally {
     clearTimeout(timer);
   }
 }
 
-class ModelTimeoutError extends Error {
-  constructor(ms: number) {
-    super(`model did not respond within ${ms}ms`);
+class AdapterTimeoutError extends Error {
+  constructor(adapterId: string, ms: number) {
+    super(`${adapterId} did not respond within ${ms}ms`);
   }
 }
 
