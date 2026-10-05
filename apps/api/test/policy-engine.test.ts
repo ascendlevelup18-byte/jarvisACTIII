@@ -45,7 +45,7 @@ test("approves a verified duplicate; amount is derived from the transaction reco
     transactionId: "CHARGE-48291-B",
     amountMinor: 8999,
     currency: "USD",
-    idempotencyKey: "jarvis-refund:CHARGE-48291-B",
+    idempotencyKey: "jarvis-dup-refund:48291",
   });
 });
 

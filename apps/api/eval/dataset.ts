@@ -138,6 +138,20 @@ export function validateDataset(d: Dataset): string[] {
   return errors;
 }
 
+// The locked v1 pin lives in the committed BASELINE-V1 result file.
+export function readBaselinePin(baselinePath: string): string {
+  const sha = (JSON.parse(readFileSync(baselinePath, "utf8")) as { benchmark?: { datasetSha256?: unknown } }).benchmark
+    ?.datasetSha256;
+  if (typeof sha !== "string" || !/^[0-9a-f]{64}$/.test(sha)) throw new Error(`no valid datasetSha256 in ${baselinePath}`);
+  return sha;
+}
+
+export function checkDatasetPin(actual: string, pinned: string): { ok: true } | { ok: false; message: string } {
+  return actual === pinned
+    ? { ok: true }
+    : { ok: false, message: `LOCKED DATASET CHANGED: sha256 ${actual} does not match BASELINE-V1 pin ${pinned}` };
+}
+
 export interface LoadedDataset {
   dataset: Dataset;
   sha256: string;

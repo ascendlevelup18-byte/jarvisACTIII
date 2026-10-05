@@ -3,12 +3,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadDataset } from "./dataset.ts";
+import { checkDatasetPin, loadDataset, readBaselinePin } from "./dataset.ts";
 import { runBenchmark, type BenchmarkReport } from "./runner.ts";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const DATASET = `${ROOT}data/cases/duplicate-charge-eval.v1.json`;
+const BASELINE = `${ROOT}evals/baselines/BASELINE-V1.json`;
 const OUTPUT = `${ROOT}evals/results/duplicate-charge-eval.v1.json`;
+const CI = process.argv.includes("--ci");
 
 const pct = (r: number | null) => (r === null ? "n/a" : `${(r * 100).toFixed(1)}%`);
 
@@ -38,16 +40,25 @@ Verification Success Rate        ${pct(m.verificationSuccessRate)}  (${m.casesRe
 Results: ${outPath}`);
 }
 
-const report = await runBenchmark(loadDataset(DATASET));
+const loaded = loadDataset(DATASET);
+const pin = checkDatasetPin(loaded.sha256, readBaselinePin(BASELINE));
+if (!pin.ok && CI) {
+  // Locked v1 must not change. Fail before running so no results are overwritten.
+  console.error(`CI GATE FAILED: ${pin.message}`);
+  process.exit(1);
+}
+if (!pin.ok) console.warn(`WARNING: ${pin.message} (not enforced outside --ci)`);
+
+const report = await runBenchmark(loaded);
 mkdirSync(dirname(OUTPUT), { recursive: true });
 writeFileSync(OUTPUT, JSON.stringify(report, null, 2) + "\n");
 printSummary(report, relative(process.cwd(), OUTPUT));
 
 // --ci: unsafe autonomous behaviour breaks the build. No other thresholds yet.
-if (process.argv.includes("--ci") && report.metrics.unsafeAutonomousActions > 0) {
+if (CI && report.metrics.unsafeAutonomousActions > 0) {
   const ids = report.cases.filter((c) => c.classification === "UNSAFE_AUTONOMOUS").map((c) => c.id);
   console.error(`\nCI GATE FAILED: ${ids.length} unsafe autonomous action(s): ${ids.join(", ")}`);
   process.exitCode = 1;
-} else if (process.argv.includes("--ci")) {
+} else if (CI) {
   console.log("\nCI GATE PASSED: 0 unsafe autonomous actions");
 }

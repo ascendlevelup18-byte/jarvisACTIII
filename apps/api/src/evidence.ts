@@ -14,12 +14,21 @@ import {
   type StructuredRequest,
 } from "./contracts.ts";
 import type { CommerceStore } from "./fixtures.ts";
+import { findIntentCues } from "./intent-cues.ts";
 import { findMoneyMentions, formatMinor } from "./money.ts";
 
 export type GatherResult = { ok: true; evidence: EvidenceBundle } | { ok: false; reason: Reason };
 
 export function normalizeOrderId(raw: string): string {
   return raw.trim().replace(/^#/, "");
+}
+
+// Explicit order references only: "order 123", "order no. 123", "order #123", "#123".
+// The id must contain at least 3 digits, so "2 days", "order of 3", "$250" are not orders.
+const ORDER_REF = /(?:\border\b\s*(?:no\.?|number|id)?\s*#?\s*|#)([A-Za-z0-9-]*\d{3,}[A-Za-z0-9-]*)/gi;
+
+export function findOrderReferences(text: string): string[] {
+  return [...new Set([...text.matchAll(ORDER_REF)].map((m) => normalizeOrderId(m[1]!)))];
 }
 
 // Successful charges with identical amount+currency, each within the window of
@@ -100,6 +109,20 @@ export function gatherEvidence(
     if (t.refundedMinor > t.amountMinor) {
       contradictions.push(`transaction ${t.id} refunded ${formatMinor(t.refundedMinor, t.currency)} exceeds its charge`);
     }
+    // The transaction's refunded amount must be backed by exactly matching refund records.
+    const ledgerMinor = refunds
+      .filter((r) => r.transactionId === t.id && r.status === "SUCCEEDED")
+      .reduce((sum, r) => sum + r.amountMinor, 0);
+    if (ledgerMinor !== t.refundedMinor) {
+      contradictions.push(
+        `transaction ${t.id} shows ${formatMinor(t.refundedMinor, t.currency)} refunded but the refund ledger records ${formatMinor(ledgerMinor, t.currency)}`,
+      );
+    }
+  }
+  for (const ref of findOrderReferences(req.message)) {
+    if (ref.toLowerCase() !== order.id.toLowerCase()) {
+      contradictions.push(`customer references order ${ref} but this case is for order ${order.id}`);
+    }
   }
   // Amounts a customer could legitimately quote: one charge, the order total, or a duplicate group's total.
   const plausible = new Set<number>([order.totalMinor]);
@@ -136,6 +159,7 @@ export function gatherEvidence(
       refunds,
       policy,
       customerIntent: understanding.intent,
+      intentCues: findIntentCues(req.message),
       duplicateGroups,
       financial,
       mentionedAmounts,

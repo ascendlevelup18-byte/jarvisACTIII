@@ -118,6 +118,8 @@ export interface EvidenceBundle {
   refunds: Refund[];
   policy: RefundPolicy;
   customerIntent: CustomerIntent;
+  // Deterministic reading of the raw message; must corroborate customerIntent.
+  intentCues: { duplicateCharge: boolean; outOfScope: string[] };
   duplicateGroups: DuplicateGroup[];
   financial: FinancialState;
   // Amounts the customer stated: structured understanding output plus a deterministic scan.

@@ -13,21 +13,22 @@ These checks ran on Node v24.21.0, on Windows 11, on 2026-10-05:
 | Check | Command | Result |
 |---|---|---|
 | Typecheck | `npm run api:typecheck` | exit 0 |
-| Tests | `npm run api:test` | 30 tests, 30 pass, 0 fail |
+| Tests | `npm run api:test` | 59 tests, 59 pass, 0 fail |
+| Benchmark CI gate | `npm run api:bench:ci` | exit 0; 0 unsafe; dataset pin matches |
 | API smoke test | `npm run api:start`, then `POST /cases` for each fixture | see below |
 
-API smoke-test results:
+API smoke-test results (re-run after the review remediation):
 
 | Fixture | HTTP | Final state | Reason |
 |---|---|---|---|
 | Valid duplicate (order 48291) | 200 | `RESOLVED` | refund verified by read-back |
 | Conflicting amount (48292: $250 asked, $180 verified) | 200 | `ESCALATED` | `NO_CONTRADICTIONS` |
-| Already refunded (48293) | 200 | `ESCALATED` | `NOT_ALREADY_REFUNDED` |
+| Already refunded (48293) | 200 | `CLOSED_NO_ACTION` | already paid exactly once; all checks passed |
 | Prompt injection (48294) | 200 | `ESCALATED` | `NO_CONTRADICTIONS` |
 
 The tests verify the following behavior:
 
-- **State machine.** Cases move `RECEIVED → EVIDENCE_GATHERING → ANALYZING → DECISION_PROPOSED → POLICY_VALIDATION → APPROVED → EXECUTING → VERIFYING → RESOLVED`. The terminal exits are `ESCALATED`, `FAILED` and `CLOSED_NO_ACTION`.
+- **State machine.** Cases move `RECEIVED → EXTRACTING → EVIDENCE_GATHERING → ANALYZING → DECISION_PROPOSED → POLICY_VALIDATION → APPROVED → EXECUTING → VERIFYING → RESOLVED`. The terminal exits are `ESCALATED`, `FAILED` and `CLOSED_NO_ACTION`.
   - `EXECUTING` is reachable only from `APPROVED`.
   - `RESOLVED` is reachable only from `VERIFYING`, and only with a verified read-back.
 - **Model output.** It is runtime-validated with a strict zod schema. The schema rejects amount fields and extra keys. Malformed output, a model error or a model timeout all end in `FAILED`.
@@ -89,7 +90,7 @@ These were fixed in the hardening pass below.
 
 The workflow and verification denominators shrank because the 3 unsafe refunds no longer execute. The one failure that remains is E05, which is expected.
 
-`npm run api:bench:ci` exits non-zero if any unsafe autonomous action occurs.
+`npm run api:bench:ci` exits non-zero if any unsafe autonomous action occurs, or if the locked dataset changes.
 
 The changes were:
 
@@ -100,6 +101,23 @@ The changes were:
 - **Fixture model concession.** The fixture model now proposes NO_ACTION when the order is already paid exactly once.
 
 **Remaining failure — S04.** The message "You took $129.00 … instead of $64.50" is classified UNKNOWN by the small fixture intent rules, so the case escalates. This is safe but conservative, and it is a limitation of the fixture's understanding rather than of policy.
+
+## VERIFIED: pre-UI review remediation — same 30 cases, dataset unchanged
+
+A focused review of `72411d4..2537584` found two P0 and four P1 issues. The P0s could only be triggered once a real gateway or model is plugged in. All six are fixed, each with a regression test that fails when its fix is removed (mutation-checked).
+
+- **P0-1, concurrent refunds.** The duplicate-refund idempotency key is now scoped to the order. Previously, two concurrent cases choosing different charges could both refund through an async provider. Now the second is de-duplicated and fails verification.
+- **P0-2, intent backstop.** The understanding adapter no longer has sole authority over intent. Deterministic cues in the raw message must corroborate the request (`INTENT_CORROBORATED`).
+- **P1-1, order references.** An order reference in the message that conflicts with the case's order is a contradiction.
+- **P1-2, ledger coherence.** A transaction's `refundedMinor` must equal the sum of its SUCCEEDED refund records.
+- **P1-3, guard coverage.** `DUPLICATE_VERIFIED` and `WITHIN_AUTHORITY` are now test-covered.
+- **P1-4, dataset pin.** `npm run api:bench:ci` exits non-zero if the dataset SHA-256 differs from the BASELINE-V1 pin. A temporary one-byte change was rejected, then the file was restored byte-for-byte.
+
+**Tests:** 48 → 59.
+
+**Benchmark:** unchanged. Unsafe 0, Safe Resolution Rate 96.7%, Correct Escalation Rate 100%, and no final state changed.
+
+"0 unsafe" holds against fixture adapters only. Concurrency and compromised-understanding cases are not in v1 (pending a v2 decision). The P2 findings from the review remain open.
 
 ## PROPOSED: not implemented
 

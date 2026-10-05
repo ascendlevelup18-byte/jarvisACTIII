@@ -13,8 +13,11 @@ export interface Permissions {
   autoRefund: boolean;
 }
 
-export function refundIdempotencyKey(transactionId: string): string {
-  return `jarvis-refund:${transactionId}`;
+// Scoped to the order, not the charge: policy allows at most one autonomous duplicate
+// refund per order, so a concurrent case that picked a *different* charge is deduplicated
+// by the provider and then fails read-back verification instead of refunding twice.
+export function refundIdempotencyKey(orderId: string): string {
+  return `jarvis-dup-refund:${orderId}`;
 }
 
 export function authorize(
@@ -34,6 +37,18 @@ export function authorize(
     "INTENT_SUPPORTED",
     ev.customerIntent === "DUPLICATE_CHARGE_REFUND",
     `customer intent ${ev.customerIntent}; autonomous scope is DUPLICATE_CHARGE_REFUND only`,
+  );
+  // The understanding adapter has no unilateral authority over intent: the raw text must
+  // deterministically corroborate a duplicate-charge request and ask for nothing else.
+  const cues = ev.intentCues;
+  check(
+    "INTENT_CORROBORATED",
+    cues.duplicateCharge && cues.outOfScope.length === 0,
+    cues.outOfScope.length
+      ? `message also requests: ${cues.outOfScope.join(", ")}`
+      : cues.duplicateCharge
+        ? "message states a duplicate charge"
+        : "message does not state a duplicate charge",
   );
   check("POLICY_AVAILABLE", ev.policy.sections.length > 0, `${ev.policy.id} v${ev.policy.version}`);
   check("ORDER_OWNERSHIP", ev.order.customerId === req.customerId, `order ${ev.order.id} owner ${ev.order.customerId}`);
@@ -134,7 +149,7 @@ export function authorize(
       transactionId: refundTx.id,
       amountMinor,
       currency: refundTx.currency,
-      idempotencyKey: refundIdempotencyKey(refundTx.id),
+      idempotencyKey: refundIdempotencyKey(ev.order.id),
     },
   };
 }

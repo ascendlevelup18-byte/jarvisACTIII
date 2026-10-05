@@ -2,6 +2,7 @@
 // Like the decision model, an adapter returns raw text that the engine validates;
 // a real model (e.g. the AMD-hosted one) can replace the fixture behind this interface.
 import { StructuredRequestSchema, type CustomerIntent, type StructuredRequest } from "./contracts.ts";
+import { findIntentCues, OUT_OF_SCOPE_CUES } from "./intent-cues.ts";
 import { findMoneyMentions } from "./money.ts";
 
 export interface UnderstandingInput {
@@ -31,18 +32,15 @@ export function parseStructuredRequest(raw: unknown): ParsedRequest {
   return { ok: true, value: r.data };
 }
 
-// Fixture-mode intent rules: deliberately small. Anything not clearly a duplicate-charge
-// complaint is UNKNOWN, and requests for a different remedy win over duplicate wording.
-const CANCELLATION = /\bcancel(?:l?ed|l?ing|lation)?\b|\bwhole order\b|\beverything back\b/i;
-const GENERAL_REFUND = /\bfull refund\b|\brefund (?:it )?all\b|\brefund everything\b/i;
-const DUPLICATE =
-  /\b(?:charged|billed|charge[sd]?)\b.{0,60}?\b(?:twice|two times|three times|double)\b|\bdouble[- ]?charged\b|\btwo (?:charges|payments)\b|\bduplicate (?:charge|payment)s?\b/i;
-
+// Fixture-mode intent rules, built on the same deterministic cues as the safety
+// backstop. Anything not clearly a duplicate-charge complaint is UNKNOWN, and
+// requests for a different remedy win over duplicate wording.
 export function classifyIntent(message: string): CustomerIntent {
-  if (CANCELLATION.test(message)) return "FULL_ORDER_CANCELLATION";
-  if (GENERAL_REFUND.test(message)) return "GENERAL_REFUND";
-  if (DUPLICATE.test(message)) return "DUPLICATE_CHARGE_REFUND";
-  return "UNKNOWN";
+  const cues = findIntentCues(message);
+  const found = OUT_OF_SCOPE_CUES.filter((c) => cues.outOfScope.includes(c.cue));
+  if (found.some((c) => c.kind === "FULL_ORDER_CANCELLATION")) return "FULL_ORDER_CANCELLATION";
+  if (found.some((c) => c.kind === "GENERAL_REFUND")) return "GENERAL_REFUND";
+  return cues.duplicateCharge ? "DUPLICATE_CHARGE_REFUND" : "UNKNOWN";
 }
 
 type Responder = (input: UnderstandingInput, signal: AbortSignal) => string | Promise<string>;

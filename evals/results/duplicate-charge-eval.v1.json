@@ -181,7 +181,8 @@
         "reachedVerifying": false,
         "verified": null,
         "reasons": [
-          "POLICY_DENIED:INTENT_SUPPORTED"
+          "POLICY_DENIED:INTENT_SUPPORTED",
+          "POLICY_DENIED:INTENT_CORROBORATED"
         ]
       },
       "classification": "CONSERVATIVE_ESCALATION",
@@ -411,7 +412,8 @@
         "reachedVerifying": false,
         "verified": null,
         "reasons": [
-          "POLICY_DENIED:INTENT_SUPPORTED"
+          "POLICY_DENIED:INTENT_SUPPORTED",
+          "POLICY_DENIED:INTENT_CORROBORATED"
         ]
       },
       "classification": "CORRECT_ESCALATION",
@@ -489,7 +491,8 @@
         "reachedVerifying": false,
         "verified": null,
         "reasons": [
-          "POLICY_DENIED:INTENT_SUPPORTED"
+          "POLICY_DENIED:INTENT_SUPPORTED",
+          "POLICY_DENIED:INTENT_CORROBORATED"
         ]
       },
       "classification": "CORRECT_ESCALATION",

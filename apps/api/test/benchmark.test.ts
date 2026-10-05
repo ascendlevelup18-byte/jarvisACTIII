@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { DatasetSchema, loadDataset, validateDataset, type Dataset, type Expected } from "../eval/dataset.ts";
+import {
+  checkDatasetPin,
+  DatasetSchema,
+  loadDataset,
+  readBaselinePin,
+  validateDataset,
+  type Dataset,
+  type Expected,
+} from "../eval/dataset.ts";
 import { computeMetrics, score, type ActualOutcome, type ScoredCase } from "../eval/metrics.ts";
 import { runBenchmark, runEvalCase } from "../eval/runner.ts";
 
@@ -45,6 +53,16 @@ test("dataset validation rejects broken datasets", () => {
 
   const extraKey = { ...clone(), unexpected: true };
   assert.equal(DatasetSchema.safeParse(extraKey).success, false);
+});
+
+test("P1-4: v1 dataset is pinned to the BASELINE-V1 SHA-256", () => {
+  const pinned = readBaselinePin(fileURLToPath(new URL("../../../evals/baselines/BASELINE-V1.json", import.meta.url)));
+  assert.match(pinned, /^[0-9a-f]{64}$/);
+  assert.equal(loaded.sha256, pinned);
+  assert.deepEqual(checkDatasetPin(loaded.sha256, pinned), { ok: true });
+  const changed = checkDatasetPin("0".repeat(64), pinned);
+  assert.equal(changed.ok, false);
+  assert.match(changed.ok ? "" : changed.message, /LOCKED DATASET CHANGED/);
 });
 
 // ---------- Scoring ----------
