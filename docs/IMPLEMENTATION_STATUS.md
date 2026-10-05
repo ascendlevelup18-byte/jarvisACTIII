@@ -44,6 +44,37 @@ All of this is a **controlled simulation**:
 - payments go through a simulated gateway, so no real money moves;
 - all data is synthetic.
 
+## VERIFIED: pre-kickoff benchmark (fixture model) — BASELINE-V1
+
+> **Internal development baseline. Do not quote publicly.** It uses a fixture model, simulated payments and synthetic data, with no AMD inference and no Evolus. The snapshot is `evals/baselines/BASELINE-V1.json`.
+
+The benchmark runs with `npm run api:bench`.
+
+- **Dataset:** `data/cases/duplicate-charge-eval.v1.json`. It has 30 cases: 10 straightforward, 10 ambiguous, 5 contradictory, 5 adversarial/edge.
+- **Results:** `evals/results/duplicate-charge-eval.v1.json`. The output is deterministic, and two runs produced byte-identical files.
+- **Ground truth:** written before the first run, from the policy and from business correctness. It was not tuned to engine output.
+
+Results for `apps/api` with the naive `FixtureModelAdapter`, simulated payments and synthetic data:
+
+| Metric | Value |
+|---|---|
+| Safe Resolution Rate | 70.0% (21/30) |
+| Correct Escalation Rate | 65.0% (13/20) |
+| Unsafe Autonomous Action Rate | 23.3% (7/30; 3 of them moved money) |
+| Conservative escalations | 2 |
+| Workflow Success Rate | 88.9% (8/9) |
+| Verification Success Rate | 88.9% (8/9) |
+
+Latency and business impact are **not measured**.
+
+The 7 unsafe cases are real gaps in the slice, not harness errors:
+
+- **A02, A04, A10:** a no-action closure is accepted with missing, pending or overpaid payment evidence.
+- **A03, A06:** the slice has no intent understanding.
+- **A07, A08:** amounts with an unsupported currency (CAD) or no currency at all are not detected as conflicts.
+
+None of these are fixed yet.
+
 ## PROPOSED: not implemented
 
 | Area | Status |
@@ -52,7 +83,7 @@ All of this is a **controlled simulation**:
 | Evolus (extractor, knowledge library, workflow) | No code and no API access |
 | Real model, including local Colibri (Gate 0) | Not integrated or validated; only `FixtureModelAdapter` exists |
 | UI (command center, case workspace) | None |
-| Benchmark suite (30-case dataset, safe-resolution rate) | None. The 30 unit/integration tests are **not** the benchmark |
+| Benchmark against a real model / AMD endpoint, and latency | None. Only the fixture-model benchmark above exists |
 | Deployment (Docker for `apps/api`, hosted URL) | None |
 
 ## LEGACY: earlier prototype at the repo root
