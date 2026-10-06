@@ -1,15 +1,22 @@
 /**
  * Fixture-benchmark metrics only — from the verified post-hardening bench run.
- * Labeled as internal fixture results. Never present as live AMD / production KPIs.
+ * Shown publicly, but always under FIXTURE_BENCHMARK_LABEL + FIXTURE_BENCHMARK_SCOPE
+ * (rendered by <FixtureBenchmarkNotice>). Never present as AMD / vLLM / production KPIs.
  *
- * Source of truth: docs/IMPLEMENTATION_STATUS.md + `npm run api:bench:ci`
+ * Source of truth: evals/results/duplicate-charge-eval.v1.json (`npm run api:bench:ci`);
+ * apps/web/test/benchmark-labels.test.ts fails if these figures drift from it.
  * Dataset SHA pinned by CI gate (BASELINE-V1).
  */
 
+export const FIXTURE_BENCHMARK_LABEL = "PRE-KICKOFF FIXTURE BENCHMARK";
+export const FIXTURE_BENCHMARK_SCOPE = "NOT AMD / NOT REAL-MODEL RESULTS";
+export const FIXTURE_BENCHMARK_NOTE =
+  "Measured against JARVIS’s locked synthetic fixture benchmark. Real AMD-hosted model evaluation begins during ACT III.";
+
 export const FIXTURE_BENCHMARK = {
-  label: "Fixture benchmark (internal)",
+  label: FIXTURE_BENCHMARK_LABEL,
   disclaimer:
-    "Internal development results only. Fixture model, simulated payments, synthetic data. Not AMD inference. Not production.",
+    "Development results. Fixture model, simulated payments, synthetic data. Not AMD inference. Not production.",
   datasetId: "jarvis-duplicate-charge-eval",
   datasetVersion: "1.0.0",
   datasetSha256: "d5a8b4064b81bf8bfd69f95e8e0b6aa081529d63b053287a2761d3f4c9c28e47",

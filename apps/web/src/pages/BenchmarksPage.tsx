@@ -1,4 +1,5 @@
 import { FIXTURE_BENCHMARK, pct } from "../lib/bench-metrics.ts";
+import { FixtureBenchmarkNotice } from "../components/ui/FixtureBenchmarkNotice.tsx";
 import { Panel } from "../components/ui/Panel.tsx";
 
 export function BenchmarksPage() {
@@ -10,7 +11,9 @@ export function BenchmarksPage() {
         <p className="mt-1 max-w-2xl text-sm text-[var(--color-warning)]">{b.disclaimer}</p>
       </header>
 
-      <Panel title="Fixture benchmark metrics" variant="muted">
+      <FixtureBenchmarkNotice />
+
+      <Panel title="Pre-kickoff fixture benchmark metrics" variant="muted">
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Metric label="Safe resolution rate" value={pct(b.safeResolutionRate)} />
           <Metric label="Correct escalation rate" value={pct(b.correctEscalationRate)} />

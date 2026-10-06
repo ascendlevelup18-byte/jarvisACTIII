@@ -5,6 +5,7 @@ import type { SessionCaseEntry } from "../../lib/session-store.ts";
 import { countByState } from "../../lib/session-store.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "../../fixtures/demo-scenarios.ts";
 import { DemoScenariosBar } from "../layout/DemoScenariosBar.tsx";
+import { FixtureBenchmarkNotice } from "../ui/FixtureBenchmarkNotice.tsx";
 import { StateBadge } from "../ui/StateBadge.tsx";
 
 export function CommandCenter({
@@ -47,13 +48,12 @@ export function CommandCenter({
         </div>
       </section>
 
-      <section aria-label="Fixture and benchmark metrics" className="motion-slide-up" style={{ animationDelay: "40ms" }}>
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-jarvis-faint)]">
-            Metrics strip
-          </h3>
-          <span className="text-[10px] text-[var(--color-warning)]">Fixture / benchmark labeled — not production KPIs</span>
-        </div>
+      <section
+        aria-label="Pre-kickoff fixture benchmark metrics"
+        className="motion-slide-up"
+        style={{ animationDelay: "40ms" }}
+      >
+        <FixtureBenchmarkNotice className="mb-3" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Safe resolution rate"
