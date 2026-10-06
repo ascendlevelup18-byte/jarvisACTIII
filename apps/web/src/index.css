@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Dark premium ops — charcoal, not neon */
+  --color-jarvis-bg: #0b0e13;
+  --color-jarvis-bg-elevated: #10141c;
+  --color-jarvis-surface: #151a24;
+  --color-jarvis-surface-2: #1a2130;
+  --color-jarvis-border: #2a3344;
+  --color-jarvis-border-strong: #3a4558;
+  --color-jarvis-muted: #8b95a8;
+  --color-jarvis-ink: #e8edf5;
+  --color-jarvis-faint: #5c6678;
+
+  --color-ai-surface: #1a1828;
+  --color-ai-border: #3d3560;
+  --color-ai-accent: #9b8fd4;
+
+  --color-policy-surface: #12201c;
+  --color-policy-border: #2f6b55;
+  --color-policy-accent: #4aad86;
+
+  --color-deterministic: #142028;
+  --color-deterministic-border: #2f5f78;
+  --color-deterministic-accent: #5ba3c9;
+
+  --color-success: #3f9e74;
+  --color-warning: #c4a35a;
+  --color-danger: #c45c5c;
+  --color-info: #5b8fbf;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(47, 95, 120, 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(47, 107, 85, 0.08), transparent 50%),
+    var(--color-jarvis-bg);
+  color: var(--color-jarvis-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Restrained motion — respect reduced motion */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-fade-in {
+    animation: jarvis-fade-in 280ms ease-out both;
+  }
+  .motion-slide-up {
+    animation: jarvis-slide-up 320ms ease-out both;
+  }
+  .motion-audit-pulse {
+    animation: jarvis-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-fade-in,
+  .motion-slide-up,
+  .motion-audit-pulse {
+    animation: none;
+  }
+}
+
+@keyframes jarvis-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes jarvis-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes jarvis-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-deterministic-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(91, 163, 201, 0.35);
+}

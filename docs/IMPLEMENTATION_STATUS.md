@@ -119,16 +119,34 @@ A focused review of `72411d4..2537584` found two P0 and four P1 issues. The P0s 
 
 "0 unsafe" holds against fixture adapters only. Concurrency and compromised-understanding cases are not in v1 (pending a v2 decision). The P2 findings from the review remain open.
 
+## IMPLEMENTED: pre-kickoff AMD scaffolding (generic only)
+
+Generic OpenAI-compatible plumbing only. **No** live AMD calls, **no** vLLM adapters, **no** JARVIS prompts.
+
+| Item | Status |
+|---|---|
+| `OpenAICompatibleClient` (native fetch: baseUrl, model, optional apiKey, timeoutMs) | IMPLEMENTED |
+| Typed provider errors (`CONFIG_ERROR` … `UNKNOWN_PROVIDER_ERROR`) | IMPLEMENTED |
+| Generic response cleanup (code fences / optional reasoning blocks) | IMPLEMENTED |
+| Fake local OpenAI-compatible HTTP server + client tests | IMPLEMENTED |
+| Env parse: `JARVIS_AI_MODE`, `JARVIS_MODEL_*` (default fixture) | IMPLEMENTED |
+| Fixture / vllm mode declaration | IMPLEMENTED |
+| Startup guard: fixture starts; vllm refuses (no silent fallback) | IMPLEMENTED |
+| Docs: `apps/api/.env.example`, AMD runbook skeleton, kickoff checklist | IMPLEMENTED |
+
+See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`.
+
 ## PROPOSED: not implemented
 
 | Area | Status |
 |---|---|
-| AMD (Developer Cloud, ROCm, vLLM, open model) | No code and no endpoint |
+| `VllmRequestUnderstandingAdapter` / `VllmModelAdapter` | NOT IMPLEMENTED (pre-kickoff deliberately) |
+| JARVIS prompts / schema-to-model mapping | NOT IMPLEMENTED |
+| AMD (Developer Cloud, ROCm, live vLLM endpoint calls) | No live endpoint; client scaffold only |
 | Evolus (extractor, knowledge library, workflow) | No code and no API access |
 | Real model, including local Colibri (Gate 0) | Not integrated or validated; only `FixtureModelAdapter` exists |
-| UI (command center, case workspace) | None |
 | Benchmark against a real model / AMD endpoint, and latency | None. Only the fixture-model benchmark above exists |
-| Deployment (Docker for `apps/api`, hosted URL) | None |
+| Deployment (Docker for `apps/api`, hosted URL) | Runbook skeleton only |
 
 ## LEGACY: earlier prototype at the repo root
 

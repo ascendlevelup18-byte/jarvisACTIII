@@ -17,7 +17,11 @@
     "api:test": "node --test apps/api/test/*.test.ts",
     "api:check": "npm run api:typecheck && npm run api:test",
     "api:bench": "node apps/api/eval/run-benchmark.ts",
-    "api:bench:ci": "node apps/api/eval/run-benchmark.ts --ci"
+    "api:bench:ci": "node apps/api/eval/run-benchmark.ts --ci",
+    "web:dev": "npm run dev --prefix apps/web",
+    "web:build": "npm run build --prefix apps/web",
+    "web:typecheck": "npm run build --prefix apps/web",
+    "web:test": "node --test --experimental-strip-types apps/web/test/*.test.ts"
   },
   "dependencies": {
     "zod": "^4.6.5"

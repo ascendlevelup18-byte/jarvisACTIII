@@ -1,57 +1,61 @@
-# JARVIS
+# JARVIS ACT III — Final Pre-Kickoff Package
 
-JARVIS is an autonomous ecommerce exception resolver. Its first workflow handles **duplicate charges**.
+**Folder:** `JARVIS_ACTIII_FINAL_PREKICKOFF`  
+**Accepted product:** `cursor/jarvis-ux-v3-ops` @ `6afb019`  
+**Lineage:** `1beaef1` (backend) → `17622c2` (UI truth) → `55049dc` (AMD scaffold) → `6afb019` (UX V3 + Netlify)
 
-The LLM proposes a decision and deterministic code decides whether that proposal is allowed. Code executes the refund, verifies it, and records every step. See [ARCHITECTURE.md](ARCHITECTURE.md).
+Duplicate-charge exception workflow with frozen fixture backend, Operations Command Center UI, Netlify deploy wiring, and pre-kickoff AMD provider scaffold. **AMD/vLLM adapters and Evolus are NOT IMPLEMENTED.**
 
-## Quickstart
+## Requirements
 
-Requires Node ≥ 24. There is no build step, because Node runs the TypeScript directly.
+- Node.js ≥ 24
 
-```bash
-npm install
-npm run check
-```
-
-`npm run check` runs the typecheck and the tests.
-
-To run locally with the offline heuristic model and refunds enabled:
+## Quick start
 
 ```bash
-AUTO_REFUND_ENABLED=true npm start
+npm ci
+npm ci --prefix apps/web
+npm run api:typecheck
+npm run api:test
+npm run api:bench:ci
+npm run web:build
 ```
 
-Or copy `.env.example` to `.env` and point it at your vLLM server.
+Local demo:
 
 ```bash
-curl -s -X POST localhost:3000/cases -H 'content-type: application/json' \
-  -d '{"customerId":"cus_alice","message":"I was charged twice for ORD-1001, $49.99"}'
+PORT=3000 npm run api:start          # terminal A
+npm run web:dev                      # terminal B → http://127.0.0.1:43123
 ```
 
-## API
+## Package documents
 
-| Method | Path | |
-|---|---|---|
-| GET | `/health` | Model in use, kill-switch state |
-| POST | `/cases` | `{customerId, message}` → final case record |
-| GET | `/cases` | Case summaries |
-| GET | `/cases/:id` | Full case: extraction, evidence, decision, plan, execution, verification, escalation |
-| GET | `/cases/:id/audit` | Ordered audit events, including raw model output |
+| Doc | Purpose |
+|---|---|
+| `FINAL_STATUS.md` | Honest IMPLEMENTED / VERIFIED / NOT IMPLEMENTED |
+| `CONTINUATION_GUIDE.md` | 20 points for a new AI without chat history |
+| `KICKOFF_PLAN.md` | K1–K4 → adapters → AMD → real-model bench → Evolus (**plan only**) |
+| `TESTING_GUIDE.md` | Bottom-up verification |
+| `NETLIFY_DEPLOY.md` | Browser → SPA → `/cases` → function → engine |
+| `FINAL_HANDOVER_SHA256.txt` | Hashes of important source/config/docs |
 
-## Demo scenarios (seeded)
+## Demo scenarios
 
-| Customer | Order | Expected |
-|---|---|---|
-| `cus_alice` | `ORD-1001` | `resolved`: later duplicate refunded |
-| `cus_alice` | `ORD-1002` | `closed_no_action`: single charge |
-| `cus_bob` | `ORD-2001` | `escalated`: `over_auto_refund_limit` |
-| `cus_bob` | `ORD-2002` | `escalated`: `already_refunded` |
-| `cus_carol` | `ORD-3001` | `escalated`: `would_underpay_order` (split payment) |
-| `cus_bob` | `ORD-1001` | `escalated`: `order_customer_mismatch` |
+| Scenario | Expected |
+|---|---|
+| Valid duplicate | `RESOLVED` |
+| Conflicting amount | `ESCALATED` |
+| Already refunded | `CLOSED_NO_ACTION` |
+| Adversarial message | `ESCALATED` |
 
-## Docker
+## Truth labels
 
-```bash
-docker build -t jarvis .
-docker run -p 3000:3000 --env-file .env jarvis
-```
+fixture AI · simulated gateway · synthetic data · **AMD not connected**
+
+## Netlify
+
+See `NETLIFY_DEPLOY.md` and `netlify.toml`. No duplicated business logic in functions.
+
+## Kickoff
+
+Do not start AMD/Evolus work from packaging alone. Follow `KICKOFF_PLAN.md` when authorized.

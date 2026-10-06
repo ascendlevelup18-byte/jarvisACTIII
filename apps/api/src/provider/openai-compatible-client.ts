@@ -1,0 +1,279 @@
+// Generic OpenAI-compatible chat completions client (native fetch).
+// No JARVIS prompts, schema mapping, or decision/understanding logic.
+
+import {
+  categorizeHttpStatus,
+  ProviderError,
+  redactSecrets,
+} from "./errors.ts";
+
+export interface OpenAICompatibleClientOptions {
+  /** OpenAI-compatible API root, e.g. http://host:8000/v1 */
+  baseUrl: string;
+  model: string;
+  /** Optional bearer token. Never logged or included in error messages. */
+  apiKey?: string;
+  timeoutMs: number;
+  /** Reject response bodies larger than this. Default 1 MiB. */
+  maxResponseBytes?: number;
+}
+
+export interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool" | string;
+  content: string;
+}
+
+export interface ChatCompletionParams {
+  messages: ChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+  /** Extra OpenAI-compatible body fields (generic only; caller-owned). */
+  extra?: Record<string, unknown>;
+  signal?: AbortSignal;
+}
+
+export interface ChatCompletionResult {
+  /** Raw choices[0].message.content string from the provider. */
+  content: string;
+  /** Provider model id echoed in the response, if present. */
+  model?: string;
+  /** Provider response id, if present. */
+  id?: string;
+}
+
+const DEFAULT_MAX_RESPONSE_BYTES = 1_048_576;
+
+export class OpenAICompatibleClient {
+  readonly #baseUrl: string;
+  readonly #model: string;
+  readonly #apiKey: string | undefined;
+  readonly #timeoutMs: number;
+  readonly #maxResponseBytes: number;
+
+  constructor(opts: OpenAICompatibleClientOptions) {
+    if (!opts.baseUrl?.trim()) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "baseUrl is required" });
+    }
+    if (!opts.model?.trim()) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "model is required" });
+    }
+    if (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs <= 0) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "timeoutMs must be a positive number" });
+    }
+    this.#baseUrl = opts.baseUrl.replace(/\/+$/, "");
+    this.#model = opts.model;
+    this.#apiKey = opts.apiKey;
+    this.#timeoutMs = opts.timeoutMs;
+    this.#maxResponseBytes = opts.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+  }
+
+  get model(): string {
+    return this.#model;
+  }
+
+  get baseUrl(): string {
+    return this.#baseUrl;
+  }
+
+  async chatCompletions(params: ChatCompletionParams): Promise<ChatCompletionResult> {
+    if (!params.messages?.length) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "messages must be a non-empty array" });
+    }
+
+    const url = `${this.#baseUrl}/chat/completions`;
+    const body: Record<string, unknown> = {
+      model: this.#model,
+      messages: params.messages,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
+      ...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
+      ...(params.extra ?? {}),
+    };
+
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      accept: "application/json",
+    };
+    if (this.#apiKey) {
+      headers.authorization = `Bearer ${this.#apiKey}`;
+    }
+
+    const timeoutSignal = AbortSignal.timeout(this.#timeoutMs);
+    const signal = params.signal ? AbortSignal.any([params.signal, timeoutSignal]) : timeoutSignal;
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (err) {
+      throw mapFetchError(err);
+    }
+
+    const rawText = await readBodyLimited(res, this.#maxResponseBytes);
+
+    if (!res.ok) {
+      const category = categorizeHttpStatus(res.status);
+      const snippet = redactSecrets(rawText.replace(/\s+/g, " ").trim().slice(0, 200));
+      throw new ProviderError({
+        category,
+        statusCode: res.status,
+        message: `provider HTTP ${res.status}${snippet ? `: ${snippet}` : ""}`,
+      });
+    }
+
+    let json: unknown;
+    try {
+      json = JSON.parse(rawText) as unknown;
+    } catch (err) {
+      throw new ProviderError({
+        category: "INVALID_JSON",
+        message: `provider response is not JSON: ${(err as Error).message}`,
+        cause: err,
+      });
+    }
+
+    return extractChatCompletion(json);
+  }
+}
+
+function errorChainText(err: unknown): string {
+  const parts: string[] = [];
+  let cur: unknown = err;
+  const seen = new Set<unknown>();
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    if (cur instanceof Error) {
+      parts.push(cur.name, cur.message);
+      if ("code" in cur && cur.code != null) parts.push(String(cur.code));
+      cur = cur.cause;
+    } else {
+      parts.push(String(cur));
+      break;
+    }
+  }
+  return parts.join(" ");
+}
+
+function mapFetchError(err: unknown): ProviderError {
+  if (err instanceof ProviderError) return err;
+
+  const name = err && typeof err === "object" && "name" in err ? String((err as { name: unknown }).name) : "";
+  const message = err instanceof Error ? err.message : String(err);
+  const chain = errorChainText(err);
+  const safe = redactSecrets(message);
+
+  if (name === "TimeoutError" || name === "AbortError" || /aborted|timeout/i.test(chain)) {
+    if (name === "TimeoutError" || /timeout/i.test(chain)) {
+      return new ProviderError({ category: "TIMEOUT", message: "provider request timed out", cause: err });
+    }
+    return new ProviderError({ category: "TIMEOUT", message: "provider request aborted", cause: err });
+  }
+
+  if (/ECONNREFUSED|ENOTFOUND|ECONNRESET|EHOSTUNREACH|fetch failed|network/i.test(chain)) {
+    return new ProviderError({
+      category: "CONNECTION_ERROR",
+      message: `provider connection failed: ${safe}`,
+      cause: err,
+    });
+  }
+
+  return new ProviderError({
+    category: "UNKNOWN_PROVIDER_ERROR",
+    message: `provider request failed: ${safe}`,
+    cause: err,
+  });
+}
+
+async function readBodyLimited(res: Response, maxBytes: number): Promise<string> {
+  const lenHeader = res.headers.get("content-length");
+  if (lenHeader) {
+    const declared = Number(lenHeader);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      throw new ProviderError({
+        category: "RESPONSE_TOO_LARGE",
+        message: `provider response exceeds ${maxBytes} bytes (Content-Length ${declared})`,
+      });
+    }
+  }
+
+  // Stream so we can abort oversized bodies without Content-Length.
+  if (!res.body) {
+    const text = await res.text();
+    if (Buffer.byteLength(text, "utf8") > maxBytes) {
+      throw new ProviderError({
+        category: "RESPONSE_TOO_LARGE",
+        message: `provider response exceeds ${maxBytes} bytes`,
+      });
+    }
+    return text;
+  }
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try {
+        await reader.cancel();
+      } catch {
+        /* ignore */
+      }
+      throw new ProviderError({
+        category: "RESPONSE_TOO_LARGE",
+        message: `provider response exceeds ${maxBytes} bytes`,
+      });
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function extractChatCompletion(json: unknown): ChatCompletionResult {
+  if (!json || typeof json !== "object") {
+    throw new ProviderError({
+      category: "INVALID_PROVIDER_RESPONSE",
+      message: "provider response is not an object",
+    });
+  }
+  const obj = json as Record<string, unknown>;
+  const choices = obj.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    throw new ProviderError({
+      category: "INVALID_PROVIDER_RESPONSE",
+      message: "provider response missing choices[0]",
+    });
+  }
+  const first = choices[0];
+  if (!first || typeof first !== "object") {
+    throw new ProviderError({
+      category: "INVALID_PROVIDER_RESPONSE",
+      message: "provider response choices[0] is not an object",
+    });
+  }
+  const message = (first as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") {
+    throw new ProviderError({
+      category: "INVALID_PROVIDER_RESPONSE",
+      message: "provider response missing choices[0].message",
+    });
+  }
+  const content = (message as Record<string, unknown>).content;
+  if (typeof content !== "string") {
+    throw new ProviderError({
+      category: "INVALID_PROVIDER_RESPONSE",
+      message: "provider response choices[0].message.content is not a string",
+    });
+  }
+  return {
+    content,
+    ...(typeof obj.model === "string" ? { model: obj.model } : {}),
+    ...(typeof obj.id === "string" ? { id: obj.id } : {}),
+  };
+}
