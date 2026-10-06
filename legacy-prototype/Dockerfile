@@ -1,3 +1,6 @@
+# LEGACY reference only. This built the pre-slice prototype from a repo root that
+# contained src/; it was never built and is not buildable from this folder.
+# The current system is apps/api (fixture) + Netlify (see netlify.toml).
 FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production

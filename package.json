@@ -8,10 +8,11 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node --env-file-if-exists=.env src/main.ts",
-    "typecheck": "tsc",
-    "test": "node --test test/*.test.ts",
-    "check": "npm run typecheck && npm test",
+    "start": "npm run api:start",
+    "typecheck": "npm run api:typecheck",
+    "test": "npm run api:test && npm run web:test",
+    "check": "npm run api:check && npm run web:test",
+    "legacy:check": "tsc -p legacy-prototype && node --test legacy-prototype/test/*.test.ts",
     "api:start": "node apps/api/src/main.ts",
     "api:typecheck": "tsc -p apps/api",
     "api:test": "node --test apps/api/test/*.test.ts",

@@ -21,9 +21,10 @@ These files are the repo-root prototype from commit `1beaef1`:
 
 - **Contracts and states:** different contracts, lowercase state names, and no `EXTRACTING`, `intentCues` or `financial` state.
 - **Out-of-scope integration code:** it includes vLLM client and env-config code, which is out of scope for the current phase.
-- **Legacy root files:** the bundle-root `Dockerfile`, `tsconfig.json` and `.env.example`, and the root `package.json` scripts `start`, `typecheck`, `test` and `check`, all belong to this prototype.
-  - In this bundle, the prototype's `src/` and `test/` were moved into `legacy-prototype/`, so those root scripts will not run here.
-  - The Dockerfile was never built.
+- **Legacy files:** the prototype's `Dockerfile`, `.dockerignore`, `tsconfig.json` and `.env.example` (`LLM_MODE` / `VLLM_*`) now live in this folder, not at the repo root.
+  - Run `npm run legacy:check` from the repo root to type-check and test the prototype in place.
+  - The Dockerfile was never built and is not buildable from this folder.
+  - The root `package.json` scripts `start`, `typecheck`, `test` and `check` now alias the current `apps/api` + `apps/web` scripts.
 
 ## Current backend
 
