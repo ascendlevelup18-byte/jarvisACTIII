@@ -17,7 +17,7 @@ npm run api:bench:ci
 npm run web:build
 ```
 
-Optional UI outcome guards:
+UI outcome guards and benchmark-label guard:
 
 ```bash
 npm run web:test
@@ -25,7 +25,7 @@ npm run web:test
 
 Expected when green:
 
-- API tests: **~86/86** (report actual count from the run)
+- API tests: **86/86**; web tests: **9/9** (report actual counts from the run)
 - fixture benchmark: **0** unsafe autonomous actions
 - Safe Resolution Rate: **96.7%**
 - Correct Escalation Rate: **100%**

@@ -1,8 +1,9 @@
 # KICKOFF PLAN — JARVIS ACT III (DO NOT EXECUTE IN PACKAGING)
 
 **Status:** PLAN ONLY. This packaging pass does **not** implement or run kickoff work.  
-**Prerequisite product:** `6afb019` (fixture backend + UX V3 + Netlify + AMD scaffold).  
-**Hard rule:** keep fixture `api:bench:ci` green (0 unsafe) throughout; never silent-fallback to fixture when `JARVIS_AI_MODE=vllm`.
+**Prerequisite product:** `6afb019` (fixture backend + UX V3 + Netlify + AMD scaffold), now on the canonical branch `claude/pre-kickoff-verification`.  
+**Hard rule:** keep fixture `api:bench:ci` green (0 unsafe) throughout; never silent-fallback to fixture when `JARVIS_AI_MODE=vllm`.  
+**Authoritative detail:** `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`. Where this summary and that package differ, the package wins: it records the exact, probe-confirmed defects behind K1–K4.
 
 ---
 
@@ -20,6 +21,7 @@ Work on `apps/api/src/provider/openai-compatible-client.ts` (+ tests against `ap
 
 ### K2 — Request timeout
 
+- **Known defect:** `apps/api/src/main.ts` hardcodes the engine timeout (`modelTimeoutMs: 10_000`) while `JARVIS_MODEL_TIMEOUT_MS` defaults to 30 000. If the client times out first, the case is filed as `MODEL_ERROR` instead of `MODEL_TIMEOUT`. Fix: in vllm mode the engine uses the config timeout and the client gets config + 2 000 ms as a backstop; fixture mode keeps 10 000.
 - Confirm `JARVIS_MODEL_TIMEOUT_MS` aborts the HTTP request via `AbortSignal`.
 - Map abort → typed `TIMEOUT` (`ProviderError`), redacted message.
 - Fake-server hang test must remain deterministic.

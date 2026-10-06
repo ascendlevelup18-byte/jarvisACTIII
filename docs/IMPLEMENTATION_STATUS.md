@@ -1,10 +1,29 @@
 # Implementation Status
 
-**As of:** 2026-10-05. The labels follow `JARVIS_AI_TEAM_OPERATING_SYSTEM.md` §2:
+**As of:** 2026-10-06. The labels follow `JARVIS_AI_TEAM_OPERATING_SYSTEM.md` §2:
 
 - **PROPOSED:** design only.
 - **IMPLEMENTED:** exists in the repo.
 - **VERIFIED:** executed, with evidence.
+
+## VERIFIED: canonical re-verification (2026-10-06)
+
+The accepted pre-kickoff product (Cursor `6afb019`: UX V3 + Netlify + AMD scaffold) was imported as content onto the canonical history (`master@1beaef1`, which keeps the `f2219f3` baseline lock) on branch `claude/pre-kickoff-verification`. These checks ran on a clean clone, Node v24.21.0, Windows 11:
+
+| Check | Command | Result |
+|---|---|---|
+| Install | `npm ci`, `npm ci --prefix apps/web` | exit 0 |
+| API typecheck | `npm run api:typecheck` | exit 0 |
+| API tests | `npm run api:test` | 86 tests, 86 pass, 0 fail |
+| Benchmark CI gate | `npm run api:bench:ci` | 0 unsafe; SRR 96.7%; CER 100%; dataset pin matches |
+| Web build | `npm run web:build` | exit 0 |
+| Web tests | `npm run web:test` | 9 tests, 9 pass (outcome guards + benchmark labelling) |
+| Legacy prototype | `npm run legacy:check` | exit 0; 58 pass |
+| Four demos, fresh API | `POST /cases` | RESOLVED / ESCALATED / CLOSED_NO_ACTION / ESCALATED, as in the table below |
+| Netlify functions | handlers invoked directly (no deploy) | `/api/health` truthful; 405/400/413 paths; four demos; fresh store per request |
+| Dataset | `sha256sum data/cases/duplicate-charge-eval.v1.json` | `d5a8b406…c28e47` |
+
+A live Netlify deploy from this branch is **not verified**.
 
 ## VERIFIED: duplicate-charge vertical slice (`apps/api/`)
 
@@ -47,7 +66,7 @@ All of this is a **controlled simulation**:
 
 ## VERIFIED: pre-kickoff benchmark (fixture model) — BASELINE-V1
 
-> **Internal development baseline. Do not quote publicly.** It uses a fixture model, simulated payments and synthetic data, with no AMD inference and no Evolus. The snapshot is `evals/baselines/BASELINE-V1.json`.
+> **Pre-kickoff fixture benchmark — NOT AMD / NOT real-model results.** It uses a fixture model, simulated payments and synthetic data, with no AMD inference and no Evolus. The snapshot is `evals/baselines/BASELINE-V1.json`. Figures may be shown publicly only with that label (the web UI enforces it via `FixtureBenchmarkNotice`).
 
 The benchmark runs with `npm run api:bench`.
 
@@ -78,7 +97,7 @@ These were fixed in the hardening pass below.
 
 ## VERIFIED: hardening pass — same 30 cases, dataset unchanged
 
-> **Internal only. Do not quote publicly.** The dataset SHA-256 is unchanged from BASELINE-V1 (`d5a8b406…c28e47`).
+> **Pre-kickoff fixture benchmark — NOT AMD / NOT real-model results.** Public use only with that label. The dataset SHA-256 is unchanged from BASELINE-V1 (`d5a8b406…c28e47`).
 
 | Metric | BASELINE-V1 | After hardening |
 |---|---|---|
@@ -134,7 +153,18 @@ Generic OpenAI-compatible plumbing only. **No** live AMD calls, **no** vLLM adap
 | Startup guard: fixture starts; vllm refuses (no silent fallback) | IMPLEMENTED |
 | Docs: `apps/api/.env.example`, AMD runbook skeleton, kickoff checklist | IMPLEMENTED |
 
-See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`.
+See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`. The exact kickoff contract (K1–K4, prompts, failure mapping, test matrix) is `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`.
+
+## IMPLEMENTED: Operations UI (UX V3) and Netlify fixture deployment
+
+| Item | Status |
+|---|---|
+| `apps/web` Operations Command Center: Operations, Cases, Activity, Benchmarks, System | IMPLEMENTED, VERIFIED (build + 9 web tests) |
+| Truth labels: fixture AI, simulated gateway, synthetic data, AMD / Evolus not connected | IMPLEMENTED |
+| Benchmark figures labelled "PRE-KICKOFF FIXTURE BENCHMARK · NOT AMD / NOT REAL-MODEL RESULTS" | IMPLEMENTED, VERIFIED (test + 1280/375 px check) |
+| `netlify.toml` + `netlify/functions/{cases,health}.ts` importing the unchanged engine | IMPLEMENTED, VERIFIED (handlers invoked directly) |
+| Live Netlify deploy from this branch | NOT VERIFIED |
+| Live audit stream (UI replays the final audit array) | NOT IMPLEMENTED |
 
 ## PROPOSED: not implemented
 
@@ -146,19 +176,14 @@ See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`,
 | Evolus (extractor, knowledge library, workflow) | No code and no API access |
 | Real model, including local Colibri (Gate 0) | Not integrated or validated; only `FixtureModelAdapter` exists |
 | Benchmark against a real model / AMD endpoint, and latency | None. Only the fixture-model benchmark above exists |
-| Deployment (Docker for `apps/api`, hosted URL) | Runbook skeleton only |
+| Deployment of `apps/api` for real inference (long-running host, Docker) | Runbook skeleton only; the public demo runs as Netlify functions in fixture mode |
 
-## LEGACY: earlier prototype at the repo root
+## LEGACY: earlier prototype in `legacy-prototype/`
 
-These files are the earlier prototype, built in a previous session before the build contract existed:
+The earlier prototype, built before the build contract existed, lives in `legacy-prototype/`: its `src/`, `test/`, `ARCHITECTURE.md`, `README.md`, `Dockerfile`, `.dockerignore`, `tsconfig.json` and `.env.example` (`LLM_MODE` / `VLLM_*`).
 
-- `src/`, `test/`
-- `ARCHITECTURE.md`
-- `Dockerfile`, `.dockerignore`, `.env.example`
-- the `start`, `typecheck`, `test` and `check` scripts in the root `package.json`
-
-**Why it remains:** removing it was deliberately deferred. It is kept for reference until the team decides to delete it.
+**Why it remains:** removing it was deliberately deferred. It is kept for reference until the team decides to delete it. `npm run legacy:check` type-checks it and runs its tests in place.
 
 **It does not describe the current system.** Its contracts, states and docs (`ARCHITECTURE.md`) differ from `apps/api`, and it contains vLLM and env-config code that is out of scope for the current phase. Its Dockerfile was never built.
 
-The current slice is `apps/api/` only.
+The current system is `apps/api/` + `apps/web/` (+ `netlify/`). The root `start`, `typecheck`, `test` and `check` scripts alias the current app.

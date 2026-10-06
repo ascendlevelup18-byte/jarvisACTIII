@@ -13,7 +13,7 @@ The bundle was exported with `git archive 1beaef1`, so it contains exactly the c
 | **Current ACT III backend** | `apps/api/` | Build the UI against this |
 | Legacy root prototype | `legacy-prototype/` | Reference only. **DO NOT confuse them.** |
 
-The root `Dockerfile`, `tsconfig.json` and `.env.example` in this bundle belong to the **legacy** prototype. So do the root `package.json` scripts `start`, `typecheck`, `test` and `check`. Use only the `api:*` scripts.
+*(Historical Cursor-era doc.)* The legacy prototype's `Dockerfile`, `tsconfig.json` and `.env.example` now live in `legacy-prototype/`. The root `start`, `typecheck`, `test` and `check` scripts alias the current `api:*` / `web:*` scripts.
 
 ## Required reading order
 

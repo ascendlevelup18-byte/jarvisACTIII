@@ -2,7 +2,7 @@
 
 For a new AI or developer with **no chat history**. Read this before changing code.
 
-1. **Accepted product pin:** branch `cursor/jarvis-ux-v3-ops` @ git SHA `6afb019`. This folder is a packaging extract of that product. Do not “upgrade” from older handoffs (`17622c2`, `55049dc` alone) unless intentionally rolling back.
+1. **Accepted product pin:** Cursor branch `cursor/jarvis-ux-v3-ops` @ git SHA `6afb019`, imported as content onto the canonical history (`master@1beaef1`, keeping the `f2219f3` baseline lock) as branch `claude/pre-kickoff-verification`. Work from the canonical repo. Do not “upgrade” from older handoffs (`17622c2`, `55049dc` alone) unless intentionally rolling back.
 
 2. **Lineage (do not rewrite history claims):** backend content baseline `1beaef1` → UI truth `17622c2` → AMD scaffold `55049dc` → UX V3 + Netlify `6afb019`.
 
@@ -18,15 +18,16 @@ For a new AI or developer with **no chat history**. Read this before changing co
    npm run api:test
    npm run api:bench:ci
    npm run web:build
+   npm run web:test
    ```
 
 6. **Dataset SHA must match exactly:**
    `d5a8b4064b81bf8bfd69f95e8e0b6aa081529d63b053287a2761d3f4c9c28e47`
    File: `data/cases/duplicate-charge-eval.v1.json`. If it drifts, stop.
 
-7. **Fixture CI gate expectations:** ~86 API tests pass; `api:bench:ci` → 0 unsafe autonomous actions, 96.7% Safe Resolution Rate, 100% Correct Escalation Rate. Never weaken tests to greenwash.
+7. **Fixture CI gate expectations:** 86 API tests and 9 web tests pass; `api:bench:ci` → 0 unsafe autonomous actions, 96.7% Safe Resolution Rate, 100% Correct Escalation Rate. Never weaken tests to greenwash. Public display of these figures must carry "PRE-KICKOFF FIXTURE BENCHMARK · NOT AMD / NOT REAL-MODEL RESULTS" (enforced by `apps/web/test/benchmark-labels.test.ts`).
 
-8. **Default AI mode is fixture.** Env for API is `apps/api/.env.example` (`JARVIS_AI_MODE`, `JARVIS_MODEL_*`). Root `.env.example` is legacy (`LLM_MODE` / `VLLM_*`) — do not mix or assume it drives `apps/api`.
+8. **Default AI mode is fixture.** Env for API is `apps/api/.env.example` (`JARVIS_AI_MODE`, `JARVIS_MODEL_*`). The legacy `LLM_MODE` / `VLLM_*` example lives in `legacy-prototype/` — do not mix or assume it drives `apps/api`.
 
 9. **`JARVIS_AI_MODE=vllm` currently refuses startup** (`AiStartupGuardError`). That is intentional. Never add silent fallback to fixture when mode is vllm.
 
@@ -50,8 +51,8 @@ For a new AI or developer with **no chat history**. Read this before changing co
 
 17. **AMD / Evolus status:** NOT IMPLEMENTED. Do not claim VERIFIED AMD, real vLLM, or Evolus without running the real commands and real endpoint. Fixture bench numbers are not AMD numbers.
 
-18. **Kickoff order is documented in `KICKOFF_PLAN.md`.** Execute only when authorized: K1–K4 provider hardening → adapters → AMD/ROCm/vLLM smoke → real-model bench with 0 unsafe → Evolus last. Do not skip the safety gate.
+18. **Kickoff order is documented in `KICKOFF_PLAN.md`; the exact contract is `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`.** Execute only when authorized: K1–K4 provider hardening → adapters → AMD/ROCm/vLLM smoke → real-model bench with 0 unsafe → Evolus last. Do not skip the safety gate.
 
 19. **Honesty docs:** `FINAL_STATUS.md` (what is/isn't done), `TESTING_GUIDE.md`, `NETLIFY_IMPLEMENTATION_STATUS.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`. Prefer updating status labels over inventing features.
 
-20. **Packaging integrity:** `FINAL_HANDOVER_SHA256.txt` lists hashes for important sources. After material edits, regenerate it. Never ship `node_modules`, `.env` secrets, or build caches in handoff zips.
+20. **Integrity:** git history is now the integrity record. `FINAL_HANDOVER_SHA256.txt` is kept as the hash list of the Cursor package as received (historical). If you build a new handoff zip, regenerate a manifest for it. Never ship `node_modules`, `.env` secrets, or build caches in handoff zips.

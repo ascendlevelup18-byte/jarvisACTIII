@@ -4,6 +4,7 @@
 **Accepted product SHA:** `6afb019` (`cursor/jarvis-ux-v3-ops`)  
 **Lineage:** backend baseline `1beaef1` → UI truth `17622c2` → AMD scaffold `55049dc` → UX V3 + Netlify `6afb019`  
 **Packaging date:** 2026-10-06  
+**Canonical repo (2026-10-06):** imported onto `master@1beaef1` as branch `claude/pre-kickoff-verification`, then hygiene fixes only: legacy root wiring moved into `legacy-prototype/`, dead components removed, benchmark figures labelled as pre-kickoff fixture results, docs refreshed. Re-verification: `docs/IMPLEMENTATION_STATUS.md`.  
 **Scope of this document:** honest status only. No product changes in this packaging pass.
 
 ---
@@ -96,7 +97,7 @@ Fixture `api:bench:ci` must stay **0 unsafe**. Never present fixture metrics as 
 ## KNOWN LIMITATIONS
 
 - Local in-memory API: after a successful refund, re-running valid-duplicate yields `CLOSED_NO_ACTION` until API restart (Netlify isolates per request)
-- Root `.env.example` still shows legacy `LLM_MODE` / `VLLM_*` names; **apps/api** uses `JARVIS_*` — do not mix
+- Legacy `LLM_MODE` / `VLLM_*` env example now lives in `legacy-prototype/`; **apps/api** uses `JARVIS_*` (`apps/api/.env.example`) — do not mix
 - Activity / Benchmarks tabs are truthful but shallow vs Operations
 - Audit stream is timed replay of final audit events, not live SSE
 - Session case queue is browser-memory only
