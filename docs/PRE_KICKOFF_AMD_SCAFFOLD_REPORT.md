@@ -135,7 +135,7 @@ Matches BASELINE-V1 pin. `evals/results/duplicate-charge-eval.v1.json` byte-iden
 - `AbortSignal.timeout` / `AbortSignal.any` require modern Node (≥24 per `engines`).
 - Fake-server hang tests depend on short client timeouts; flaky environments with extreme scheduling delay are unlikely but possible.
 - Generic cleanup does not extract JSON embedded in prose; adapters must decide how to handle text-around-JSON at kickoff.
-- Root `.env.example` remains legacy (`LLM_MODE` / `VLLM_*`); apps/api uses `JARVIS_*` — do not mix them.
+- The legacy `.env.example` (`LLM_MODE` / `VLLM_*`) now lives in `legacy-prototype/`; apps/api uses `JARVIS_*` — do not mix them.
 
 ## EXACT KICKOFF TODO
 

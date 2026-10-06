@@ -1,4 +1,4 @@
-> **Repo note (2026-10-06):** written against `55049dc` and still exact for this branch: `apps/api/**` is byte-identical to `55049dc` here. Execution now belongs to Claude Code on the canonical repo (not Cursor); §L is the step list. Kickoff work starts no earlier than 2026-10-12 and only with explicit approval.
+> **Repo note (2026-10-06):** written against Cursor's `55049dc`, which is **not an object in this repo**. Its findings still hold here, because `apps/api/**` on `claude/pre-kickoff-verification` is byte-identical to `55049dc`. Read every `55049dc` / `cursor/...` reference as historical. **The frozen-file baseline for kickoff is the tip of `claude/pre-kickoff-verification`** (or whatever the user approves as the kickoff base), and `apps/web/**` there already includes UX V3 + the benchmark labels. Execution now belongs to Claude Code on the canonical repo, not Cursor; §L is the step list. Canonicalization (the §M repo note) is done. Kickoff work starts no earlier than 2026-10-12 and only with explicit approval.
 
 # JARVIS: final pre-kickoff audit + kickoff implementation package
 
@@ -304,8 +304,8 @@ Model calls always happen **before** `EXECUTING`, so **execution can never have 
 ```
 JARVIS — KICKOFF: REAL vLLM ADAPTERS (AMD Developer Cloud)
 
-Base: branch cursor/pre-kickoff-amd-scaffold-54bc @ 55049dc (or its canonical-repo equivalent). Create a dated branch.
-Reference: JARVIS_KICKOFF_IMPLEMENTATION_PACKAGE_55049dc.md (attach it). Sections cited below are from that file.
+Base: the approved kickoff base on the canonical repo (default: tip of claude/pre-kickoff-verification). Create a dated branch.
+Reference: docs/KICKOFF_IMPLEMENTATION_PACKAGE.md. Sections cited below are from that file.
 
 AUTHORITY (unchanged): AI understands and proposes. Deterministic code owns money, currency, policy, permissions,
 idempotency, action invocation, verification and state transitions. No LangChain/LangGraph/agent loops/streaming/
@@ -353,7 +353,7 @@ STEP 6 — eval: runner.ts / run-benchmark.ts opt-in --mode vllm (understanding 
  Never overwrite evals/baselines/** or evals/results/duplicate-charge-eval.v1.json. Add the api:bench:vllm script.
 
 STEP 7 — local verification: typecheck 0; all tests pass (86 existing + new); api:bench:ci 0 unsafe; dataset hash
- unchanged; web:build 0; fixture 4-demo smoke; git diff --stat proves these are byte-identical vs 55049dc:
+ unchanged; web:build 0; fixture 4-demo smoke; git diff --stat proves these are byte-identical vs the kickoff base:
  contracts, case-engine, policy-engine, evidence, intent-cues, money, server, state-machine, gateway, fixtures,
  provider/errors.ts, provider/response-cleanup.ts, apps/web/**, data/**, evals/baselines/**.
 
@@ -368,7 +368,7 @@ REPORT: IMPLEMENTED / VERIFIED / NOT VERIFIED, exact command outputs, per-run be
 
 ## M. STOP CONDITIONS
 
-Cursor must **stop and report** if any of these happen:
+The implementer must **stop and report** if any of these happen:
 
 1. The baseline at Step 0 isn't green, or the dataset hash differs.
 2. Any change would touch a frozen file in the §C list.
@@ -380,6 +380,6 @@ Cursor must **stop and report** if any of these happen:
 8. AMD Developer Cloud access isn't available. Complete Steps 1–7 against the fake server and stop.
 9. Evolus work is requested before every §K gate is met.
 
-**Repo note (unchanged, P1 before submission):**
+**Repo note (historical, DONE 2026-10-06):** the canonicalization below was completed as branch `claude/pre-kickoff-verification` on `master@1beaef1`.
 - Everything since pass 1 lives only in Cursor's temporary shadow repo (`cursor/pre-kickoff-amd-scaffold-54bc` @ `55049dc`), with history type B.
 - Canonicalize into the GitHub-hosted canonical repo **before final submission**, ideally before kickoff: import `apps/web/**`, the scaffold files and the `web:*` scripts onto `master@1beaef1`, without `--allow-unrelated-histories`. That keeps the `f2219f3` baseline-lock commit in the submitted history.

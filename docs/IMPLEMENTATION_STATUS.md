@@ -17,7 +17,7 @@ The accepted pre-kickoff product (Cursor `6afb019`: UX V3 + Netlify + AMD scaffo
 | API tests | `npm run api:test` | 86 tests, 86 pass, 0 fail |
 | Benchmark CI gate | `npm run api:bench:ci` | 0 unsafe; SRR 96.7%; CER 100%; dataset pin matches |
 | Web build | `npm run web:build` | exit 0 |
-| Web tests | `npm run web:test` | 9 tests, 9 pass (outcome guards + benchmark labelling) |
+| Web tests | `npm run web:test` | 10 tests, 10 pass (outcome guards + benchmark labelling) |
 | Legacy prototype | `npm run legacy:check` | exit 0; 58 pass |
 | Four demos, fresh API | `POST /cases` | RESOLVED / ESCALATED / CLOSED_NO_ACTION / ESCALATED, as in the table below |
 | Netlify functions | handlers invoked directly (no deploy) | `/api/health` truthful; 405/400/413 paths; four demos; fresh store per request |
@@ -66,7 +66,7 @@ All of this is a **controlled simulation**:
 
 ## VERIFIED: pre-kickoff benchmark (fixture model) — BASELINE-V1
 
-> **Pre-kickoff fixture benchmark — NOT AMD / NOT real-model results.** It uses a fixture model, simulated payments and synthetic data, with no AMD inference and no Evolus. The snapshot is `evals/baselines/BASELINE-V1.json`. Figures may be shown publicly only with that label (the web UI enforces it via `FixtureBenchmarkNotice`).
+> **Internal development baseline (pre-hardening). Do not quote publicly.** It uses a fixture model, simulated payments and synthetic data, with no AMD inference and no Evolus. The snapshot is `evals/baselines/BASELINE-V1.json`. Only the post-hardening figures below are approved for public display, and only with the pre-kickoff fixture label.
 
 The benchmark runs with `npm run api:bench`.
 
@@ -97,7 +97,7 @@ These were fixed in the hardening pass below.
 
 ## VERIFIED: hardening pass — same 30 cases, dataset unchanged
 
-> **Pre-kickoff fixture benchmark — NOT AMD / NOT real-model results.** Public use only with that label. The dataset SHA-256 is unchanged from BASELINE-V1 (`d5a8b406…c28e47`).
+> **Pre-kickoff fixture benchmark — NOT AMD / NOT real-model results.** Public use only with that label; the web UI shows it through `FixtureBenchmarkNotice`, guarded by `apps/web/test/benchmark-labels.test.ts`. The dataset SHA-256 is unchanged from BASELINE-V1 (`d5a8b406…c28e47`).
 
 | Metric | BASELINE-V1 | After hardening |
 |---|---|---|
@@ -159,7 +159,7 @@ See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`,
 
 | Item | Status |
 |---|---|
-| `apps/web` Operations Command Center: Operations, Cases, Activity, Benchmarks, System | IMPLEMENTED, VERIFIED (build + 9 web tests) |
+| `apps/web` Operations Command Center: Operations, Cases, Activity, Benchmarks, System | IMPLEMENTED, VERIFIED (build + 10 web tests) |
 | Truth labels: fixture AI, simulated gateway, synthetic data, AMD / Evolus not connected | IMPLEMENTED |
 | Benchmark figures labelled "PRE-KICKOFF FIXTURE BENCHMARK · NOT AMD / NOT REAL-MODEL RESULTS" | IMPLEMENTED, VERIFIED (test + 1280/375 px check) |
 | `netlify.toml` + `netlify/functions/{cases,health}.ts` importing the unchanged engine | IMPLEMENTED, VERIFIED (handlers invoked directly) |

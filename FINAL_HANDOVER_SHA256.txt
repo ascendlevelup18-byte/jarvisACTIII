@@ -1,4 +1,5 @@
 # JARVIS_ACTIII_FINAL_PREKICKOFF — FINAL_HANDOVER_SHA256
+# HISTORICAL: hashes of the Cursor package as received. Moved/removed paths (root Dockerfile, .dockerignore, .env.example, tsconfig.json, 4 web components) and later edits will not verify on the canonical branch; git history is the integrity record.
 # Accepted product git SHA: 6afb0192a3410dc8822c8456921474a719003d1b
 # Generated: 2026-10-06
 # Excludes: node_modules, dist, build caches, .env secrets, binary media screenshots

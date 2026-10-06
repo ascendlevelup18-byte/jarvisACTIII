@@ -5,7 +5,7 @@
 **Lineage:** backend baseline `1beaef1` → UI truth `17622c2` → AMD scaffold `55049dc` → UX V3 + Netlify `6afb019`  
 **Packaging date:** 2026-10-06  
 **Canonical repo (2026-10-06):** imported onto `master@1beaef1` as branch `claude/pre-kickoff-verification`, then hygiene fixes only: legacy root wiring moved into `legacy-prototype/`, dead components removed, benchmark figures labelled as pre-kickoff fixture results, docs refreshed. Re-verification: `docs/IMPLEMENTATION_STATUS.md`.  
-**Scope of this document:** honest status only. No product changes in this packaging pass.
+**Scope of this document:** honest status only. The original Cursor packaging pass made no product changes; the canonical-branch hygiene changes are listed above.
 
 ---
 

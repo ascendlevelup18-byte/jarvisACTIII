@@ -11,7 +11,7 @@
     "start": "npm run api:start",
     "typecheck": "npm run api:typecheck",
     "test": "npm run api:test && npm run web:test",
-    "check": "npm run api:check && npm run web:test",
+    "check": "npm run api:check && npm run web:build && npm run web:test",
     "legacy:check": "tsc -p legacy-prototype && node --test legacy-prototype/test/*.test.ts",
     "api:start": "node apps/api/src/main.ts",
     "api:typecheck": "tsc -p apps/api",

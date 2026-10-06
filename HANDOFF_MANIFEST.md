@@ -1,5 +1,7 @@
 # JARVIS Cursor Handoff: Manifest
 
+> **HISTORICAL (2026-10-05 Cursor bundle).** Paths and sizes below describe that bundle. Several root files have since moved to `legacy-prototype/` on the canonical branch, so this manifest no longer verifies against the repo. Git history is the integrity record.
+
 ## Source
 
 | Field | Value |
