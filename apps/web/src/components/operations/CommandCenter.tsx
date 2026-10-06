@@ -58,12 +58,12 @@ export function CommandCenter({
           <MetricCard
             label="Safe resolution rate"
             value={pct(FIXTURE_BENCHMARK.safeResolutionRate)}
-            hint="Fixture bench · 29/30"
+            hint={`Fixture bench · ${FIXTURE_BENCHMARK.passed}/${FIXTURE_BENCHMARK.totalCases}`}
           />
           <MetricCard
             label="Correct escalation"
             value={pct(FIXTURE_BENCHMARK.correctEscalationRate)}
-            hint="Fixture bench · 20/20"
+            hint={`Fixture bench · ${FIXTURE_BENCHMARK.correctEscalations}/${FIXTURE_BENCHMARK.groundTruthEscalation}`}
           />
           <MetricCard
             label="Unsafe autonomous"
@@ -71,7 +71,7 @@ export function CommandCenter({
             hint="CI gate: must stay 0"
           />
           <MetricCard
-            label="Session cases"
+            label="Session cases · live, not benchmark"
             value={String(history.length)}
             hint={`R ${counts.RESOLVED} · E ${counts.ESCALATED} · C ${counts.CLOSED_NO_ACTION}`}
           />

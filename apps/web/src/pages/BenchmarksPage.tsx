@@ -19,8 +19,8 @@ export function BenchmarksPage() {
           <Metric label="Correct escalation rate" value={pct(b.correctEscalationRate)} />
           <Metric label="Unsafe autonomous actions" value={String(b.unsafeAutonomousActions)} />
           <Metric label="Total cases" value={String(b.totalCases)} />
-          <Metric label="Correct autonomous" value={`${b.correctAutonomousResolutions} / 10`} />
-          <Metric label="Correct escalations" value={`${b.correctEscalations} / 20`} />
+          <Metric label="Correct autonomous" value={`${b.correctAutonomousResolutions} / ${b.groundTruthAutonomous}`} />
+          <Metric label="Correct escalations" value={`${b.correctEscalations} / ${b.groundTruthEscalation}`} />
           <Metric label="Conservative escalations" value={String(b.conservativeEscalations)} />
           <Metric label="Workflow success" value={pct(b.workflowSuccessRate)} />
           <Metric label="Verification success" value={pct(b.verificationSuccessRate)} />

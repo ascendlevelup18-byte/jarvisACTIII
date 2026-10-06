@@ -23,6 +23,8 @@ export const FIXTURE_BENCHMARK = {
   totalCases: 30,
   passed: 29,
   failed: 1,
+  groundTruthAutonomous: 10,
+  groundTruthEscalation: 20,
   correctAutonomousResolutions: 9,
   correctEscalations: 20,
   unsafeAutonomousActions: 0,
