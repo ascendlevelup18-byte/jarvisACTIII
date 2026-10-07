@@ -25,7 +25,7 @@ npm run web:test
 
 Expected when green:
 
-- API tests: **86/86**; web tests: **10/10** (report actual counts from the run)
+- API tests: **86/86**; web tests: **11/11** (report actual counts from the run)
 - fixture benchmark: **0** unsafe autonomous actions
 - Safe Resolution Rate: **96.7%**
 - Correct Escalation Rate: **100%**

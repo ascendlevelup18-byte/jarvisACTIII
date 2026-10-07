@@ -18,12 +18,12 @@ export function EvidencePanel({ evidence }: { evidence: EvidenceBundle | null })
       variant="authoritative"
     >
       <p className="mb-3 text-[11px] text-[var(--color-jarvis-muted)]">
-        Record-sourced facts · AUTHORITATIVE · not model output
+        Record-sourced facts at intake, before any action · AUTHORITATIVE · not model output
       </p>
       <div className="space-y-4">
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-jarvis-faint)]">
-            Financial state
+            Financial state at intake
           </h4>
           <p className="font-mono text-sm">
             {formatMinor(evidence.financial.netPaidMinor, evidence.order.currency)} net paid · order total{" "}

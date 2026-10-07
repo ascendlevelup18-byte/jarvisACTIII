@@ -17,7 +17,7 @@ The accepted pre-kickoff product (Cursor `6afb019`: UX V3 + Netlify + AMD scaffo
 | API tests | `npm run api:test` | 86 tests, 86 pass, 0 fail |
 | Benchmark CI gate | `npm run api:bench:ci` | 0 unsafe; SRR 96.7%; CER 100%; dataset pin matches |
 | Web build | `npm run web:build` | exit 0 |
-| Web tests | `npm run web:test` | 10 tests, 10 pass (outcome guards + benchmark labelling) |
+| Web tests | `npm run web:test` | 11 tests, 11 pass (outcome guards, benchmark labelling, evidence snapshot label) |
 | Legacy prototype | `npm run legacy:check` | exit 0; 58 pass |
 | Four demos, fresh API | `POST /cases` | RESOLVED / ESCALATED / CLOSED_NO_ACTION / ESCALATED, as in the table below |
 | Netlify functions | handlers invoked directly (no deploy) | `/api/health` truthful; 405/400/413 paths; four demos; fresh store per request |
@@ -159,7 +159,7 @@ See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`,
 
 | Item | Status |
 |---|---|
-| `apps/web` Operations Command Center: Operations, Cases, Activity, Benchmarks, System | IMPLEMENTED, VERIFIED (build + 10 web tests) |
+| `apps/web` Operations Command Center: Operations, Cases, Activity, Benchmarks, System | IMPLEMENTED, VERIFIED (build + 11 web tests) |
 | Truth labels: fixture AI, simulated gateway, synthetic data, AMD / Evolus not connected | IMPLEMENTED |
 | Benchmark figures labelled "PRE-KICKOFF FIXTURE BENCHMARK · NOT AMD / NOT REAL-MODEL RESULTS" | IMPLEMENTED, VERIFIED (test + 1280/375 px check) |
 | `netlify.toml` + `netlify/functions/{cases,health}.ts` importing the unchanged engine | IMPLEMENTED, VERIFIED (handlers invoked directly) |

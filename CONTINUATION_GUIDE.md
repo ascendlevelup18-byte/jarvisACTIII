@@ -25,7 +25,7 @@ For a new AI or developer with **no chat history**. Read this before changing co
    `d5a8b4064b81bf8bfd69f95e8e0b6aa081529d63b053287a2761d3f4c9c28e47`
    File: `data/cases/duplicate-charge-eval.v1.json`. If it drifts, stop.
 
-7. **Fixture CI gate expectations:** 86 API tests and 10 web tests pass; `api:bench:ci` → 0 unsafe autonomous actions, 96.7% Safe Resolution Rate, 100% Correct Escalation Rate. Never weaken tests to greenwash. Public display of these figures must carry "PRE-KICKOFF FIXTURE BENCHMARK · NOT AMD / NOT REAL-MODEL RESULTS" (enforced by `apps/web/test/benchmark-labels.test.ts`).
+7. **Fixture CI gate expectations:** 86 API tests and 11 web tests pass; `api:bench:ci` → 0 unsafe autonomous actions, 96.7% Safe Resolution Rate, 100% Correct Escalation Rate. Never weaken tests to greenwash. Public display of these figures must carry "PRE-KICKOFF FIXTURE BENCHMARK · NOT AMD / NOT REAL-MODEL RESULTS" (enforced by `apps/web/test/benchmark-labels.test.ts`).
 
 8. **Default AI mode is fixture.** Env for API is `apps/api/.env.example` (`JARVIS_AI_MODE`, `JARVIS_MODEL_*`). The legacy `LLM_MODE` / `VLLM_*` example lives in `legacy-prototype/` — do not mix or assume it drives `apps/api`.
 
