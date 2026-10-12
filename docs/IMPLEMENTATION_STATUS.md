@@ -155,17 +155,18 @@ Generic OpenAI-compatible plumbing only. **No** live AMD calls, **no** vLLM adap
 
 See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`. The exact kickoff contract (K1–K4, prompts, failure mapping, test matrix) is `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`.
 
-## IMPLEMENTED: G2 vLLM adapters (fake server only; not wired)
+## IMPLEMENTED: G2 vLLM adapters + G3 startup wiring + real-model benchmark mode (fake server only)
 
-Prompt contracts §D/§E of `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`, verified only against the local fake OpenAI-compatible server. **No** real model or AMD endpoint has been called.
+Prompt contracts §D/§E of `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`, verified only against the local fake OpenAI-compatible server with a scripted model. **No** real model or AMD endpoint has been called. Details: `docs/ACTIII_ENGINEERING_HANDOVER.md`.
 
 | Item | Status |
 |---|---|
-| `VllmRequestUnderstandingAdapter` (§D prompt, `UNDERSTANDING_PROMPT_VERSION`) | IMPLEMENTED, VERIFIED (fake server) |
-| `VllmModelAdapter` (§E prompt, `DECISION_PROMPT_VERSION`; `buildModelInput` / `parseProposal` unchanged) | IMPLEMENTED, VERIFIED (fake server) |
-| §G rows 1–23 + prompt-boundary assertions (`apps/api/test/vllm-adapters.test.ts`) | VERIFIED (37 tests) |
-| Composition: `buildAiAdapters`, `main.ts` wiring, startup `listModels()` check (§G row 24) | NOT IMPLEMENTED (next gate). vllm mode still refuses to start |
-| Opt-in `--mode vllm` benchmark | NOT IMPLEMENTED |
+| `VllmRequestUnderstandingAdapter` (§D prompt, `UNDERSTANDING_PROMPT_VERSION`) | IMPLEMENTED, FAKE-SERVER VERIFIED |
+| `VllmModelAdapter` (§E prompt; `decisionPromptVersion` = sha256 of the full system prompt) | IMPLEMENTED, FAKE-SERVER VERIFIED |
+| §G rows 1–23 + prompt-boundary assertions (`vllm-adapters.test.ts`) | FAKE-SERVER VERIFIED |
+| Composition (`ai-mode.ts`, `main.ts`): fixture unchanged; vllm requires `/models` to list the model + both schema probes, else exit 1; never fixture (§G row 24, `ai-startup.test.ts`) | IMPLEMENTED, FAKE-SERVER VERIFIED |
+| `api:bench:vllm` (separate results per run, metadata, parse/provider/latency telemetry, unsafe = fail) | IMPLEMENTED, FAKE-SERVER VERIFIED; no real run |
+| Real-model inference on AMD | NOT DONE (credits/endpoint pending) |
 
 ## IMPLEMENTED: Operations UI (UX V3) and Netlify fixture deployment
 
@@ -182,11 +183,10 @@ Prompt contracts §D/§E of `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`, verified o
 
 | Area | Status |
 |---|---|
-| vLLM adapter composition / startup wiring | NOT IMPLEMENTED (adapters exist; see G2 above) |
-| AMD (Developer Cloud, ROCm, live vLLM endpoint calls) | No live endpoint; client scaffold only |
+| AMD (Developer Cloud, ROCm, live vLLM endpoint calls) | No live endpoint. Adapters, startup gate and benchmark mode are ready (fake-server verified only) |
 | Evolus (extractor, knowledge library, workflow) | No code and no API access |
 | Real model, including local Colibri (Gate 0) | Not integrated or validated; vLLM adapters tested against the fake server only |
-| Benchmark against a real model / AMD endpoint, and latency | None. Only the fixture-model benchmark above exists |
+| Benchmark against a real model / AMD endpoint, and latency | Runner exists (`api:bench:vllm`); never run against a real endpoint |
 | Deployment of `apps/api` for real inference (long-running host, Docker) | Runbook skeleton only; the public demo runs as Netlify functions in fixture mode |
 
 ## LEGACY: earlier prototype in `legacy-prototype/`
