@@ -25,6 +25,7 @@ const vllmEnv = (fake: FakeOpenAIServer, extra: Record<string, string> = {}) => 
   JARVIS_MODEL_NAME: "fake-model",
   JARVIS_MODEL_API_KEY: SECRET,
   JARVIS_MODEL_TIMEOUT_MS: "2000",
+  JARVIS_DAILY_MODEL_CALL_BUDGET: "100",
   ...extra,
 });
 const vllmConfig = (fake: FakeOpenAIServer, extra: Record<string, string> = {}): AiConfig => loadAiConfig(vllmEnv(fake, extra));
@@ -203,6 +204,16 @@ describe("AI startup (fake OpenAI-compatible server; not real inference)", () =>
     assert.match(r.stderr, /MODEL_NOT_SERVED/);
     assert.doesNotMatch(r.stdout, /listening/);
     assert.ok(!(r.stdout + r.stderr).includes(SECRET));
+  });
+
+  test("main: vllm without an explicit daily model-call budget exits 1 before calling the endpoint", async () => {
+    healthy();
+    const env: Record<string, string> = { ...vllmEnv(fake), PORT: String(await freePort()) };
+    delete env.JARVIS_DAILY_MODEL_CALL_BUDGET;
+    const r = await runMain(env, { untilExit: true });
+    assert.equal(r.code, 1);
+    assert.match(r.stderr, /JARVIS_DAILY_MODEL_CALL_BUDGET/);
+    assert.doesNotMatch(r.stdout, /model call/);
   });
 
   test("main: vllm with a healthy endpoint serves cases through the vLLM adapters", async () => {
