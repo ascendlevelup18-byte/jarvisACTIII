@@ -39,6 +39,10 @@ export interface ChatCompletionResult {
   model?: string;
   /** Provider response id, if present. */
   id?: string;
+  /** choices[0].finish_reason, if present. Anything other than "stop" is rejected. */
+  finishReason?: string;
+  /** Token usage, if the provider reports it. */
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
 }
 
 const DEFAULT_MAX_RESPONSE_BYTES = 1_048_576;
@@ -277,9 +281,32 @@ function extractChatCompletion(json: unknown): ChatCompletionResult {
       message: "provider response choices[0].message.content is not a string",
     });
   }
+  // Truncated, filtered or tool-call output is not a usable answer, even if the
+  // partial content happens to parse.
+  const finishReason = (first as Record<string, unknown>).finish_reason;
+  if (finishReason != null && finishReason !== "stop") {
+    throw new ProviderError({
+      category: "INVALID_PROVIDER_RESPONSE",
+      message: `provider output unusable (truncated or filtered): finish_reason=${String(finishReason)}`,
+    });
+  }
   return {
     content,
     ...(typeof obj.model === "string" ? { model: obj.model } : {}),
     ...(typeof obj.id === "string" ? { id: obj.id } : {}),
+    ...(typeof finishReason === "string" ? { finishReason } : {}),
+    ...extractUsage(obj.usage),
   };
+}
+
+function extractUsage(raw: unknown): Pick<ChatCompletionResult, "usage"> {
+  if (!raw || typeof raw !== "object") return {};
+  const u = raw as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+  const usage = {
+    ...(num(u.prompt_tokens) !== undefined ? { promptTokens: num(u.prompt_tokens) } : {}),
+    ...(num(u.completion_tokens) !== undefined ? { completionTokens: num(u.completion_tokens) } : {}),
+    ...(num(u.total_tokens) !== undefined ? { totalTokens: num(u.total_tokens) } : {}),
+  };
+  return Object.keys(usage).length > 0 ? { usage } : {};
 }

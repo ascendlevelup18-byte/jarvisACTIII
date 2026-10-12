@@ -67,6 +67,50 @@ describe("OpenAICompatibleClient", () => {
     );
   });
 
+  test("K1: finish_reason stop is returned with token usage", async () => {
+    fake.setScenario({ kind: "ok", content: '{"a":1}' });
+    const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000 });
+    const result = await client.chatCompletions({ messages: [{ role: "user", content: "x" }] });
+    assert.equal(result.finishReason, "stop");
+    assert.deepEqual(result.usage, { promptTokens: 11, completionTokens: 7, totalTokens: 18 });
+  });
+
+  for (const reason of ["length", "content_filter", "tool_calls", "something_new"] as const) {
+    test(`K1: finish_reason ${reason} -> INVALID_PROVIDER_RESPONSE (truncated/unusable output)`, async () => {
+      fake.setScenario({ kind: "ok", content: '{"action":"REFUND_DUP', finishReason: reason });
+      const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000 });
+      await assert.rejects(
+        () => client.chatCompletions({ messages: [{ role: "user", content: "x" }] }),
+        (err: unknown) => {
+          assert.ok(err instanceof ProviderError);
+          assert.equal(err.category, "INVALID_PROVIDER_RESPONSE");
+          assert.match(err.message, new RegExp(`finish_reason=${reason}`));
+          return true;
+        },
+      );
+    });
+  }
+
+  test("K1: absent finish_reason is accepted (finishReason undefined)", async () => {
+    fake.setScenario({ kind: "unexpected_shape", body: { choices: [{ message: { content: '{"a":1}' } }] } });
+    const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000 });
+    const result = await client.chatCompletions({ messages: [{ role: "user", content: "x" }] });
+    assert.equal(result.content, '{"a":1}');
+    assert.equal(result.finishReason, undefined);
+  });
+
+  test("K1: refusal with null content -> INVALID_PROVIDER_RESPONSE", async () => {
+    fake.setScenario({
+      kind: "unexpected_shape",
+      body: { choices: [{ message: { content: null, refusal: "I can't help" }, finish_reason: "stop" }] },
+    });
+    const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000 });
+    await assert.rejects(
+      () => client.chatCompletions({ messages: [{ role: "user", content: "x" }] }),
+      (err: unknown) => err instanceof ProviderError && err.category === "INVALID_PROVIDER_RESPONSE",
+    );
+  });
+
   test("K3: body stalls after headers -> TIMEOUT ProviderError (not a raw TimeoutError)", async () => {
     fake.setScenario({ kind: "body_stall" });
     const client = new OpenAICompatibleClient({

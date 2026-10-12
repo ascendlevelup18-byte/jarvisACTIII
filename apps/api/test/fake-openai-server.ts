@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 
 export type FakeScenario =
-  | { kind: "ok"; content: string; model?: string }
+  | { kind: "ok"; content: string; model?: string; finishReason?: string }
   | { kind: "malformed_json" }
   | { kind: "hang" }
   | { kind: "http_status"; status: number; body?: string }
@@ -122,13 +122,15 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     }
 
     const model = s.kind === "ok" ? (s.model ?? "fake-model") : "fake-model";
+    const finishReason = s.kind === "ok" ? (s.finishReason ?? "stop") : "stop";
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
         id: "chatcmpl-fake",
         object: "chat.completion",
         model,
-        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: finishReason }],
+        usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 },
       }),
     );
   }
