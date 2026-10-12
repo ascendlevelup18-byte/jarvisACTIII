@@ -90,6 +90,21 @@ function emptyToUndefined(v: string | undefined): string | undefined {
   return t === "" ? undefined : t;
 }
 
+const FIXTURE_ENGINE_TIMEOUT_MS = 10_000;
+const CLIENT_BACKSTOP_MS = 2_000;
+
+/**
+ * Single source of truth for model-call timeouts.
+ * - fixture: the engine keeps its 10s bound; no HTTP client is used.
+ * - vllm: the engine uses JARVIS_MODEL_TIMEOUT_MS, and the HTTP client gets a later
+ *   backstop, so the engine's own timer fires first and the case is classified
+ *   MODEL_TIMEOUT / UNDERSTANDING_TIMEOUT instead of *_ERROR.
+ */
+export function resolveModelTimeouts(config: AiConfig): { engineTimeoutMs: number; clientTimeoutMs: number | null } {
+  if (config.mode === "fixture") return { engineTimeoutMs: FIXTURE_ENGINE_TIMEOUT_MS, clientTimeoutMs: null };
+  return { engineTimeoutMs: config.modelTimeoutMs, clientTimeoutMs: config.modelTimeoutMs + CLIENT_BACKSTOP_MS };
+}
+
 /** Safe summary for logs — never includes the API key. */
 export function aiConfigSummary(config: AiConfig): Record<string, unknown> {
   return {

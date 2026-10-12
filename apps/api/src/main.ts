@@ -1,4 +1,4 @@
-import { loadAiConfig, aiConfigSummary } from "./ai-config.ts";
+import { loadAiConfig, aiConfigSummary, resolveModelTimeouts } from "./ai-config.ts";
 import { assertAiModeReadyForPreKickoff } from "./ai-mode.ts";
 import { CommerceStore, REFUND_POLICY, seedFixtures } from "./fixtures.ts";
 import { SimulatedPaymentGateway } from "./gateway.ts";
@@ -26,7 +26,7 @@ createApp({
   policy: REFUND_POLICY,
   permissions: { autoRefund: true },
   clock,
-  modelTimeoutMs: 10_000,
+  modelTimeoutMs: resolveModelTimeouts(aiConfig).engineTimeoutMs,
 }).listen(port, () => {
   console.log(`[jarvis] POST http://localhost:${port}/cases  (fixture model, simulated payments, synthetic data)`);
 });
