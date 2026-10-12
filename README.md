@@ -103,7 +103,11 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 | `docs/ACTIII_ENGINEERING_HANDOVER.md` | Current state: commits, verification, readiness, next task |
 | `docs/IMPLEMENTATION_STATUS.md` | Status of record (IMPLEMENTED / VERIFIED / NOT DONE) |
 | `docs/AMD_EVIDENCE.md` | Evidence template for the first real-GPU runs (all fields unverified until filled) |
-| `docs/SUBMISSION.md` | Submission text: title, descriptions, tags, architecture, value proposition |
+| `docs/SUBMISSION.md` | Submission text: positioning, descriptions, tags, architecture, demo outline, checklist |
+| `docs/BUSINESS_EVIDENCE.md` | Measured benchmark facts versus assumption-labelled value estimates |
+| `docs/AMD_DEPLOYMENT_RUNBOOK.md` | Step-by-step real-model run on AMD Developer Cloud (plus RX 6800 notes) |
+| `docs/VERCEL_PREVIEW_SETUP.md` | Safe fixture-only Vercel preview via CLI (no production, no `master`) |
+| `docs/EVOLUS_INTEGRATION.md` | Evolus requirements, intended two-block design, blockers |
 | `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md` | Prompt contracts, failure mapping, test matrix, smoke and benchmark plan |
 | `docs/JARVIS_ACT_III_BUILD_CONTRACT.md` | Product and authority contract |
 | `TESTING_GUIDE.md`, `NETLIFY_DEPLOY.md` | Verification and Netlify notes |

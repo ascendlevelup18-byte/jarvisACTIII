@@ -1,6 +1,6 @@
 # JARVIS ACT III: engineering handover
 
-**As of:** 2026-10-12, end of Sprint 3 (Vercel validation, AMD runbook, submission prep).
+**As of:** 2026-10-12, end of Sprint 4 (deployment procedure, AMD and Evolus readiness, business evidence, CI).
 **Branch:** `claude/kickoff-day1-jkg6ry`. `master` is untouched (`5b5a5fe`, the pre-hackathon baseline).
 
 Labels used below:
@@ -26,7 +26,8 @@ Labels used below:
 | Sprint 2 | `7f8d168` | ingress guard: demo allowlist, bearer token, cost limits, fresh demo worlds | yes |
 | Sprint 2 | `dbf117d` | shared serverless handler; Netlify + Vercel wrappers; e2e tests | yes |
 | Sprint 2 | `b13e39a` | README, `AMD_EVIDENCE.md`, `SUBMISSION.md`, status, `.env.example` | yes (pushed in Sprint 3) |
-| Sprint 3 | the commit adding Sprint 3 docs/config | `vercel.json` master auto-deploy off, deploy-config test, AMD runbook, submission checklist | **local only** |
+| Sprint 3 | `a5658ef` | `vercel.json` master commit-deploy guard, deploy-config test, AMD runbook, submission checklist | yes |
+| Sprint 4 | the commit adding Sprint 4 work | corrected guard claim, `VERCEL_PREVIEW_SETUP.md`, runbook for AMD Developer Cloud + RX 6800 decision, `EVOLUS_INTEGRATION.md`, `BUSINESS_EVIDENCE.md`, CI workflow | **local only** |
 
 The remote branch (PR #1) is at `b13e39a`.
 
@@ -230,29 +231,33 @@ In Sprint 2 I searched the repo again: there are still no official Evolus docs, 
 - The account is team `ascend-revoution`, Hobby plan, with no projects. There is no Vercel CLI login in this session.
 - I did not try other routes around the permission error.
 
-**To unblock (owner, about 2 minutes):**
-1. In the Vercel dashboard, choose Add New → Project and import `ascendlevelup18-byte/jarvisACTIII`.
-2. Root directory: repo root. Framework: Other. `vercel.json` supplies the build, install and output settings.
-3. Add **no** environment variables. Leaving `JARVIS_CASES_TOKEN` unset keeps free text disabled.
-4. Deploy a preview from branch `claude/kickoff-day1-jkg6ry`, or tell me and I'll create it once the project exists.
+**To unblock:** follow `docs/VERCEL_PREVIEW_SETUP.md`. Use the Vercel CLI from a checkout of `claude/kickoff-day1-jkg6ry`, with **no Git connection**, and `vercel deploy` **without `--prod`**. That is a preview only.
 
-**Safety settings:**
-- `vercel.json` sets `git.deploymentEnabled.master: false`, so merging PR #1 won't auto-deploy production. That takes effect once this commit is pushed.
-- Preview protection follows the team default (Vercel Authentication). For judges, either turn protection off for previews or share a bypass link.
+**Do not** use the dashboard "Import Git Repository" yet. A Git-connected project builds the production branch (`master`, the pre-hackathon baseline).
+
+**Correction to the Sprint 3 claim about the guard:** `vercel.json` sets `git.deploymentEnabled.master: false`. Vercel's docs confirm this field stops **commit-triggered** deployments of the named branch. It is **not** guaranteed to prevent production deployment of `master` today:
+- Vercel reads `vercel.json` from the deployed commit, and `master` (`5b5a5fe`) has no `vercel.json` until PR #1 is merged.
+- The docs do not say it stops the first deployment when a repo is imported, or manual, API or CLI deployments.
+
+Treat production as **not** protected by this field.
+
+**Preview protection:** follows the team default (Vercel Authentication). For judges, share a bypass link or turn protection off for previews only.
 
 ## Outstanding approvals
 
-1. Push the Sprint 3 commit (the `vercel.json` master auto-deploy guard plus docs).
-2. The Vercel project, created by the owner (connector permission is 403). Then one preview deploy from the branch.
-3. AMD credits or an approved endpoint, before any real-model run (`docs/AMD_DEPLOYMENT_RUNBOOK.md`).
-4. Production deployment, public vllm exposure, and the PR #1 merge or description edit: all owner decisions.
+1. Push the Sprint 4 commit.
+2. **Owner:** create the Vercel preview with the CLI steps in `docs/VERCEL_PREVIEW_SETUP.md`. The connector gets 403 on project creation; do not use the dashboard Git import.
+3. **Owner:** activate AMD Developer Cloud credits and create one GPU Droplet (`docs/AMD_DEPLOYMENT_RUNBOOK.md`). This needs approval because it spends credits.
+4. **Owner:** obtain the Evolus event workspace and API docs (`docs/EVOLUS_INTEGRATION.md`).
+5. Owner decisions: production deployment, the PR #1 merge or description edit, and repository visibility.
 
 ## Next executable task
 
-Owner: import the repo into Vercel (steps above). Then one preview deploy of `claude/kickoff-day1-jkg6ry`, and run the acceptance checks against its URL:
-- `/api/health`;
-- the four demos twice each, in two orders;
-- free text → 403/401;
-- a modified demo → denied.
+**Owner, highest impact:**
+1. Activate AMD Developer Cloud credits and start one MI300X Droplet.
+2. Run `docs/AMD_DEPLOYMENT_RUNBOOK.md` §1–§9 with `Qwen/Qwen2.5-7B-Instruct`, with vLLM on localhost plus `--api-key`, reached over an SSH tunnel.
+3. Fill `docs/AMD_EVIDENCE.md`.
 
-When AMD access arrives, follow `docs/AMD_DEPLOYMENT_RUNBOOK.md` §1–§9 and fill `docs/AMD_EVIDENCE.md`.
+This is the only missing piece of the primary track's AMD requirement, and a prerequisite for Evolus.
+
+In parallel: the Vercel CLI preview (`docs/VERCEL_PREVIEW_SETUP.md`).

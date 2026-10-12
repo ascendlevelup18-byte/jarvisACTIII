@@ -6,6 +6,16 @@ Every claim here must stay true at submission time. Update §Evidence once real 
 
 JARVIS: an AI operations agent that resolves duplicate charges safely, or escalates
 
+## Positioning
+
+- **One sentence:** JARVIS is an operations agent for ecommerce payment exceptions. An open model on AMD reads each duplicate-charge case and proposes a fix, but only deterministic policy code can let money move, and only a verified result closes the case.
+- **Target customer:** support and payments-operations teams at online merchants and marketplaces who handle "I was charged twice" tickets by hand today.
+- **Pain point:**
+  - Duplicate-charge tickets are repetitive but financially risky.
+  - Refunding the wrong charge, refunding twice, or acting on a customer's misstated amount costs real money.
+  - A plain LLM agent can be talked into all three.
+- **Why it matters:** the work is high-volume and rule-shaped, so it is a natural fit for automation, but only if the automation can prove it won't move money unsafely. JARVIS's design and benchmark target exactly that.
+
 ## Short description
 
 JARVIS resolves duplicate-charge complaints end to end:
@@ -103,8 +113,11 @@ See `README.md` §Security limitations:
 | Architecture overview | Drafted | This file; README |
 | Public GitHub repository | Repo exists; visibility is the owner's call | Do not change visibility without approval |
 | Setup and reproduction instructions | Done | README §Quick start, `docs/AMD_DEPLOYMENT_RUNBOOK.md` |
-| Working demo URL | **Blocked.** The Vercel build is verified locally, but no project could be created from the connector (403) | Owner imports the repo in Vercel (see handover §Vercel) |
-| Evidence of AMD usage | **Not yet.** Template ready | `docs/AMD_EVIDENCE.md` |
+| Working demo URL | **Blocked.** The Vercel build is verified locally; the connector cannot create projects (403) | Owner runs the CLI preview steps in `docs/VERCEL_PREVIEW_SETUP.md` (no dashboard Git import) |
+| Evidence of AMD usage | **Not yet.** Runbook and template ready | `docs/AMD_DEPLOYMENT_RUNBOOK.md` → `docs/AMD_EVIDENCE.md` |
+| Evolus partner track (≥ 2 building blocks on the event workspace) | **Not started.** No workspace access or API docs | `docs/EVOLUS_INTEGRATION.md` |
+| Business value | Measured safety profile plus an assumption-labelled sensitivity table | `docs/BUSINESS_EVIDENCE.md` |
+| CI | Workflow added; **no GitHub run yet** | `.github/workflows/ci.yml` |
 | Reproducible technical results | Fixture benchmark: yes. Real model: not yet | `npm run api:bench:ci`; `api:bench:vllm` after AMD |
 | Cover image, MP4 video, PDF slides | Not started (by design, after real results) | Use only measured claims |
 

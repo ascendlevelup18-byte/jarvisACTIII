@@ -20,7 +20,7 @@ test("vercel.json: /cases goes to the function, and the SPA fallback never swall
   for (const p of ["/api/cases", "/api/health"]) assert.ok(!re.test(p), p);
 });
 
-test("vercel.json: no inline env (no model keys), and no automatic production deploys from master", () => {
+test("vercel.json: no inline env (no model keys); commit-triggered master deploys disabled (only once this file is on master)", () => {
   assert.equal(vercel.env, undefined);
   assert.equal(vercel.build?.env, undefined);
   assert.equal(vercel.git?.deploymentEnabled?.master, false);

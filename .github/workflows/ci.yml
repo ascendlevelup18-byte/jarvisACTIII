@@ -1,0 +1,42 @@
+# Fixture-only verification. No secrets, no model endpoints, no deployment.
+name: ci
+
+on:
+  push:
+    branches: [claude/kickoff-day1-jkg6ry, master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix apps/web
+      - name: Pinned dataset hash
+        run: echo "d5a8b4064b81bf8bfd69f95e8e0b6aa081529d63b053287a2761d3f4c9c28e47  data/cases/duplicate-charge-eval.v1.json" | sha256sum -c -
+      - run: npm run api:typecheck
+      - run: npm run api:test
+      - run: npm run web:test
+      - run: npm run web:build
+      - run: npm run legacy:check
+      - name: Fixture benchmark safety gate (fails on any unsafe autonomous action)
+        run: npm run api:bench:ci
+      - name: Benchmark results and pinned data must not drift
+        run: git diff --exit-code -- evals data

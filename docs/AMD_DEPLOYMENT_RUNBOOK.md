@@ -11,6 +11,19 @@ How this runbook is labelled:
 - Never put the model key in the UI, a commit, a screenshot or the serverless (Netlify/Vercel) environment.
 - Stop the GPU when you are not using it.
 
+## Assumptions (AMD Developer Cloud, per AMD's and lablab's public getting-started guides)
+
+- **Instance:** an AMD Developer Cloud **GPU Droplet**, typically a single MI300X with 192 GB, running **Ubuntu 24.04**. Login is **SSH key only** as `root`; provisioning reportedly takes about 2–4 minutes. **[UNVERIFIED for our account]**
+- **Credits:** activated through the AMD AI Developer Program member site before creating a Droplet. **[UNVERIFIED for our account]**
+- **Image:** choose a **Quick Start** image with vLLM preinstalled in a Docker container (reportedly named `rocm`; enter it with `docker exec -it rocm bash`). This avoids building ROCm or vLLM yourself. **[UNVERIFIED image name]**
+- **Security:** the Quick Start image reportedly also starts a Jupyter server reachable on the Droplet's public IP. Treat the Droplet as internet-facing:
+  - firewall everything except SSH;
+  - never start vLLM on `0.0.0.0` without `--api-key`.
+- **Model (recommended, untested here):** `Qwen/Qwen2.5-7B-Instruct`. It is Apache-2.0, needs no Hugging Face login, follows JSON-schema output well, and has bf16 weights of about 15 GB (tiny on an MI300X).
+  - A 1.5B model (the tutorial default) is likely too weak for strict JSON on the decision prompt.
+  - Larger options, if time allows: `Qwen2.5-14B/32B-Instruct`.
+  - Pin the revision.
+
 ## 0. Before you start
 
 | Check | How |
@@ -58,7 +71,8 @@ Record the image digest: `docker inspect --format '{{.Image}}' <container>`.
 ## 3. Model download and revision
 
 ```bash
-huggingface-cli download <org>/<model> --revision <commit-or-tag> --local-dir /models/<name>
+huggingface-cli download Qwen/Qwen2.5-7B-Instruct --revision <commit-hash> --local-dir /models/qwen2.5-7b-instruct
+# get the hash: the model page's "Files and versions" → latest commit, or check the snapshots folder after a download
 ```
 
 Record the exact revision (a commit hash, not just "main").
@@ -66,8 +80,8 @@ Record the exact revision (a commit hash, not just "main").
 ## 4. Launch vLLM with an API key, bound to localhost
 
 ```bash
-vllm serve /models/<name> \
-  --served-model-name <served-id> \
+vllm serve /models/qwen2.5-7b-instruct \
+  --served-model-name qwen2.5-7b-instruct \
   --host 127.0.0.1 --port 8000 \
   --api-key "$VLLM_API_KEY" \
   --max-model-len 8192
@@ -159,9 +173,19 @@ docker stop <container>          # stops inference
 - vLLM: stop the container. The model files can stay on disk.
 - No repo change is needed to roll back.
 
-## Local fallback: Radeon RX 6800 (16 GB, RDNA2, gfx1030) **[UNVERIFIED]**
+## Local fallback: Radeon RX 6800 (16 GB, RDNA2, gfx1030): decision
 
-- gfx1030 is **not** among the vLLM ROCm targets listed in the vLLM docs we found (gfx90a, gfx942, gfx1100). A vLLM-on-RX 6800 setup may not work; do not plan on it without a test.
-- ROCm on Windows/WSL2 has more limited Radeon support than Linux. Treat Windows vLLM as unsupported unless the exact driver, OS and GPU combination is confirmed in AMD's current compatibility matrix.
-- A possible path, unverified: native Linux, a ROCm version that still supports gfx1030, and any OpenAI-compatible server. JARVIS only needs `/v1/models` and `/v1/chat/completions`.
-- Any result from this GPU must be labelled **local consumer GPU**. It does not by itself meet an event requirement to run on AMD cloud GPUs.
+| Question | Finding | Confidence |
+|---|---|---|
+| vLLM on RX 6800 | gfx1030 is **not** among the vLLM ROCm targets in the vLLM docs we could read (gfx90a, gfx942, gfx1100). Treat it as unsupported | Vendor docs (older releases); current page not readable from here |
+| ROCm on Windows for vLLM | Not a supported vLLM path. Windows needs WSL2 or native Linux, and Radeon support in WSL2 is narrower than on Linux | Vendor-matrix based; verify current matrix |
+| ROCm on Linux for gfx1030 | Community reports say it often works, sometimes with `HSA_OVERRIDE_GFX_VERSION`; not guaranteed by AMD for every ROCm release | Community workaround |
+| **Feasible alternative** | **llama.cpp `llama-server`** (Vulkan or ROCm/HIP backend) serves an **OpenAI-compatible** `/v1/models` + `/v1/chat/completions`. That is all JARVIS needs; no code change | Untested here |
+| Model fit in 16 GB | `Qwen2.5-7B-Instruct` Q4_K_M or Q5_K_M GGUF (about 5–6 GB) leaves room for context. 14B Q4 (about 9 GB) also fits | Untested here |
+
+**Recommended local path (untested):**
+1. Native Linux, or Windows with the Vulkan build.
+2. Run `llama-server -m qwen2.5-7b-instruct-q4_k_m.gguf --host 127.0.0.1 --port 8000 --api-key "$KEY"`.
+3. Start JARVIS with the same env as step 6. Use `JARVIS_MODEL_STRUCTURED_OUTPUT=off` only if the server rejects `response_format`, and record that if so.
+
+**Labelling:** results from this GPU are a **local consumer-GPU run**. They do **not** satisfy the Evolus requirement for vLLM on AMD Developer Cloud, and must not be presented as AMD Developer Cloud evidence.
