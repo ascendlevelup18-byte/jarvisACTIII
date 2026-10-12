@@ -155,6 +155,18 @@ Generic OpenAI-compatible plumbing only. **No** live AMD calls, **no** vLLM adap
 
 See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`. The exact kickoff contract (K1–K4, prompts, failure mapping, test matrix) is `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`.
 
+## IMPLEMENTED: G2 vLLM adapters (fake server only; not wired)
+
+Prompt contracts §D/§E of `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`, verified only against the local fake OpenAI-compatible server. **No** real model or AMD endpoint has been called.
+
+| Item | Status |
+|---|---|
+| `VllmRequestUnderstandingAdapter` (§D prompt, `UNDERSTANDING_PROMPT_VERSION`) | IMPLEMENTED, VERIFIED (fake server) |
+| `VllmModelAdapter` (§E prompt, `DECISION_PROMPT_VERSION`; `buildModelInput` / `parseProposal` unchanged) | IMPLEMENTED, VERIFIED (fake server) |
+| §G rows 1–23 + prompt-boundary assertions (`apps/api/test/vllm-adapters.test.ts`) | VERIFIED (37 tests) |
+| Composition: `buildAiAdapters`, `main.ts` wiring, startup `listModels()` check (§G row 24) | NOT IMPLEMENTED (next gate). vllm mode still refuses to start |
+| Opt-in `--mode vllm` benchmark | NOT IMPLEMENTED |
+
 ## IMPLEMENTED: Operations UI (UX V3) and Netlify fixture deployment
 
 | Item | Status |
@@ -170,11 +182,10 @@ See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`,
 
 | Area | Status |
 |---|---|
-| `VllmRequestUnderstandingAdapter` / `VllmModelAdapter` | NOT IMPLEMENTED (pre-kickoff deliberately) |
-| JARVIS prompts / schema-to-model mapping | NOT IMPLEMENTED |
+| vLLM adapter composition / startup wiring | NOT IMPLEMENTED (adapters exist; see G2 above) |
 | AMD (Developer Cloud, ROCm, live vLLM endpoint calls) | No live endpoint; client scaffold only |
 | Evolus (extractor, knowledge library, workflow) | No code and no API access |
-| Real model, including local Colibri (Gate 0) | Not integrated or validated; only `FixtureModelAdapter` exists |
+| Real model, including local Colibri (Gate 0) | Not integrated or validated; vLLM adapters tested against the fake server only |
 | Benchmark against a real model / AMD endpoint, and latency | None. Only the fixture-model benchmark above exists |
 | Deployment of `apps/api` for real inference (long-running host, Docker) | Runbook skeleton only; the public demo runs as Netlify functions in fixture mode |
 
