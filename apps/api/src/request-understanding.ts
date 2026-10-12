@@ -6,7 +6,7 @@ import { z } from "zod";
 import { StructuredRequestSchema, type CustomerIntent, type StructuredRequest } from "./contracts.ts";
 import { findIntentCues, OUT_OF_SCOPE_CUES } from "./intent-cues.ts";
 import { findMoneyMentions } from "./money.ts";
-import { cleanupModelContent, type OpenAICompatibleClient } from "./provider/index.ts";
+import { cleanupModelContent, type ChatClient } from "./provider/index.ts";
 
 export interface UnderstandingInput {
   // Untrusted customer-authored text. Adapters must treat it as data.
@@ -105,10 +105,10 @@ export interface VllmAdapterOptions {
 // No retries, no JSON extraction, no fallback: any provider error propagates to the engine.
 export class VllmRequestUnderstandingAdapter implements RequestUnderstandingAdapter {
   readonly id: string;
-  readonly #client: OpenAICompatibleClient;
+  readonly #client: ChatClient;
   readonly #structuredOutput: boolean;
 
-  constructor(client: OpenAICompatibleClient, opts: VllmAdapterOptions = {}) {
+  constructor(client: ChatClient, opts: VllmAdapterOptions = {}) {
     this.#client = client;
     this.#structuredOutput = opts.structuredOutput ?? true;
     this.id = `vllm:${client.model}`;

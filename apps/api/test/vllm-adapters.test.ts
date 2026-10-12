@@ -5,8 +5,15 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Case, CaseRequest } from "../src/contracts.ts";
 import { runCase } from "../src/case-engine.ts";
-import { SCENARIOS } from "../src/fixtures.ts";
-import { DECISION_PROMPT_VERSION, VllmModelAdapter } from "../src/model-adapter.ts";
+import { REFUND_POLICY, SCENARIOS } from "../src/fixtures.ts";
+import { createHash } from "node:crypto";
+import {
+  buildDecisionMessages,
+  buildModelInput,
+  DECISION_INSTRUCTIONS,
+  decisionPromptVersion,
+  VllmModelAdapter,
+} from "../src/model-adapter.ts";
 import { OpenAICompatibleClient, ProviderError } from "../src/provider/index.ts";
 import {
   parseStructuredRequest,
@@ -77,8 +84,29 @@ describe("vLLM adapters (fake OpenAI-compatible server)", () => {
     assert.equal(new VllmRequestUnderstandingAdapter(clientFor(u)).id, "vllm:fake-model");
     assert.equal(new VllmModelAdapter(clientFor(m)).id, "vllm:fake-model");
     assert.match(UNDERSTANDING_PROMPT_VERSION, /^[0-9a-f]{64}$/);
-    assert.match(DECISION_PROMPT_VERSION, /^[0-9a-f]{64}$/);
-    assert.notEqual(UNDERSTANDING_PROMPT_VERSION, DECISION_PROMPT_VERSION);
+    assert.equal(UNDERSTANDING_PROMPT_VERSION, createHash("sha256").update(UNDERSTANDING_SYSTEM_PROMPT).digest("hex"));
+    assert.match(decisionPromptVersion(REFUND_POLICY.sections), /^[0-9a-f]{64}$/);
+  });
+
+  test("decision prompt version fingerprints the complete effective system prompt", async () => {
+    const policy = REFUND_POLICY.sections;
+    const v = decisionPromptVersion(policy);
+    assert.equal(decisionPromptVersion(policy), v, "deterministic");
+    // Equals sha256 of the system message actually sent, for any case: no case data in it.
+    const sent: string[] = [];
+    for (const req of [SCENARIOS.validDuplicate, SCENARIOS.promptInjection]) {
+      const { c } = await run(req, DUP, proposal());
+      assert.ok(c.evidence);
+      sent.push(bodyOf(m).messages[0]!.content);
+      assert.equal(sent.at(-1), buildDecisionMessages(buildModelInput(c.id, req.message, c.evidence))[0]!.content);
+    }
+    assert.equal(sent[0], sent[1]);
+    assert.equal(createHash("sha256").update(sent[0]!).digest("hex"), v);
+    // Any instruction or policy change changes the version.
+    assert.notEqual(decisionPromptVersion(policy, DECISION_INSTRUCTIONS + " "), v);
+    assert.notEqual(decisionPromptVersion(policy, DECISION_INSTRUCTIONS.replace("ESCALATE", "ESCALATE.")), v);
+    assert.notEqual(decisionPromptVersion([...policy.slice(0, -1), { ...policy.at(-1)!, text: policy.at(-1)!.text + "!" }]), v);
+    assert.notEqual(decisionPromptVersion(policy.slice(1)), v);
   });
 
   test("row 1: valid understanding parses; request follows the §D contract", async () => {

@@ -45,6 +45,12 @@ export interface ChatCompletionResult {
   usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
 }
 
+/** What a model adapter needs from a client (lets callers wrap one, e.g. for call logging). */
+export interface ChatClient {
+  readonly model: string;
+  chatCompletions(params: ChatCompletionParams): Promise<ChatCompletionResult>;
+}
+
 const DEFAULT_MAX_RESPONSE_BYTES = 1_048_576;
 
 export class OpenAICompatibleClient {
