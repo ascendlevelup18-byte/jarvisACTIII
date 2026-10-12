@@ -17,10 +17,19 @@ export type FakeScenario =
   | { kind: "echo_auth" }
   | { kind: "body_stall" };
 
+/** Scripted responses for GET /v1/models. */
+export type FakeModelsScenario =
+  | { kind: "list"; ids: string[] }
+  | { kind: "http_status"; status: number }
+  | { kind: "malformed_json" }
+  | { kind: "unexpected_shape"; body: unknown }
+  | { kind: "large"; bytes: number };
+
 export interface FakeOpenAIServer {
   baseUrl: string;
   port: number;
   setScenario: (s: FakeScenario) => void;
+  setModelsScenario: (s: FakeModelsScenario) => void;
   close: () => Promise<void>;
   /** Last Authorization header value received (for secret-leak tests). */
   lastAuthorization: string | null;
@@ -28,6 +37,7 @@ export interface FakeOpenAIServer {
 
 export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok", content: "{}" }): Promise<FakeOpenAIServer> {
   let scenario: FakeScenario = initial;
+  let modelsScenario: FakeModelsScenario = { kind: "list", ids: ["fake-model"] };
   let lastAuthorization: string | null = null;
 
   const server: Server = createServer((req, res) => {
@@ -47,6 +57,27 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     }
 
     const path = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
+    if (req.method === "GET" && path === "/v1/models") {
+      const m = modelsScenario;
+      if (m.kind === "http_status") {
+        res.writeHead(m.status, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { message: `status ${m.status}` } }));
+      } else if (m.kind === "malformed_json") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end("{not-json");
+      } else if (m.kind === "unexpected_shape") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(m.body));
+      } else if (m.kind === "large") {
+        const payload = JSON.stringify({ object: "list", data: [{ id: "x".repeat(m.bytes) }] });
+        res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(payload, "utf8") });
+        res.end(payload);
+      } else {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ object: "list", data: m.ids.map((id) => ({ id, object: "model" })) }));
+      }
+      return;
+    }
     if (path !== "/v1/chat/completions" && path !== "/chat/completions") {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "not_found" }));
@@ -152,6 +183,9 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     },
     setScenario(s: FakeScenario) {
       scenario = s;
+    },
+    setModelsScenario(s: FakeModelsScenario) {
+      modelsScenario = s;
     },
     get lastAuthorization() {
       return lastAuthorization;

@@ -67,6 +67,43 @@ describe("OpenAICompatibleClient", () => {
     );
   });
 
+  test("K4: listModels returns served model ids and sends the bearer key", async () => {
+    fake.setModelsScenario({ kind: "list", ids: ["jarvis-main", "other"] });
+    const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "jarvis-main", apiKey: "sk-test-models-key-123456", timeoutMs: 5_000 });
+    assert.deepEqual(await client.listModels(), ["jarvis-main", "other"]);
+    assert.equal(fake.lastAuthorization, "Bearer sk-test-models-key-123456");
+  });
+
+  const modelsFailures = [
+    [{ kind: "http_status", status: 401 }, "HTTP_4XX"],
+    [{ kind: "http_status", status: 503 }, "HTTP_5XX"],
+    [{ kind: "malformed_json" }, "INVALID_JSON"],
+    [{ kind: "unexpected_shape", body: { object: "list", data: [{ name: "no-id" }] } }, "INVALID_PROVIDER_RESPONSE"],
+    [{ kind: "large", bytes: 50_000 }, "RESPONSE_TOO_LARGE"],
+  ] as const;
+  for (const [scenario, category] of modelsFailures) {
+    test(`K4: listModels ${scenario.kind}${"status" in scenario ? ` ${scenario.status}` : ""} -> ${category}`, async () => {
+      fake.setModelsScenario(scenario);
+      const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000, maxResponseBytes: 8_192 });
+      await assert.rejects(
+        () => client.listModels(),
+        (err: unknown) => {
+          assert.ok(err instanceof ProviderError);
+          assert.equal(err.category, category);
+          return true;
+        },
+      );
+    });
+  }
+
+  test("K4: listModels connection failure -> CONNECTION_ERROR", async () => {
+    const client = new OpenAICompatibleClient({ baseUrl: "http://127.0.0.1:9", model: "m", timeoutMs: 1_000 });
+    await assert.rejects(
+      () => client.listModels(),
+      (err: unknown) => err instanceof ProviderError && err.category === "CONNECTION_ERROR",
+    );
+  });
+
   test("K1: finish_reason stop is returned with token usage", async () => {
     fake.setScenario({ kind: "ok", content: '{"a":1}' });
     const client = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000 });

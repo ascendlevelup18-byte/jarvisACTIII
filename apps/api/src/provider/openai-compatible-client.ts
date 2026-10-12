@@ -84,7 +84,6 @@ export class OpenAICompatibleClient {
       throw new ProviderError({ category: "CONFIG_ERROR", message: "messages must be a non-empty array" });
     }
 
-    const url = `${this.#baseUrl}/chat/completions`;
     const body: Record<string, unknown> = {
       model: this.#model,
       messages: params.messages,
@@ -92,24 +91,31 @@ export class OpenAICompatibleClient {
       ...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
       ...(params.extra ?? {}),
     };
+    return extractChatCompletion(await this.#requestJson("POST", "/chat/completions", body, params.signal));
+  }
 
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      accept: "application/json",
-    };
+  /** GET {baseUrl}/models: ids of the models the server is serving (startup / health checks). */
+  async listModels(signal?: AbortSignal): Promise<string[]> {
+    return extractModelIds(await this.#requestJson("GET", "/models", undefined, signal));
+  }
+
+  // Shared transport: bearer auth, timeout + caller signal, bounded body, typed errors.
+  async #requestJson(method: "GET" | "POST", path: string, body: unknown, callerSignal?: AbortSignal): Promise<unknown> {
+    const headers: Record<string, string> = { accept: "application/json" };
+    if (body !== undefined) headers["content-type"] = "application/json";
     if (this.#apiKey) {
       headers.authorization = `Bearer ${this.#apiKey}`;
     }
 
     const timeoutSignal = AbortSignal.timeout(this.#timeoutMs);
-    const signal = params.signal ? AbortSignal.any([params.signal, timeoutSignal]) : timeoutSignal;
+    const signal = callerSignal ? AbortSignal.any([callerSignal, timeoutSignal]) : timeoutSignal;
 
     let res: Response;
     try {
-      res = await fetch(url, {
-        method: "POST",
+      res = await fetch(`${this.#baseUrl}${path}`, {
+        method,
         headers,
-        body: JSON.stringify(body),
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal,
       });
     } catch (err) {
@@ -134,9 +140,8 @@ export class OpenAICompatibleClient {
       });
     }
 
-    let json: unknown;
     try {
-      json = JSON.parse(rawText) as unknown;
+      return JSON.parse(rawText) as unknown;
     } catch (err) {
       throw new ProviderError({
         category: "INVALID_JSON",
@@ -144,8 +149,6 @@ export class OpenAICompatibleClient {
         cause: err,
       });
     }
-
-    return extractChatCompletion(json);
   }
 }
 
@@ -297,6 +300,20 @@ function extractChatCompletion(json: unknown): ChatCompletionResult {
     ...(typeof finishReason === "string" ? { finishReason } : {}),
     ...extractUsage(obj.usage),
   };
+}
+
+function extractModelIds(json: unknown): string[] {
+  const data = json && typeof json === "object" ? (json as Record<string, unknown>).data : undefined;
+  if (!Array.isArray(data)) {
+    throw new ProviderError({ category: "INVALID_PROVIDER_RESPONSE", message: "models response missing data[]" });
+  }
+  return data.map((m, i) => {
+    const id = m && typeof m === "object" ? (m as Record<string, unknown>).id : undefined;
+    if (typeof id !== "string" || !id) {
+      throw new ProviderError({ category: "INVALID_PROVIDER_RESPONSE", message: `models response data[${i}].id is not a string` });
+    }
+    return id;
+  });
 }
 
 function extractUsage(raw: unknown): Pick<ChatCompletionResult, "usage"> {
