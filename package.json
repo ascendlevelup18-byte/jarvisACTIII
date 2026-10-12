@@ -19,6 +19,7 @@
     "api:check": "npm run api:typecheck && npm run api:test",
     "api:bench": "node apps/api/eval/run-benchmark.ts",
     "api:bench:ci": "node apps/api/eval/run-benchmark.ts --ci",
+    "api:bench:vllm": "node apps/api/eval/run-benchmark.ts --mode vllm",
     "web:dev": "npm run dev --prefix apps/web",
     "web:build": "npm run build --prefix apps/web",
     "web:typecheck": "npm run build --prefix apps/web",
