@@ -67,6 +67,23 @@ describe("OpenAICompatibleClient", () => {
     );
   });
 
+  test("K3: body stalls after headers -> TIMEOUT ProviderError (not a raw TimeoutError)", async () => {
+    fake.setScenario({ kind: "body_stall" });
+    const client = new OpenAICompatibleClient({
+      baseUrl: fake.baseUrl,
+      model: "m",
+      timeoutMs: 200,
+    });
+    await assert.rejects(
+      () => client.chatCompletions({ messages: [{ role: "user", content: "x" }] }),
+      (err: unknown) => {
+        assert.ok(err instanceof ProviderError, `expected ProviderError, got ${(err as Error)?.name}`);
+        assert.equal(err.category, "TIMEOUT");
+        return true;
+      },
+    );
+  });
+
   test("connection failure -> CONNECTION_ERROR", async () => {
     // Nothing listening on this port.
     const client = new OpenAICompatibleClient({

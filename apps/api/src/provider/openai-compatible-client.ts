@@ -112,7 +112,13 @@ export class OpenAICompatibleClient {
       throw mapFetchError(err);
     }
 
-    const rawText = await readBodyLimited(res, this.#maxResponseBytes);
+    let rawText: string;
+    try {
+      rawText = await readBodyLimited(res, this.#maxResponseBytes);
+    } catch (err) {
+      // A timeout or abort while reading the body must surface as a ProviderError too.
+      throw mapFetchError(err);
+    }
 
     if (!res.ok) {
       const category = categorizeHttpStatus(res.status);

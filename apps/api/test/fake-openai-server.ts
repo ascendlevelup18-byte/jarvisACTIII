@@ -14,7 +14,8 @@ export type FakeScenario =
   | { kind: "text_around_json"; content: string }
   | { kind: "code_fenced"; content: string }
   | { kind: "reasoning_then_json"; content: string }
-  | { kind: "echo_auth" };
+  | { kind: "echo_auth" }
+  | { kind: "body_stall" };
 
 export interface FakeOpenAIServer {
   baseUrl: string;
@@ -56,6 +57,13 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
 
     if (s.kind === "hang") {
       // Never respond — client timeout should fire.
+      return;
+    }
+
+    if (s.kind === "body_stall") {
+      // Send headers and a partial body, then never finish: the body read must time out.
+      res.writeHead(200, { "content-type": "application/json" });
+      res.write('{"id":"stall","choices":[');
       return;
     }
 
