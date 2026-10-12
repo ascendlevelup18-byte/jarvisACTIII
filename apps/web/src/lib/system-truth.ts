@@ -1,24 +1,4 @@
-/** Truthful system status — fixture / simulated only. No fake production connectivity. */
-
-export const SYSTEM_TRUTH = {
-  systemOnline: true,
-  aiMode: "FIXTURE" as const,
-  aiModeLabel: "AI MODE FIXTURE",
-  gateway: "SIMULATED" as const,
-  gatewayLabel: "GATEWAY SIMULATED",
-  amdConnected: false,
-  evolusConnected: false,
-  productionPayment: false,
-  modelAdapter: "FixtureModelAdapter",
-  paymentGateway: "SimulatedPaymentGateway",
-  data: "synthetic fixture data",
-  notes: [
-    "AMD / vLLM is NOT connected in this build.",
-    "Evolus is NOT connected in this build.",
-    "Payment gateway is simulated — no real money moves.",
-    "AI proposals have no execution authority; policy authorizes.",
-  ],
-} as const;
+// Navigation. Runtime status labels come from /api/health (see runtime-truth.ts).
 
 export type NavId = "operations" | "cases" | "activity" | "benchmarks" | "system";
 

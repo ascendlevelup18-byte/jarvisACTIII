@@ -6,7 +6,8 @@ import { ActivityPage } from "./pages/ActivityPage.tsx";
 import { BenchmarksPage } from "./pages/BenchmarksPage.tsx";
 import { CasesPage } from "./pages/CasesPage.tsx";
 import { SystemPage } from "./pages/SystemPage.tsx";
-import type { DemoScenario } from "./fixtures/demo-scenarios.ts";
+import { DEMO_SCENARIOS, type DemoScenario } from "./fixtures/demo-scenarios.ts";
+import type { ShowdownSide, ShowdownState } from "./components/proof/SafetyShowdown.tsx";
 import { ApiError, submitCase } from "./lib/api.ts";
 import type { Case } from "./lib/case-types.ts";
 import type { NavId } from "./lib/system-truth.ts";
@@ -23,6 +24,7 @@ export default function App() {
   const [scenarioTitle, setScenarioTitle] = useState<string | undefined>();
   const [activeDemoId, setActiveDemoId] = useState<string | undefined>();
   const [history, setHistory] = useState<SessionCaseEntry[]>([]);
+  const [showdown, setShowdown] = useState<ShowdownState>({ status: "idle" });
 
   const openInvestigation = useCallback((c: Case, title?: string, demoId?: string) => {
     setCaseData(c);
@@ -57,6 +59,26 @@ export default function App() {
     [openInvestigation],
   );
 
+  // Two real requests, one after the other; each side records its own result or error.
+  const runShowdown = useCallback(async (risky: DemoScenario) => {
+    const safeScenario = DEMO_SCENARIOS.find((d) => d.id === "valid-duplicate")!;
+    const runSide = async (scenario: DemoScenario): Promise<ShowdownSide> => {
+      try {
+        const result = await submitCase(scenario.request);
+        setHistory((h) => appendSessionCase(h, result, { scenarioTitle: scenario.title, scenarioId: scenario.id }));
+        return { scenario, result };
+      } catch (e) {
+        const msg = e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed";
+        return { scenario, error: msg };
+      }
+    };
+    setShowdown({ status: "running", safe: { scenario: safeScenario }, risky: { scenario: risky } });
+    const safe = await runSide(safeScenario);
+    setShowdown({ status: "running", safe, risky: { scenario: risky } });
+    const riskySide = await runSide(risky);
+    setShowdown({ status: "done", safe, risky: riskySide });
+  }, []);
+
   const onNavigate = (id: NavId) => {
     setNav(id);
     setView("nav");
@@ -87,6 +109,9 @@ export default function App() {
               error={error}
               onRunDemo={(s) => run(s.request, s.title, s.id)}
               onOpenCase={onOpenCase}
+              showdown={showdown}
+              onRunShowdown={runShowdown}
+              onOpenShowdownSide={(side) => openInvestigation(side.result, side.scenario.title, side.scenario.id)}
             />
           )}
           {nav === "cases" && (

@@ -5,7 +5,7 @@ import { Panel, TrustBadge } from "../ui/Panel.tsx";
 export function EvidencePanel({ evidence }: { evidence: EvidenceBundle | null }) {
   if (!evidence) {
     return (
-      <Panel title="Evidence" badge={<TrustBadge kind="authoritative" />} variant="authoritative">
+      <Panel id="evidence-panel" title="Evidence" badge={<TrustBadge kind="authoritative" />} variant="authoritative">
         <p className="text-[var(--color-jarvis-muted)]">Not gathered.</p>
       </Panel>
     );

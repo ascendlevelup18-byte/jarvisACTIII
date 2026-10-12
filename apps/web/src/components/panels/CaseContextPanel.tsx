@@ -4,7 +4,7 @@ import { StateBadge } from "../ui/StateBadge.tsx";
 
 export function CaseContextPanel({ caseData, scenarioTitle }: { caseData: Case; scenarioTitle?: string }) {
   return (
-    <Panel title="Customer case" badge={<StateBadge state={caseData.state} />}>
+    <Panel id="case-context" title="Customer case" badge={<StateBadge state={caseData.state} />}>
       {scenarioTitle && (
         <p className="mb-2 text-xs font-medium text-[var(--color-jarvis-muted)]">Scenario: {scenarioTitle}</p>
       )}

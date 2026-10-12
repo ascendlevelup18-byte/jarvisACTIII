@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
 import { FIXTURE_BENCHMARK, pct } from "../../lib/bench-metrics.ts";
-import { SYSTEM_TRUTH } from "../../lib/system-truth.ts";
 import type { SessionCaseEntry } from "../../lib/session-store.ts";
 import { countByState } from "../../lib/session-store.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "../../fixtures/demo-scenarios.ts";
 import { DemoScenariosBar } from "../layout/DemoScenariosBar.tsx";
+import { SafetyShowdown, type ShowdownSide, type ShowdownState } from "../proof/SafetyShowdown.tsx";
+import type { Case } from "../../lib/case-types.ts";
 import { FixtureBenchmarkNotice } from "../ui/FixtureBenchmarkNotice.tsx";
 import { StateBadge } from "../ui/StateBadge.tsx";
 
@@ -15,6 +15,9 @@ export function CommandCenter({
   error,
   onRunDemo,
   onOpenCase,
+  showdown,
+  onRunShowdown,
+  onOpenShowdownSide,
 }: {
   history: SessionCaseEntry[];
   loading: boolean;
@@ -22,6 +25,9 @@ export function CommandCenter({
   error: string | null;
   onRunDemo: (s: DemoScenario) => void;
   onOpenCase: (entry: SessionCaseEntry) => void;
+  showdown: ShowdownState;
+  onRunShowdown: (risky: DemoScenario) => void;
+  onOpenShowdownSide: (side: ShowdownSide & { result: Case }) => void;
 }) {
   const counts = countByState(history);
 
@@ -38,14 +44,9 @@ export function CommandCenter({
           Investigate commerce exceptions with policy-gated autonomy
         </h2>
         <p className="mt-3 max-w-xl text-sm text-[var(--color-jarvis-muted)]">
-          JARVIS proposes; deterministic policy authorizes. Execution is simulated. AMD and Evolus are not connected in
-          this build.
+          The AI proposes; deterministic policy decides whether money may move; every executed refund is verified by
+          read-back. Payments are simulated — see the status chips above for what the running backend reports.
         </p>
-        <div className="mt-5 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide">
-          <HeroChip tone="ok">SYSTEM ONLINE</HeroChip>
-          <HeroChip tone="ai">{SYSTEM_TRUTH.aiModeLabel}</HeroChip>
-          <HeroChip tone="warn">{SYSTEM_TRUTH.gatewayLabel}</HeroChip>
-        </div>
       </section>
 
       <section
@@ -77,6 +78,13 @@ export function CommandCenter({
           />
         </div>
       </section>
+
+      <SafetyShowdown
+        state={showdown}
+        riskyOptions={DEMO_SCENARIOS.filter((d) => d.id === "prompt-injection" || d.id === "conflicting-amount")}
+        onRun={onRunShowdown}
+        onOpen={onOpenShowdownSide}
+      />
 
       <DemoScenariosBar loading={loading} activeId={activeDemoId} onRunDemo={onRunDemo} />
 
@@ -142,14 +150,4 @@ function MetricCard({ label, value, hint }: { label: string; value: string; hint
       <p className="mt-1 text-[10px] text-[var(--color-jarvis-muted)]">{hint}</p>
     </div>
   );
-}
-
-function HeroChip({ children, tone }: { children: ReactNode; tone: "ok" | "ai" | "warn" }) {
-  const cls =
-    tone === "ok"
-      ? "border-[var(--color-policy-border)] text-[var(--color-policy-accent)]"
-      : tone === "ai"
-        ? "border-[var(--color-ai-border)] text-[var(--color-ai-accent)]"
-        : "border-[var(--color-warning)]/40 text-[var(--color-warning)]";
-  return <span className={`rounded border px-2.5 py-1 ${cls}`}>{children}</span>;
 }

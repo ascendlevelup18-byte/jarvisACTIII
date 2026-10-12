@@ -1,17 +1,7 @@
 import { useEffect, useState } from "react";
-import { SYSTEM_TRUTH } from "../lib/system-truth.ts";
+import { deriveRuntimeTruth, type HealthPayload } from "../lib/runtime-truth.ts";
 import { FIXTURE_BENCHMARK } from "../lib/bench-metrics.ts";
 import { Panel, TrustBadge } from "../components/ui/Panel.tsx";
-
-interface HealthPayload {
-  ok?: boolean;
-  deployment?: string;
-  aiMode?: string;
-  data?: string;
-  paymentGateway?: string;
-  remoteModel?: boolean;
-  note?: string;
-}
 
 export function SystemPage() {
   const [health, setHealth] = useState<HealthPayload | null>(null);
@@ -30,7 +20,7 @@ export function SystemPage() {
       .catch((e) => {
         if (!cancelled) {
           setHealth(null);
-          setHealthError(e instanceof Error ? e.message : "Health endpoint unavailable (local API may not expose it)");
+          setHealthError(e instanceof Error ? e.message : "Health endpoint unavailable");
         }
       });
     return () => {
@@ -43,31 +33,34 @@ export function SystemPage() {
       <header>
         <h2 className="text-xl font-semibold">System</h2>
         <p className="mt-1 text-sm text-[var(--color-jarvis-muted)]">
-          Deployment and capability truth. Nothing here invents AMD, Evolus, or production payments.
+          Deployment and capability truth from the running backend. Nothing here invents AMD, Evolus, or production payments.
         </p>
       </header>
 
       <Panel id="system-truth" title="System truth" badge={<TrustBadge kind="authoritative" />} variant="muted">
         <ul className="space-y-2 text-sm">
-          <TruthRow label="System" value={SYSTEM_TRUTH.systemOnline ? "ONLINE" : "OFFLINE"} ok />
-          <TruthRow label="AI mode" value={SYSTEM_TRUTH.aiModeLabel} />
-          <TruthRow label="Model adapter" value={SYSTEM_TRUTH.modelAdapter} />
-          <TruthRow label="Payment gateway" value={`${SYSTEM_TRUTH.paymentGateway} · ${SYSTEM_TRUTH.gatewayLabel}`} warn />
-          <TruthRow label="Data" value={SYSTEM_TRUTH.data} />
-          <TruthRow label="AMD / vLLM" value="NOT CONNECTED" warn />
-          <TruthRow label="Evolus" value="NOT CONNECTED" warn />
-          <TruthRow label="Production payment" value="NOT ENABLED" warn />
+          {Object.values(deriveRuntimeTruth(health)).map((t) => (
+            <TruthRow
+              key={t.label}
+              label={t.label}
+              value={t.value}
+              detail={t.detail}
+              ok={t.tone === "ok"}
+              warn={t.tone === "warn"}
+            />
+          ))}
+          <TruthRow label="Production payments" value="NOT ENABLED" detail="No real payment integration exists in this build" warn />
           <TruthRow
-            label="Dataset SHA"
+            label="Benchmark dataset SHA-256"
             value={FIXTURE_BENCHMARK.datasetSha256.slice(0, 16) + "…"}
+            detail="Pinned fixture benchmark (not a real-model result)"
             mono
           />
         </ul>
-        <ul className="mt-4 list-inside list-disc text-xs text-[var(--color-jarvis-muted)]">
-          {SYSTEM_TRUTH.notes.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
+        <p className="mt-4 text-xs text-[var(--color-jarvis-muted)]">
+          Labels come from the backend's GET /api/health. A responding model endpoint is not proof of AMD hardware, so
+          AMD hardware stays "not verified" until real-run evidence is recorded in docs/AMD_EVIDENCE.md.
+        </p>
       </Panel>
 
       <Panel title="Health probe" variant="muted">
@@ -79,8 +72,8 @@ export function SystemPage() {
           <p className="text-sm text-[var(--color-jarvis-muted)]">
             {healthError ?? "Checking /api/health…"}
             <span className="mt-2 block text-xs">
-              On Netlify this returns fixture deployment truth. Local `api:start` may not expose `/api/health` —
-              use the Netlify function or System Truth panel above.
+              The node server, Netlify and Vercel handlers all serve GET /api/health. Without an answer, the labels above
+              stay UNKNOWN rather than guessing.
             </span>
           </p>
         )}
@@ -95,16 +88,21 @@ function TruthRow({
   ok,
   warn,
   mono,
+  detail,
 }: {
   label: string;
   value: string;
+  detail?: string;
   ok?: boolean;
   warn?: boolean;
   mono?: boolean;
 }) {
   return (
     <li className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--color-jarvis-border)]/60 pb-2 last:border-0">
-      <span className="text-[11px] uppercase tracking-wide text-[var(--color-jarvis-faint)]">{label}</span>
+      <span className="min-w-0">
+        <span className="block text-[11px] uppercase tracking-wide text-[var(--color-jarvis-faint)]">{label}</span>
+        {detail && <span className="block text-[11px] text-[var(--color-jarvis-muted)]">{detail}</span>}
+      </span>
       <span
         className={`text-sm font-medium ${mono ? "font-mono text-xs" : ""} ${
           ok
