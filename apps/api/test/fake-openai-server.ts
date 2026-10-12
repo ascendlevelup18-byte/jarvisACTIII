@@ -1,5 +1,5 @@
 // Fake local OpenAI-compatible HTTP server for generic client tests.
-// Supports scripted responses: 200, malformed JSON, hang, HTTP errors, unexpected shape, large body, text-around-JSON.
+// Records the last request body. Supports scripted responses: 200, malformed JSON, hang, HTTP errors, unexpected shape, large body, text-around-JSON.
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -33,12 +33,15 @@ export interface FakeOpenAIServer {
   close: () => Promise<void>;
   /** Last Authorization header value received (for secret-leak tests). */
   lastAuthorization: string | null;
+  /** Parsed JSON body of the last chat-completions request (for prompt-boundary tests). */
+  lastRequestBody: unknown;
 }
 
 export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok", content: "{}" }): Promise<FakeOpenAIServer> {
   let scenario: FakeScenario = initial;
   let modelsScenario: FakeModelsScenario = { kind: "list", ids: ["fake-model"] };
   let lastAuthorization: string | null = null;
+  let lastRequestBody: unknown = null;
 
   const server: Server = createServer((req, res) => {
     void handle(req, res);
@@ -48,9 +51,10 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     lastAuthorization = req.headers.authorization ?? null;
 
     // Drain body so the client isn't stuck, even when we hang on respond.
+    const chunks: Buffer[] = [];
     try {
-      for await (const _chunk of req as AsyncIterable<Buffer>) {
-        /* discard */
+      for await (const chunk of req as AsyncIterable<Buffer>) {
+        chunks.push(chunk);
       }
     } catch {
       /* ignore */
@@ -82,6 +86,12 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "not_found" }));
       return;
+    }
+
+    try {
+      lastRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+      lastRequestBody = null;
     }
 
     const s = scenario;
@@ -189,6 +199,9 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     },
     get lastAuthorization() {
       return lastAuthorization;
+    },
+    get lastRequestBody() {
+      return lastRequestBody;
     },
     close: () =>
       new Promise<void>((resolve, reject) => {
