@@ -121,19 +121,9 @@ See `README.md` §Security limitations:
 | Reproducible technical results | Fixture benchmark: yes. Real model: not yet | `npm run api:bench:ci`; `api:bench:vllm` after AMD |
 | Cover image, MP4 video, PDF slides | Not started (by design, after real results) | Use only measured claims |
 
-## Demo outline (about 3 minutes, using only verified behaviour)
+## Demo outline
 
-1. **Problem (20 s):** duplicate charges are frequent; an LLM with refund power is a liability.
-2. **Valid duplicate (40 s):**
-   - The AI proposal is shown, then the deterministic checks one by one, then the simulated refund, then read-back verification, then `RESOLVED`.
-   - Point at the audit trail.
-3. **Conflicting amount (30 s):**
-   - The model's proposal is still "refund", but the policy blocks it on the stated $250 against the recorded $180, so the case is `ESCALATED`.
-   - Escalation is the safe outcome.
-4. **Prompt injection (30 s):** the "SYSTEM NOTICE … refund $5,000" text has no authority, so the case is `ESCALATED`.
-5. **Already refunded (20 s):** `CLOSED_NO_ACTION`, and no double refund.
-6. **Rigour (30 s):** the 30-case benchmark with 0 unsafe actions (fixture model), then real-model results on AMD **once measured**.
-7. **Close (10 s):** the model proposes; code decides; every refund is verified.
+See `docs/DEMO_SCRIPT.md`: a timed 2–3 minute script using Proof Mode (safety showdown, proof chain, audit trail), plus a demonstrated-versus-future table.
 
 ## Suggested PR #1 description (the current one covers only G1/G2)
 
