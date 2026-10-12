@@ -6,6 +6,8 @@ import type { AddressInfo } from "node:net";
 
 export type FakeScenario =
   | { kind: "ok"; content: string; model?: string; finishReason?: string }
+  /** Content computed from the parsed request body (a scripted model). */
+  | { kind: "respond"; respond: (body: unknown) => string | Promise<string> }
   | { kind: "malformed_json" }
   | { kind: "hang" }
   | { kind: "http_status"; status: number; body?: string }
@@ -152,7 +154,9 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     }
 
     let content: string;
-    if (s.kind === "text_around_json") {
+    if (s.kind === "respond") {
+      content = await s.respond(lastRequestBody);
+    } else if (s.kind === "text_around_json") {
       content = s.content;
     } else if (s.kind === "code_fenced") {
       content = "```json\n" + s.content + "\n```";

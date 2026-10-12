@@ -1,8 +1,10 @@
-// JARVIS AI env config (pre-kickoff scaffold).
+// JARVIS AI env config.
 // Parses/validates mode and model endpoint settings. Does not call any model.
 // Secrets (JARVIS_MODEL_API_KEY) are never logged by this module.
 
 export type AiMode = "fixture" | "vllm";
+/** json_schema: send response_format (default). off: rely on the prompt alone; set explicitly, never auto-selected. */
+export type StructuredOutputMode = "json_schema" | "off";
 
 export interface AiConfig {
   mode: AiMode;
@@ -13,6 +15,7 @@ export interface AiConfig {
   /** Optional; never logged. */
   modelApiKey: string | undefined;
   modelTimeoutMs: number;
+  structuredOutput: StructuredOutputMode;
 }
 
 export class AiConfigError extends Error {
@@ -32,6 +35,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * - JARVIS_MODEL_NAME: required for vllm
  * - JARVIS_MODEL_API_KEY: optional
  * - JARVIS_MODEL_TIMEOUT_MS: positive int; invalid values fail; default 30000
+ * - JARVIS_MODEL_STRUCTURED_OUTPUT: json_schema | off (default json_schema)
  *
  * Fixture mode does not require an endpoint.
  */
@@ -55,6 +59,14 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     }
     modelTimeoutMs = n;
   }
+
+  const structuredRaw = (env.JARVIS_MODEL_STRUCTURED_OUTPUT ?? "json_schema").trim().toLowerCase();
+  if (structuredRaw !== "json_schema" && structuredRaw !== "off") {
+    throw new AiConfigError(
+      `JARVIS_MODEL_STRUCTURED_OUTPUT must be "json_schema" or "off" (got ${JSON.stringify(env.JARVIS_MODEL_STRUCTURED_OUTPUT)})`,
+    );
+  }
+  const structuredOutput: StructuredOutputMode = structuredRaw;
 
   const modelBaseUrl = emptyToUndefined(env.JARVIS_MODEL_BASE_URL);
   const modelName = emptyToUndefined(env.JARVIS_MODEL_NAME);
@@ -81,6 +93,7 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     modelName,
     modelApiKey,
     modelTimeoutMs,
+    structuredOutput,
   };
 }
 
@@ -105,13 +118,24 @@ export function resolveModelTimeouts(config: AiConfig): { engineTimeoutMs: numbe
   return { engineTimeoutMs: config.modelTimeoutMs, clientTimeoutMs: config.modelTimeoutMs + CLIENT_BACKSTOP_MS };
 }
 
-/** Safe summary for logs — never includes the API key. */
+/** Endpoint for logs: scheme, host, port and path only (no credentials, query or fragment). */
+export function sanitizeEndpoint(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return "[invalid url]";
+  }
+}
+
+/** Safe summary for logs — never includes the API key or URL credentials. */
 export function aiConfigSummary(config: AiConfig): Record<string, unknown> {
   return {
     mode: config.mode,
-    modelBaseUrl: config.modelBaseUrl ?? null,
+    modelEndpoint: config.modelBaseUrl ? sanitizeEndpoint(config.modelBaseUrl) : null,
     modelName: config.modelName ?? null,
     modelApiKeyConfigured: Boolean(config.modelApiKey),
     modelTimeoutMs: config.modelTimeoutMs,
+    structuredOutput: config.structuredOutput,
   };
 }

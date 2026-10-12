@@ -1,0 +1,283 @@
+// G3: AI mode composition and fail-closed vLLM startup (§G row 24 and §L step 4).
+// Everything here runs against the local fake OpenAI-compatible server: it verifies
+// startup plumbing, NOT real model inference.
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { createServer } from "node:net";
+import { after, before, describe, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { loadAiConfig, sanitizeEndpoint, type AiConfig } from "../src/ai-config.ts";
+import { AiStartupError, buildAiAdapters, initializeAi, type ModelCallLog } from "../src/ai-mode.ts";
+import { runCase } from "../src/case-engine.ts";
+import { SCENARIOS } from "../src/fixtures.ts";
+import { FixtureModelAdapter, VllmModelAdapter } from "../src/model-adapter.ts";
+import { FixtureRequestUnderstandingAdapter, VllmRequestUnderstandingAdapter } from "../src/request-understanding.ts";
+import { fixtureLikeAnswer } from "./fake-jarvis-model.ts";
+import { startFakeOpenAIServer, type FakeOpenAIServer } from "./fake-openai-server.ts";
+import { makeDeps, proposal } from "./helpers.ts";
+
+const SECRET = "sk-test-SECRET-4f9a";
+const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
+
+const vllmEnv = (fake: FakeOpenAIServer, extra: Record<string, string> = {}) => ({
+  JARVIS_AI_MODE: "vllm",
+  JARVIS_MODEL_BASE_URL: fake.baseUrl,
+  JARVIS_MODEL_NAME: "fake-model",
+  JARVIS_MODEL_API_KEY: SECRET,
+  JARVIS_MODEL_TIMEOUT_MS: "2000",
+  ...extra,
+});
+const vllmConfig = (fake: FakeOpenAIServer, extra: Record<string, string> = {}): AiConfig => loadAiConfig(vllmEnv(fake, extra));
+
+async function rejectsAt(p: Promise<unknown>, stage: string, pattern?: RegExp): Promise<void> {
+  await assert.rejects(p, (e: unknown) => {
+    assert.ok(e instanceof AiStartupError, `expected AiStartupError, got ${String(e)}`);
+    assert.equal(e.stage, stage, e.message);
+    if (pattern) assert.match(e.message, pattern);
+    assert.ok(!e.message.includes(SECRET), "API key leaked into the startup error");
+    return true;
+  });
+}
+
+describe("AI startup (fake OpenAI-compatible server; not real inference)", () => {
+  let fake: FakeOpenAIServer;
+  before(async () => {
+    fake = await startFakeOpenAIServer();
+  });
+  after(async () => {
+    await fake.close();
+  });
+  const healthy = () => {
+    fake.setModelsScenario({ kind: "list", ids: ["other-model", "fake-model"] });
+    fake.setScenario({ kind: "respond", respond: fixtureLikeAnswer });
+  };
+
+  test("1: fixture mode starts without an endpoint and keeps fixture adapters + 10s timeout", async () => {
+    const { runtime, startup } = await initializeAi(loadAiConfig({}));
+    assert.equal(runtime.mode, "fixture");
+    assert.ok(runtime.understanding instanceof FixtureRequestUnderstandingAdapter);
+    assert.ok(runtime.model instanceof FixtureModelAdapter);
+    assert.equal(runtime.engineTimeoutMs, 10_000);
+    assert.equal(startup.mode, "fixture");
+    assert.equal(startup.modelListed, null);
+  });
+
+  test("buildAiAdapters(vllm) never constructs fixture adapters", () => {
+    const runtime = buildAiAdapters(vllmConfig(fake));
+    assert.ok(runtime.understanding instanceof VllmRequestUnderstandingAdapter);
+    assert.ok(runtime.model instanceof VllmModelAdapter);
+    assert.equal(runtime.understanding.id, "vllm:fake-model");
+    assert.equal(runtime.model.id, "vllm:fake-model");
+    assert.equal(runtime.engineTimeoutMs, 2000); // K2: engine uses the configured timeout
+  });
+
+  test("2: vllm with missing configuration fails before any network call", () => {
+    assert.throws(() => loadAiConfig({ JARVIS_AI_MODE: "vllm", JARVIS_MODEL_NAME: "m" }), /JARVIS_MODEL_BASE_URL/);
+    assert.throws(() => loadAiConfig({ JARVIS_AI_MODE: "vllm", JARVIS_MODEL_BASE_URL: "http://h/v1" }), /JARVIS_MODEL_NAME/);
+    assert.throws(
+      () => loadAiConfig({ JARVIS_AI_MODE: "vllm", JARVIS_MODEL_BASE_URL: "http://h/v1", JARVIS_MODEL_NAME: "m", JARVIS_MODEL_STRUCTURED_OUTPUT: "maybe" }),
+      /JARVIS_MODEL_STRUCTURED_OUTPUT/,
+    );
+  });
+
+  test("3: unreachable endpoint fails at MODEL_LIST", async () => {
+    const dead = await startFakeOpenAIServer();
+    const cfg = vllmConfig(dead);
+    await dead.close();
+    await rejectsAt(initializeAi(cfg), "MODEL_LIST", /connection failed/);
+  });
+
+  test("model list HTTP 401 echoing the key fails at MODEL_LIST without disclosing the key", async () => {
+    fake.setModelsScenario({ kind: "http_status", status: 401 });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "MODEL_LIST", /HTTP 401/);
+  });
+
+  test("4: model list without the configured model fails at MODEL_NOT_SERVED", async () => {
+    healthy();
+    fake.setModelsScenario({ kind: "list", ids: ["some-other-model"] });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "MODEL_NOT_SERVED", /"fake-model" is not served/);
+  });
+
+  test("malformed model list fails at MODEL_LIST", async () => {
+    fake.setModelsScenario({ kind: "unexpected_shape", body: { object: "list" } });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "MODEL_LIST", /data\[\]/);
+  });
+
+  test("5 + 7: listed model and valid probes start vLLM mode; report is safe", async () => {
+    healthy();
+    const calls: ModelCallLog[] = [];
+    const { runtime, startup } = await initializeAi(vllmConfig(fake), { onCall: (e) => calls.push(e) });
+    assert.equal(runtime.mode, "vllm");
+    assert.ok(runtime.model instanceof VllmModelAdapter);
+    assert.equal(startup.modelListed, true);
+    assert.deepEqual(startup.probes, { understanding: "ok", decision: "ok" });
+    assert.equal(startup.structuredOutput, "json_schema");
+    assert.equal(startup.endpoint, fake.baseUrl);
+    assert.match(startup.promptVersions.understanding, /^[0-9a-f]{64}$/);
+    assert.match(startup.promptVersions.decision, /^[0-9a-f]{64}$/);
+    assert.ok(!JSON.stringify(startup).includes(SECRET));
+
+    // One log line per probe call, operational metadata only.
+    assert.deepEqual(calls.map((c) => [c.stage, c.model, c.finishReason, c.failureCategory]), [
+      ["UNDERSTANDING", "fake-model", "stop", null],
+      ["MODEL", "fake-model", "stop", null],
+    ]);
+    const logged = JSON.stringify(calls);
+    assert.ok(!logged.includes("untrusted") && !logged.includes("POLICY") && !logged.includes(SECRET));
+
+    // The started runtime serves a real case through the vLLM adapters.
+    const deps = makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assert.equal(c.state, "RESOLVED");
+  });
+
+  test("probe sends response_format when json_schema is configured, and none when off", async () => {
+    healthy();
+    await initializeAi(vllmConfig(fake));
+    assert.equal((fake.lastRequestBody as { response_format?: { type: string } }).response_format?.type, "json_schema");
+    const { startup } = await initializeAi(vllmConfig(fake, { JARVIS_MODEL_STRUCTURED_OUTPUT: "off" }));
+    assert.equal(startup.structuredOutput, "off");
+    assert.equal((fake.lastRequestBody as { response_format?: unknown }).response_format, undefined);
+  });
+
+  test("6: invalid understanding probe output prevents startup", async () => {
+    healthy();
+    fake.setScenario({ kind: "text_around_json", content: 'Sure: {"intent":"UNKNOWN","mentionedAmounts":[]}' });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "PROBE_UNDERSTANDING", /schema/);
+  });
+
+  test("6: invalid decision probe output prevents startup", async () => {
+    healthy();
+    fake.setScenario({
+      kind: "respond",
+      respond: async (body) => {
+        const answer = await fixtureLikeAnswer(body);
+        return answer.includes('"intent"') ? answer : proposal({ verified: true });
+      },
+    });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "PROBE_DECISION", /verified|Unrecognized/);
+  });
+
+  test("6: refusal, truncation and 5xx during the probe prevent startup", async () => {
+    healthy();
+    fake.setScenario({ kind: "unexpected_shape", body: { choices: [{ message: { content: null, refusal: "no" }, finish_reason: "stop" }] } });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "PROBE_UNDERSTANDING", /content is not a string/);
+    fake.setScenario({ kind: "ok", content: '{"intent":"UNK', finishReason: "length" });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "PROBE_UNDERSTANDING", /finish_reason=length/);
+    fake.setScenario({ kind: "http_status", status: 503, body: `{"error":"overloaded; key=${SECRET}"}` });
+    await rejectsAt(initializeAi(vllmConfig(fake)), "PROBE_UNDERSTANDING", /HTTP 503/);
+  });
+
+  test("8: a provider failing after startup fails cases; never a fixture answer", async () => {
+    healthy();
+    const { runtime } = await initializeAi(vllmConfig(fake));
+    fake.setScenario({ kind: "http_status", status: 500 });
+    const deps = makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assert.equal(c.state, "FAILED");
+    assert.equal(c.reasons[0]?.code, "UNDERSTANDING_ERROR");
+    assert.equal(c.understanding, null);
+  });
+
+  test("10: engine timeout from the configured value classifies as *_TIMEOUT (K2)", async () => {
+    healthy();
+    const { runtime } = await initializeAi(vllmConfig(fake, { JARVIS_MODEL_TIMEOUT_MS: "300" }));
+    fake.setScenario({ kind: "hang" });
+    const deps = makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assert.equal(c.state, "FAILED");
+    assert.equal(c.reasons[0]?.code, "UNDERSTANDING_TIMEOUT");
+  });
+
+  test("9: endpoint is logged without credentials, query or fragment", () => {
+    assert.equal(sanitizeEndpoint("https://user:pa55@gpu.example.com:8000/v1?token=abc#x"), "https://gpu.example.com:8000/v1");
+    assert.equal(sanitizeEndpoint("not a url"), "[invalid url]");
+  });
+
+  // ---------- main.ts as a process ----------
+
+  test("main: vllm with an unserved model exits 1, never serves, never leaks the key", async () => {
+    fake.setModelsScenario({ kind: "list", ids: ["some-other-model"] });
+    const r = await runMain({ ...vllmEnv(fake), PORT: String(await freePort()) }, { untilExit: true });
+    assert.equal(r.code, 1);
+    assert.match(r.stderr, /MODEL_NOT_SERVED/);
+    assert.doesNotMatch(r.stdout, /listening/);
+    assert.ok(!(r.stdout + r.stderr).includes(SECRET));
+  });
+
+  test("main: vllm with a healthy endpoint serves cases through the vLLM adapters", async () => {
+    healthy();
+    const port = await freePort();
+    const r = await runMain({ ...vllmEnv(fake), PORT: String(port) }, {
+      onListening: async () => {
+        const res = await fetch(`http://127.0.0.1:${port}/cases`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(SCENARIOS.validDuplicate),
+        });
+        const body = (await res.json()) as { state: string; audit: { type: string; data: { adapter?: string } }[] };
+        assert.equal(body.state, "RESOLVED");
+        assert.ok(body.audit.some((e) => e.type === "MODEL_CALL" && e.data.adapter === "vllm:fake-model"));
+      },
+    });
+    assert.match(r.stdout, /"probes":\{"understanding":"ok","decision":"ok"\}/);
+    assert.match(r.stdout, /listening/);
+    assert.ok(!(r.stdout + r.stderr).includes(SECRET));
+    assert.ok(!r.stdout.includes("charged twice"), "customer text must not be logged");
+  });
+
+  test("main: fixture mode still starts without an endpoint", async () => {
+    const port = await freePort();
+    const r = await runMain({ JARVIS_AI_MODE: "fixture", PORT: String(port) }, { onListening: async () => {} });
+    assert.match(r.stdout, /"mode":"fixture"/);
+    assert.match(r.stdout, /listening/);
+  });
+});
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve) => {
+    const s = createServer();
+    s.listen(0, "127.0.0.1", () => {
+      const port = (s.address() as { port: number }).port;
+      s.close(() => resolve(port));
+    });
+  });
+}
+
+// Runs main.ts with a clean env. Either waits for exit, or waits for the listening
+// line, runs a check, then stops the process. Always bounded by a hard timeout.
+function runMain(
+  env: Record<string, string>,
+  opts: { untilExit?: boolean; onListening?: () => Promise<void> },
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [MAIN], { env: { PATH: process.env.PATH ?? "", ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let checking = false;
+    let checkError: unknown = null;
+    const killer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`main did not finish in time\nstdout:${stdout}\nstderr:${stderr}`));
+    }, 15_000);
+    child.stdout.on("data", (d: Buffer) => {
+      stdout += d.toString();
+      if (!opts.untilExit && !checking && /listening/.test(stdout)) {
+        checking = true;
+        opts.onListening!()
+          .catch((e: unknown) => {
+            checkError = e;
+          })
+          .finally(() => child.kill("SIGTERM"));
+      }
+    });
+    child.stderr.on("data", (d: Buffer) => {
+      stderr += d.toString();
+    });
+    child.on("exit", (code) => {
+      clearTimeout(killer);
+      if (checkError) reject(checkError as Error);
+      else resolve({ code, stdout, stderr });
+    });
+  });
+}

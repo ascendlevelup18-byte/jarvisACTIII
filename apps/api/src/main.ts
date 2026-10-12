@@ -1,18 +1,27 @@
-import { loadAiConfig, aiConfigSummary, resolveModelTimeouts } from "./ai-config.ts";
-import { assertAiModeReadyForPreKickoff } from "./ai-mode.ts";
+import { loadAiConfig, aiConfigSummary } from "./ai-config.ts";
+import { initializeAi, type AiRuntime } from "./ai-mode.ts";
 import { CommerceStore, REFUND_POLICY, seedFixtures } from "./fixtures.ts";
 import { SimulatedPaymentGateway } from "./gateway.ts";
-import { FixtureModelAdapter } from "./model-adapter.ts";
-import { FixtureRequestUnderstandingAdapter } from "./request-understanding.ts";
 import { createApp } from "./server.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`invalid PORT: ${process.env.PORT}`);
 
-// Pre-kickoff AI mode: fixture starts; vllm refuses (adapters not implemented). No silent fallback.
-const aiConfig = loadAiConfig();
-const aiMode = assertAiModeReadyForPreKickoff(aiConfig);
-console.log("[jarvis] ai:", JSON.stringify(aiConfigSummary(aiConfig)), `(${aiMode.label})`);
+// fixture: deterministic adapters. vllm: the endpoint must list the model and pass both
+// probes before the server listens. Any failure exits 1; there is no fallback to fixture.
+let runtime: AiRuntime;
+try {
+  const aiConfig = loadAiConfig();
+  console.log("[jarvis] ai config:", JSON.stringify(aiConfigSummary(aiConfig)));
+  const ai = await initializeAi(aiConfig, {
+    onCall: (entry) => console.log("[jarvis] model call:", JSON.stringify(entry)),
+  });
+  runtime = ai.runtime;
+  console.log("[jarvis] ai startup:", JSON.stringify(ai.startup));
+} catch (e) {
+  console.error(`[jarvis] startup failed, not serving: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+}
 
 const clock = () => new Date();
 const store = new CommerceStore();
@@ -21,12 +30,12 @@ seedFixtures(store, clock());
 createApp({
   store,
   gateway: new SimulatedPaymentGateway(store, clock),
-  understanding: new FixtureRequestUnderstandingAdapter(),
-  model: new FixtureModelAdapter(),
+  understanding: runtime.understanding,
+  model: runtime.model,
   policy: REFUND_POLICY,
   permissions: { autoRefund: true },
   clock,
-  modelTimeoutMs: resolveModelTimeouts(aiConfig).engineTimeoutMs,
+  modelTimeoutMs: runtime.engineTimeoutMs,
 }).listen(port, () => {
-  console.log(`[jarvis] POST http://localhost:${port}/cases  (fixture model, simulated payments, synthetic data)`);
+  console.log(`[jarvis] listening: POST http://localhost:${port}/cases  (${runtime.mode} model, simulated payments, synthetic data)`);
 });

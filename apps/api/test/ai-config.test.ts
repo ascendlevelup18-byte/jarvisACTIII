@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { AiConfigError, aiConfigSummary, loadAiConfig, resolveModelTimeouts } from "../src/ai-config.ts";
-import { AiStartupGuardError, assertAiModeReadyForPreKickoff, declareAiMode } from "../src/ai-mode.ts";
 import { runCase } from "../src/case-engine.ts";
 import { SCENARIOS } from "../src/fixtures.ts";
 import { OpenAICompatibleClient } from "../src/provider/index.ts";
@@ -112,36 +111,5 @@ describe("K2: resolveModelTimeouts", () => {
     } finally {
       await fake.close();
     }
-  });
-});
-
-describe("assertAiModeReadyForPreKickoff", () => {
-  test("fixture starts (declaration ready)", () => {
-    const cfg = loadAiConfig({ JARVIS_AI_MODE: "fixture" });
-    const decl = assertAiModeReadyForPreKickoff(cfg);
-    assert.equal(decl.mode, "fixture");
-    assert.equal(decl.fixtureAdaptersReady, true);
-    assert.equal(decl.vllmAdaptersReady, false);
-  });
-
-  test("vllm refuses with clear message and does not fall back", () => {
-    const cfg = loadAiConfig({
-      JARVIS_AI_MODE: "vllm",
-      JARVIS_MODEL_BASE_URL: "http://host:8000/v1",
-      JARVIS_MODEL_NAME: "my-model",
-    });
-    const decl = declareAiMode(cfg);
-    assert.equal(decl.mode, "vllm");
-    assert.equal(decl.vllmAdaptersReady, false);
-
-    assert.throws(() => assertAiModeReadyForPreKickoff(cfg), (err: unknown) => {
-      assert.ok(err instanceof AiStartupGuardError);
-      assert.match(err.message, /not implemented/i);
-      assert.match(err.message, /VllmRequestUnderstandingAdapter/);
-      assert.match(err.message, /VllmModelAdapter/);
-      assert.match(err.message, /Refusing to start/i);
-      assert.match(err.message, /Do not fall back to fixture/i);
-      return true;
-    });
   });
 });
