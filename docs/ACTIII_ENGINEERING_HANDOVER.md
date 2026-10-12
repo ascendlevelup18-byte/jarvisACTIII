@@ -1,6 +1,6 @@
 # JARVIS ACT III: engineering handover
 
-**As of:** 2026-10-12, end of Sprint 2 (ingress security, repeatable demos, serverless).
+**As of:** 2026-10-12, end of Sprint 3 (Vercel validation, AMD runbook, submission prep).
 **Branch:** `claude/kickoff-day1-jkg6ry`. `master` is untouched (`5b5a5fe`, the pre-hackathon baseline).
 
 Labels used below:
@@ -23,11 +23,21 @@ Labels used below:
 | G3 | `04b4100` | vLLM startup wiring with fail-closed checks | yes |
 | sprint | `56908a4` | opt-in real-model benchmark (`api:bench:vllm`) | yes |
 | sprint | `b0ca687` | handover + status docs | yes |
-| Sprint 2 | `7f8d168` | ingress guard: demo allowlist, bearer token, cost limits, fresh demo worlds | **local only** |
-| Sprint 2 | `dbf117d` | shared serverless handler; Netlify + Vercel wrappers; e2e tests | **local only** |
-| Sprint 2 | the commit adding Sprint 2 docs | README, `AMD_EVIDENCE.md`, `SUBMISSION.md`, status, `.env.example` | **local only** |
+| Sprint 2 | `7f8d168` | ingress guard: demo allowlist, bearer token, cost limits, fresh demo worlds | yes |
+| Sprint 2 | `dbf117d` | shared serverless handler; Netlify + Vercel wrappers; e2e tests | yes |
+| Sprint 2 | `b13e39a` | README, `AMD_EVIDENCE.md`, `SUBMISSION.md`, status, `.env.example` | yes (pushed in Sprint 3) |
+| Sprint 3 | the commit adding Sprint 3 docs/config | `vercel.json` master auto-deploy off, deploy-config test, AMD runbook, submission checklist | **local only** |
 
-The remote branch (PR #1) is at `b0ca687`. The Sprint 2 commits need a separate push authorization.
+The remote branch (PR #1) is at `b13e39a`.
+
+**PR #1:**
+- Base `master` (`5b5a5fe`), head `claude/kickoff-day1-jkg6ry`.
+- 14 commits, all ACT III; 38 files.
+- No `data/`, `evals/` or engine-core files.
+- No CI checks configured (the repo has no workflows).
+- Its description covers only G1/G2 and says "fallback"/"extraction" where the code does neither. Suggested replacement text is in `docs/SUBMISSION.md`. The PR has not been edited.
+
+The Sprint 3 commit needs a separate push authorization.
 
 ## Startup behaviour (G3)
 
@@ -125,12 +135,12 @@ The real-model mode:
 
 **Status:** FAKE-SERVER VERIFIED only. **No real-model benchmark has been run.**
 
-## Regression results (end of Sprint 2)
+## Regression results (end of Sprint 3)
 
 | Check | Result |
 |---|---|
 | `api:typecheck` | 0 errors (now also covers `api/` and `netlify/functions/`) |
-| `api:test` | **192/192** (G3 end: 164; +14 ingress unit, +13 ingress e2e, +1 startup budget test) |
+| `api:test` | **194/194** (G3 end: 164; Sprint 2 +28; Sprint 3 +2 deploy-config) |
 | `web:test` | 11/11 |
 | `web:build` | OK; the bundle contains no token or model-endpoint config (scan matches are the case `authorization` field only) |
 | `legacy:check` | 58/58 |
@@ -201,33 +211,48 @@ In Sprint 2 I searched the repo again: there are still no official Evolus docs, 
 
 ## Vercel
 
-**Prepared, locally tested, not deployed.**
-- `vercel.json`:
-  - install: root + web;
-  - build: `npm run web:build`;
-  - output: `apps/web/dist`;
-  - `/cases` → `/api/cases`;
-  - SPA fallback excluding `/api/`;
-  - functions `maxDuration` 15 s.
-- `api/cases.ts` (POST; GET answers 405) and `api/health.ts` use the Web handler signature.
+**The real Vercel build is verified locally. The preview deployment is BLOCKED.**
 
-**Unverified until a preview build:**
-- Vercel's own TypeScript and function bundling of the repo's `.ts` import specifiers. Rolldown bundling works locally.
-- Node 24 runtime selection (`engines.node` is `>=24`).
+**Verified:**
+- `vercel build` (Vercel CLI 63.1.2, Vercel's own builders) on a clean `git archive` of `b13e39a` completes:
+  - Vite assets go to `.vercel/output/static`;
+  - `api/cases` and `api/health` become `nodejs24.x` functions;
+  - `.ts` import specifiers are rewritten to `.js`.
+- Route table: filesystem first, then `/cases` → `/api/cases`, then the SPA fallback excluding `/api/`.
+- Running the **compiled** functions directly:
+  - four demos × two orders: RESOLVED / ESCALATED / CLOSED_NO_ACTION / ESCALATED, every time, all `x-jarvis-payments: simulated`, each with a distinct demo-run id;
+  - free text → 403; modified demo → 403; an extra `aiMode` field → 400; `GET /api/cases` → 405;
+  - health reports `aiMode: fixture`, `remoteModel: false`.
+- This ran under Node 22 locally; Vercel would run Node 24.
 
-**Needed before any vllm exposure on any public host:**
-- an external, global rate and budget limiter (e.g. a KV/Redis-backed limiter);
-- a private model endpoint.
+**Blocked:**
+- Creating the Vercel project through the connector returned **403 forbidden** ("You don't have permission to create the project").
+- The account is team `ascend-revoution`, Hobby plan, with no projects. There is no Vercel CLI login in this session.
+- I did not try other routes around the permission error.
+
+**To unblock (owner, about 2 minutes):**
+1. In the Vercel dashboard, choose Add New → Project and import `ascendlevelup18-byte/jarvisACTIII`.
+2. Root directory: repo root. Framework: Other. `vercel.json` supplies the build, install and output settings.
+3. Add **no** environment variables. Leaving `JARVIS_CASES_TOKEN` unset keeps free text disabled.
+4. Deploy a preview from branch `claude/kickoff-day1-jkg6ry`, or tell me and I'll create it once the project exists.
+
+**Safety settings:**
+- `vercel.json` sets `git.deploymentEnabled.master: false`, so merging PR #1 won't auto-deploy production. That takes effect once this commit is pushed.
+- Preview protection follows the team default (Vercel Authentication). For judges, either turn protection off for previews or share a bypass link.
 
 ## Outstanding approvals
 
-1. Push the Sprint 2 commits (`7f8d168`, `dbf117d`, and the Sprint 2 docs commit) to `claude/kickoff-day1-jkg6ry`, which updates PR #1.
-2. A Vercel preview deployment (fixture mode), to verify Vercel's own build of `api/*`.
-3. AMD credits or an approved endpoint, before any real-model run.
-4. Any public deployment, and any public exposure of vllm mode (blocked until a global limiter exists).
+1. Push the Sprint 3 commit (the `vercel.json` master auto-deploy guard plus docs).
+2. The Vercel project, created by the owner (connector permission is 403). Then one preview deploy from the branch.
+3. AMD credits or an approved endpoint, before any real-model run (`docs/AMD_DEPLOYMENT_RUNBOOK.md`).
+4. Production deployment, public vllm exposure, and the PR #1 merge or description edit: all owner decisions.
 
 ## Next executable task
 
-When an endpoint exists, run the real startup gate (`docs/AMD_EVIDENCE.md` §4), then the four demos (§5), then `npm run api:bench:vllm -- --run 1` (§6). Fill only the fields actually observed.
+Owner: import the repo into Vercel (steps above). Then one preview deploy of `claude/kickoff-day1-jkg6ry`, and run the acceptance checks against its URL:
+- `/api/health`;
+- the four demos twice each, in two orders;
+- free text → 403/401;
+- a modified demo → denied.
 
-Until then: with your approval, deploy a **Vercel preview in fixture mode** and confirm that its own build serves `/cases` and `/api/health` and that the four demos repeat.
+When AMD access arrives, follow `docs/AMD_DEPLOYMENT_RUNBOOK.md` §1–§9 and fill `docs/AMD_EVIDENCE.md`.

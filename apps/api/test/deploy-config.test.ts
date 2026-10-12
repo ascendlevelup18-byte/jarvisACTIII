@@ -1,0 +1,27 @@
+// Deployment config invariants for the public fixture demo (Vercel + Netlify).
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+const ROOT = new URL("../../../", import.meta.url);
+const vercel = JSON.parse(readFileSync(new URL("vercel.json", ROOT), "utf8")) as {
+  rewrites: { source: string; destination: string }[];
+  git?: { deploymentEnabled?: Record<string, boolean> };
+  env?: unknown;
+  build?: { env?: unknown };
+};
+
+test("vercel.json: /cases goes to the function, and the SPA fallback never swallows /api", () => {
+  assert.deepEqual(vercel.rewrites[0], { source: "/cases", destination: "/api/cases" });
+  const spa = vercel.rewrites.find((r) => r.destination === "/index.html");
+  assert.ok(spa);
+  const re = new RegExp(`^${spa.source}$`);
+  for (const p of ["/", "/cases-view", "/operations"]) assert.ok(re.test(p), p);
+  for (const p of ["/api/cases", "/api/health"]) assert.ok(!re.test(p), p);
+});
+
+test("vercel.json: no inline env (no model keys), and no automatic production deploys from master", () => {
+  assert.equal(vercel.env, undefined);
+  assert.equal(vercel.build?.env, undefined);
+  assert.equal(vercel.git?.deploymentEnabled?.master, false);
+});

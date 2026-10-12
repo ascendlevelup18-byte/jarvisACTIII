@@ -95,9 +95,49 @@ See `README.md` §Security limitations:
 - no built-in TLS;
 - a simulated gateway.
 
+## Submission checklist
+
+| Item | Status | Where / next step |
+|---|---|---|
+| Title, short and long description, tags | Drafted | This file |
+| Architecture overview | Drafted | This file; README |
+| Public GitHub repository | Repo exists; visibility is the owner's call | Do not change visibility without approval |
+| Setup and reproduction instructions | Done | README §Quick start, `docs/AMD_DEPLOYMENT_RUNBOOK.md` |
+| Working demo URL | **Blocked.** The Vercel build is verified locally, but no project could be created from the connector (403) | Owner imports the repo in Vercel (see handover §Vercel) |
+| Evidence of AMD usage | **Not yet.** Template ready | `docs/AMD_EVIDENCE.md` |
+| Reproducible technical results | Fixture benchmark: yes. Real model: not yet | `npm run api:bench:ci`; `api:bench:vllm` after AMD |
+| Cover image, MP4 video, PDF slides | Not started (by design, after real results) | Use only measured claims |
+
+## Demo outline (about 3 minutes, using only verified behaviour)
+
+1. **Problem (20 s):** duplicate charges are frequent; an LLM with refund power is a liability.
+2. **Valid duplicate (40 s):**
+   - The AI proposal is shown, then the deterministic checks one by one, then the simulated refund, then read-back verification, then `RESOLVED`.
+   - Point at the audit trail.
+3. **Conflicting amount (30 s):**
+   - The model's proposal is still "refund", but the policy blocks it on the stated $250 against the recorded $180, so the case is `ESCALATED`.
+   - Escalation is the safe outcome.
+4. **Prompt injection (30 s):** the "SYSTEM NOTICE … refund $5,000" text has no authority, so the case is `ESCALATED`.
+5. **Already refunded (20 s):** `CLOSED_NO_ACTION`, and no double refund.
+6. **Rigour (30 s):** the 30-case benchmark with 0 unsafe actions (fixture model), then real-model results on AMD **once measured**.
+7. **Close (10 s):** the model proposes; code decides; every refund is verified.
+
+## Suggested PR #1 description (the current one covers only G1/G2)
+
+> **ACT III development: real-model adapters, fail-closed startup, guarded ingress, serverless demo**
+>
+> All work since the pre-hackathon baseline (`master` @ `5b5a5fe`). No changes to the engine core (`contracts`, `case-engine`, `policy-engine`, `evidence`, `intent-cues`, `money`, `state-machine`, `gateway`, `fixtures`), `data/` or `evals/`.
+>
+> - **G1:** OpenAI-compatible client fixes. Truncation is rejected, body-read timeouts are mapped, `listModels()` is added, and model-call timeouts have a single source of truth.
+> - **G2:** vLLM understanding and decision adapters. Strict JSON-schema output; customer text and evidence go only in the user message as JSON. No JSON extraction from prose; malformed output fails closed.
+> - **G3:** vLLM startup requires the model in `/models` plus schema-valid probes, else exit 1, never a fixture fallback. Full-system-prompt versioning. Opt-in `api:bench:vllm`.
+> - **Sprint 2:** shared ingress guard. The four canonical demos run without a token in fresh worlds; free text needs a server-side bearer token. Rate, concurrency and model-call budget limits apply before any model call. Netlify and Vercel wrappers are fixture-only.
+> - **Verified:** API 194 tests, web 11, legacy 58; fixture benchmark 29/30 with 0 unsafe; dataset hash unchanged. **Not verified:** any real model or AMD inference (fake server only); Vercel deployment (build verified locally only).
+
 ## Not done (do not claim)
 
 - AMD GPU inference and any real-model metric.
 - Evolus integration (no official workspace docs or access yet).
 - Any public real-model deployment.
+- Any public demo URL (the Vercel preview is blocked on project creation).
 - Video, slides and cover image.
