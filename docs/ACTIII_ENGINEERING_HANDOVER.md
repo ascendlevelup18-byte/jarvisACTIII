@@ -1,6 +1,6 @@
 # JARVIS ACT III: engineering handover
 
-**As of:** 2026-10-12, end of the G3 sprint.
+**As of:** 2026-10-12, end of Sprint 2 (ingress security, repeatable demos, serverless).
 **Branch:** `claude/kickoff-day1-jkg6ry`. `master` is untouched (`5b5a5fe`, the pre-hackathon baseline).
 
 Labels used below:
@@ -19,12 +19,15 @@ Labels used below:
 | G2 | `eca9175` | fake server records the last request body | yes |
 | G2 | `aa9fd39` | `VllmRequestUnderstandingAdapter`, `VllmModelAdapter`, §G rows 1–23 | yes |
 | G2 | `8f198a1` | status doc | yes (pushed this sprint, fast-forward) |
-| sprint | `c9d6256` | full-system-prompt decision versioning; adapters take a `ChatClient` | **local only** |
-| G3 | `04b4100` | vLLM startup wiring with fail-closed checks | **local only** |
-| sprint | `56908a4` | opt-in real-model benchmark (`api:bench:vllm`) | **local only** |
-| sprint | the commit adding this file | handover + status docs | **local only** |
+| sprint | `c9d6256` | full-system-prompt decision versioning; adapters take a `ChatClient` | yes (pushed in Sprint 2) |
+| G3 | `04b4100` | vLLM startup wiring with fail-closed checks | yes |
+| sprint | `56908a4` | opt-in real-model benchmark (`api:bench:vllm`) | yes |
+| sprint | `b0ca687` | handover + status docs | yes |
+| Sprint 2 | `7f8d168` | ingress guard: demo allowlist, bearer token, cost limits, fresh demo worlds | **local only** |
+| Sprint 2 | `dbf117d` | shared serverless handler; Netlify + Vercel wrappers; e2e tests | **local only** |
+| Sprint 2 | the commit adding Sprint 2 docs | README, `AMD_EVIDENCE.md`, `SUBMISSION.md`, status, `.env.example` | **local only** |
 
-The sprint commits need a separate push authorization.
+The remote branch (PR #1) is at `b0ca687`. The Sprint 2 commits need a separate push authorization.
 
 ## Startup behaviour (G3)
 
@@ -61,6 +64,39 @@ The sprint commits need a separate push authorization.
 - `UNDERSTANDING_PROMPT_VERSION` is sha256 of the full understanding system prompt.
 - `decisionPromptVersion(policySections)` is sha256 of the full effective decision system prompt (instructions, policy lines and boundary block). A test proves it equals the hash of the system message actually sent, and that it is identical across cases.
 
+## Ingress security and demos (Sprint 2)
+
+One guard (`apps/api/src/ingress.ts`) serves every entry point. It runs **before any model call**.
+
+**Public demo:**
+- The request must exactly equal one of the four canonical scenarios, after the schema's whitespace trim.
+- It runs without a token in a fresh synthetic store with a simulated gateway.
+- The response carries `x-jarvis-demo-run` (`DEMO-<uuid>`), `x-jarvis-demo-scenario` and `x-jarvis-payments: simulated`.
+
+**Privileged (everything else):**
+- Needs `Authorization: Bearer $JARVIS_CASES_TOKEN`: server-side, ≥ 24 chars, compared in constant time over sha256 digests.
+- Missing or wrong token → 401. No token configured → 403 `free_text_disabled`.
+- On the node server, privileged cases share one persistent world, so idempotency holds across requests. On serverless, each gets a fresh world.
+
+**Limits** (`apps/api/src/limits.ts`), returning 429 + `Retry-After`:
+- per-client rate, 30/min by default;
+- global concurrency, 2 by default;
+- a daily model-call budget. vllm reserves 2 per case, and an explicit `JARVIS_DAILY_MODEL_CALL_BUDGET` is required in vllm mode, else startup exits 1.
+- The budget is not refunded on early failure (conservative).
+- No retries anywhere.
+
+**Logs:**
+- One `[jarvis] case:` line per request: status, class, demo id, run id, case id, state, latency.
+- They never include message text or the token.
+
+**Limitation:** the limits are in-process. They are a real global limit only for a single long-running server; on serverless they are per instance. Serverless is therefore fixture-only, and **public real-model exposure stays blocked** until an external, global limiter exists.
+
+**Serverless:**
+- `apps/api/src/serverless.ts` provides the Web-standard handlers.
+- `netlify/functions/*` and `api/*` (Vercel) are thin wrappers.
+- A deployment with `JARVIS_AI_MODE=vllm` refuses cases (503) rather than serving fixtures.
+- Health reports `aiMode: fixture`, `remoteModel: false` and per-instance limits.
+
 ## Benchmark readiness
 
 The commands:
@@ -89,24 +125,26 @@ The real-model mode:
 
 **Status:** FAKE-SERVER VERIFIED only. **No real-model benchmark has been run.**
 
-## Regression results (end of sprint)
+## Regression results (end of Sprint 2)
 
 | Check | Result |
 |---|---|
-| `api:typecheck` | 0 errors |
-| `api:test` | **164/164** (sprint start: 142; −2 retired pre-kickoff refusal tests, +24 new) |
+| `api:typecheck` | 0 errors (now also covers `api/` and `netlify/functions/`) |
+| `api:test` | **192/192** (G3 end: 164; +14 ingress unit, +13 ingress e2e, +1 startup budget test) |
 | `web:test` | 11/11 |
-| `web:build` | OK |
+| `web:build` | OK; the bundle contains no token or model-endpoint config (scan matches are the case `authorization` field only) |
 | `legacy:check` | 58/58 |
-| `api:bench:ci` (fixture) | 29/30; **0 unsafe**, no money moved; Safe Resolution 96.7%, Correct Escalation 100% |
-| Benchmark miss | DC-S04 (the known conservative escalation) |
+| `api:bench:ci` (fixture) | 29/30; **0 unsafe**, no money moved. The one miss is DC-S04, a conservative escalation (known) |
 | Dataset SHA-256 | `d5a8b4064b81bf8bfd69f95e8e0b6aa081529d63b053287a2761d3f4c9c28e47` (unchanged) |
-| Frozen-file diff vs `8f198a1` | 0 lines (see the list below) |
+| Engine-core diff vs `b0ca687` | 0 lines (see the list below) |
+| Mutation checks | Disabling the token compare → 4 failures; disabling the limiter → 5 failures; restored |
+| Serverless bundle | `api/*` and `netlify/functions/*` bundle with Rolldown, and the bundled Vercel `/cases` serves a demo (local smoke; not Vercel's builder) |
 
-Frozen files covered by the diff:
-- `contracts`, `case-engine`, `policy-engine`, `evidence`, `intent-cues`, `money`, `state-machine`, `gateway`, `fixtures`, `server`
-- `provider/errors`, `provider/response-cleanup`
+Files covered by the engine-core diff:
+- `contracts`, `case-engine`, `policy-engine`, `evidence`, `intent-cues`, `money`, `state-machine`, `gateway`, `fixtures`
 - `data/**`, `evals/**`, `apps/web/**`
+
+`server.ts` and `netlify/functions/cases.ts` changed under your Sprint 2 approval (ingress only).
 
 ## §G matrix status
 
@@ -125,12 +163,12 @@ Frozen files covered by the diff:
 | 2 | Verified GPU model and VRAM | PENDING |
 | 3 | Compatible ROCm and vLLM runtime | PENDING |
 | 4 | Model chosen, downloaded and served | PENDING |
-| 5 | Private, authenticated inference endpoint (`--api-key`, not publicly exposed) | PENDING |
+| 5 | Private, authenticated inference endpoint (`--api-key`, not publicly exposed) | PENDING. Evidence template: `docs/AMD_EVIDENCE.md` |
 | 6 | `/v1/models` lists the model; `npm run api:start` with `JARVIS_AI_MODE=vllm` passes the startup gate | PENDING; code ready |
 | 7 | Structured-output probe in `json_schema` mode (switch to `off` only if the server rejects `response_format`, and record that) | PENDING; code ready |
 | 8 | Four demo cases through the API and UI in vllm mode | PENDING |
 | 9 | `npm run api:bench:vllm -- --run 1` (and further runs): 0 unsafe in every run | PENDING; code ready |
-| 10 | Evidence manifest (`docs/AMD_EVIDENCE.md`, §J of the kickoff package; secrets redacted) | NOT DONE |
+| 10 | Evidence manifest (`docs/AMD_EVIDENCE.md`; secrets redacted) | Template ready; all fields UNVERIFIED |
 
 **RX 6800 (16 GB, RDNA2) fallback:**
 - It is not verified as supported by the target ROCm/vLLM stack. Confirm compatibility before attempting it.
@@ -155,51 +193,41 @@ The candidate building blocks (Document Extractor, Knowledge Library, Workflow) 
 
 **Evolus is not working and has not been started.**
 
-## Vercel: read-only compatibility assessment
+In Sprint 2 I searched the repo again: there are still no official Evolus docs, endpoints or workspace credentials. No interface was built, because one built now would be speculative.
 
-What exists today:
-- A Vite React SPA (`apps/web` → `apps/web/dist`).
-- A long-running `node:http` API (`apps/api/src/main.ts`).
-- Two Netlify functions (`netlify/functions/cases.ts`, `health.ts`). They use Web-standard `Request` → `Response` handlers, build a fresh synthetic store per request, and are hard-wired to fixture adapters.
+**Blocker:** official event-workspace access and docs. Once those exist, the grounded integration points are already isolated:
+- **policy text for prompts:** `RefundPolicy.sections`; retrieved knowledge may inform proposals but never thresholds;
+- **escalation hand-off:** after a terminal `ESCALATED` state, outside the engine, so outbound failures cannot change case results.
 
-| Concern | Finding |
-|---|---|
-| Static web | Directly compatible: static output from `apps/web/dist` with an SPA rewrite |
-| API | `node:http` is not a serverless entry point. The Netlify handlers are Web-standard, so a thin `api/cases.ts` / `api/health.ts` re-export plus rewrites (`/cases` → `/api/cases`, `/api/health`) is the smallest port. **Unverified:** how Vercel's TypeScript build handles the repo's `.ts` import specifiers (`allowImportingTsExtensions`); test with a local build first |
-| State | Per-request isolated synthetic store. Stateless, so safe on serverless and between visitors |
-| Auth | None. `/cases` is public |
-| Rate limiting / concurrency | None in the code |
-| Model-call budget | None. In vllm mode each case costs 2 model calls, and each cold start would add `/models` + 2 probes |
-| Function duration | vllm worst case is about 2 × (timeout + 2 s) per case at the default 30 s. Needs a `maxDuration` the plan allows (verify plan limits) |
-| Demo isolation | Fixture mode: isolated. vllm mode: the private endpoint key must stay in server-side env only |
+## Vercel
 
-**Smallest safe approach:**
-1. Deploy Vercel in **fixture mode only**, at parity with the current Netlify demo.
-2. Keep real-model inference on a private, long-running host running `api:start` in vllm mode.
-3. Expose real-model mode publicly only after adding:
-   - a demo token or auth;
-   - per-IP rate limiting;
-   - a concurrency cap;
-   - a daily model-call budget;
-   - probe caching per instance.
+**Prepared, locally tested, not deployed.**
+- `vercel.json`:
+  - install: root + web;
+  - build: `npm run web:build`;
+  - output: `apps/web/dist`;
+  - `/cases` → `/api/cases`;
+  - SPA fallback excluding `/api/`;
+  - functions `maxDuration` 15 s.
+- `api/cases.ts` (POST; GET answers 405) and `api/health.ts` use the Web handler signature.
 
-Nothing has been deployed.
+**Unverified until a preview build:**
+- Vercel's own TypeScript and function bundling of the repo's `.ts` import specifiers. Rolldown bundling works locally.
+- Node 24 runtime selection (`engines.node` is `>=24`).
+
+**Needed before any vllm exposure on any public host:**
+- an external, global rate and budget limiter (e.g. a KV/Redis-backed limiter);
+- a private model endpoint.
 
 ## Outstanding approvals
 
-1. Push the local sprint commits (`c9d6256`, `04b4100`, `56908a4`, the docs commit) to `claude/kickoff-day1-jkg6ry`.
-2. AMD credits or an approved endpoint, before any real-model run.
-3. Any deployment (Vercel or Netlify) and any public exposure of vllm mode.
+1. Push the Sprint 2 commits (`7f8d168`, `dbf117d`, and the Sprint 2 docs commit) to `claude/kickoff-day1-jkg6ry`, which updates PR #1.
+2. A Vercel preview deployment (fixture mode), to verify Vercel's own build of `api/*`.
+3. AMD credits or an approved endpoint, before any real-model run.
+4. Any public deployment, and any public exposure of vllm mode (blocked until a global limiter exists).
 
 ## Next executable task
 
-When an endpoint exists, run this and record the output in `docs/AMD_EVIDENCE.md`:
+When an endpoint exists, run the real startup gate (`docs/AMD_EVIDENCE.md` §4), then the four demos (§5), then `npm run api:bench:vllm -- --run 1` (§6). Fill only the fields actually observed.
 
-```
-JARVIS_AI_MODE=vllm JARVIS_MODEL_BASE_URL=<private /v1 url> JARVIS_MODEL_NAME=<served id> \
-JARVIS_MODEL_API_KEY=<key> npm run api:start
-```
-
-This is the real startup gate: `/models`, then both probes. Then run the four demo cases, then `npm run api:bench:vllm -- --run 1`.
-
-Until an endpoint exists, the next code task is to add a demo-token check and a per-instance model-call budget to the case handler, ahead of any public vllm deployment.
+Until then: with your approval, deploy a **Vercel preview in fixture mode** and confirm that its own build serves `/cases` and `/api/health` and that the four demos repeat.

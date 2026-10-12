@@ -168,6 +168,17 @@ Prompt contracts §D/§E of `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`, verified o
 | `api:bench:vllm` (separate results per run, metadata, parse/provider/latency telemetry, unsafe = fail) | IMPLEMENTED, FAKE-SERVER VERIFIED; no real run |
 | Real-model inference on AMD | NOT DONE (credits/endpoint pending) |
 
+## IMPLEMENTED: Ingress security, repeatable demos, serverless (Sprint 2)
+
+| Item | Status |
+|---|---|
+| Shared ingress guard (`ingress.ts`): exact four-demo allowlist without a token; everything else needs `JARVIS_CASES_TOKEN` (constant-time); refused when no token is configured | IMPLEMENTED, VERIFIED (`ingress.test.ts`) |
+| Limits before any model call: per-client rate, global concurrency, daily model-call budget (required in vllm), 429 + Retry-After | IMPLEMENTED, VERIFIED. In-memory: global only for one server process |
+| Fresh synthetic world per demo run; demo run ids; simulated-payment headers | IMPLEMENTED, VERIFIED (four demos × three orders, all ingresses) |
+| `node:http` server through the guard + honest `GET /api/health` | IMPLEMENTED, VERIFIED |
+| Netlify + Vercel wrappers over one shared serverless handler; fixture-only (vllm config → 503) | IMPLEMENTED, VERIFIED locally (direct calls + Rolldown bundle smoke). **Vercel not deployed; Vercel's own build not run** |
+| Global (cross-instance) rate limiting for public real-model exposure | NOT DONE. Public real-model exposure is blocked |
+
 ## IMPLEMENTED: Operations UI (UX V3) and Netlify fixture deployment
 
 | Item | Status |
