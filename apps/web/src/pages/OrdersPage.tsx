@@ -121,6 +121,15 @@ export function OrdersPage({
         />
       )}
 
+      {snapshot && selectedId && !selected && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning-surface)] px-4 py-2.5 text-sm text-[var(--color-warning)]">
+          Order #{selectedId} is not in the demo store. It has orders {snapshot.orders.map((o) => `#${o.orderId}`).join(", ")}.
+          <button type="button" className={btn.ghost} onClick={() => onSelect(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {snapshot && (
         <div className={`grid gap-4 ${selected ? "xl:grid-cols-[minmax(0,1fr)_420px]" : ""}`}>
           <div className="min-w-0 space-y-3">

@@ -85,7 +85,13 @@ export default function App() {
 
   // Browser back/forward and manually edited hashes.
   useEffect(() => {
-    const sync = () => setRoute(parseRoute(window.location.hash) ?? DEFAULT_ROUTE);
+    const sync = () => {
+      const parsed = parseRoute(window.location.hash);
+      if (!parsed && window.location.hash) window.history.replaceState(null, "", formatRoute(DEFAULT_ROUTE));
+      setRoute(parsed ?? DEFAULT_ROUTE);
+    };
+    // A bad initial hash (typo or stale link) is replaced too, so the address bar matches the page.
+    if (window.location.hash && !parseRoute(window.location.hash)) window.history.replaceState(null, "", loadSetup() ? formatRoute(DEFAULT_ROUTE) : "#setup");
     window.addEventListener("popstate", sync);
     window.addEventListener("hashchange", sync);
     return () => {

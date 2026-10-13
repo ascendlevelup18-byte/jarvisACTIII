@@ -235,6 +235,18 @@ try {
     assert.equal(await page.getByRole("table", { name: /Demo store orders/ }).locator("tbody tr").count(), 1);
   });
 
+  await check("bad deep links give feedback: unknown order, unknown case, unknown route", async () => {
+    await page.goto(`${BASE}/#/orders/99999`);
+    await page.getByRole("alert").getByText(/Order #99999 is not in the demo store/).waitFor();
+    await page.goto(`${BASE}/#/case/CASE-does-not-exist`);
+    await page.getByText("Case not found in this browser").waitFor();
+    await page.goto(`${BASE}/#/no-such-page`);
+    await page.getByRole("heading", { name: "Dashboard" }).waitFor();
+    assert.match(page.url(), /#\/dashboard$/);
+    await go(page, "AI provider");
+    await page.getByRole("heading", { name: "AI provider", exact: true }).waitFor();
+  });
+
   await check("desktop navigation reaches every page with no runtime errors", async () => {
     for (const label of ["Dashboard", "Proof Mode", "Orders", "Customers", "Support inbox", "Automation catalog", "Cases", "Approvals", "Analytics", "Audit trail", "AI provider", "Settings"]) {
       await go(page, label);
@@ -246,6 +258,17 @@ try {
   await go(page, "Dashboard");
   await page.waitForTimeout(300); // let the nav highlight transition settle
   await shot(page, "c05-overview.png", false);
+
+  await check("demo reset: clearing recorded cases empties every merchant view", async () => {
+    await go(page, "Settings");
+    await page.getByRole("button", { name: "Clear recorded cases" }).click();
+    await page.getByRole("button", { name: "Remove" }).click();
+    await go(page, "Analytics");
+    assert.equal(await kpi(page, "Recorded cases"), "0");
+    await go(page, "Support inbox");
+    await page.getByText("No conversations yet").waitFor();
+    assert.equal(await page.getByRole("button", { name: /pending review/ }).innerText(), "0 pending review");
+  });
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, reducedMotion: "reduce" });
   mobile.setDefaultTimeout(8000);

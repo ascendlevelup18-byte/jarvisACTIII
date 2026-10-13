@@ -37,7 +37,7 @@ const REPLY_TONE = {
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-/** Support inbox: conversations exist only for requests this session actually sent; no invented history. */
+/** Support inbox: conversations exist only for requests this browser actually sent; no invented history. */
 export function InboxPage({
   history,
   snapshot,

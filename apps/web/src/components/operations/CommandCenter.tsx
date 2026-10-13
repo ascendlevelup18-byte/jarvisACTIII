@@ -60,7 +60,7 @@ export function CommandCenter({
             hint="CI gate: must stay 0"
           />
           <MetricCard
-            label="Session cases · live, not benchmark"
+            label="Recorded cases · live, not benchmark"
             value={String(history.length)}
             hint={`R ${counts.RESOLVED} · E ${counts.ESCALATED} · C ${counts.CLOSED_NO_ACTION}`}
           />
@@ -91,11 +91,11 @@ export function CommandCenter({
             Case queue
           </h3>
           <span className="text-xs text-[var(--color-jarvis-faint)]">
-            Session history from real API responses · {DEMO_SCENARIOS.length} canonical demos
+            Recorded in this browser from real API responses · {DEMO_SCENARIOS.length} canonical demos
           </span>
         </div>
         {history.length === 0 ? (
-          <EmptyState title="No cases in this session yet" body="Run a demo scenario above, or request a refund from the demo store, to open the investigation workspace." />
+          <EmptyState title="No recorded cases yet" body="Run a demo scenario above, or request a refund from the demo store, to open the investigation workspace." />
         ) : (
           <ul className="divide-y divide-[var(--color-jarvis-border)] overflow-hidden rounded-lg shadow-card border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)]">
             {history.map((entry) => (
