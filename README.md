@@ -137,10 +137,11 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 | `docs/IMPLEMENTATION_STATUS.md` | Status of record (IMPLEMENTED / VERIFIED / NOT DONE) |
 | `docs/AMD_EVIDENCE.md` | Evidence template for the first real-GPU runs (all fields unverified until filled) |
 | `docs/SUBMISSION.md` | Submission text: positioning, descriptions, tags, architecture, demo outline, checklist |
-| `docs/DEMO_SCRIPT.md` | Timed judge demo using Proof Mode; demonstrated versus future |
+| `docs/DEMO_SCRIPT.md` | Timed 3-minute judge demo across the merchant workspace; demonstrated versus future |
+| `docs/STORYBOARD.md` | Shot list mapped to real screenshots in `docs/screenshots/` |
 | `docs/BUSINESS_EVIDENCE.md` | Measured benchmark facts versus assumption-labelled value estimates |
 | `docs/AMD_DEPLOYMENT_RUNBOOK.md` | Step-by-step real-model run on AMD Developer Cloud (plus RX 6800 notes) |
-| `docs/TOKEN_FACTORY_SETUP.md` | Connect a hosted OpenAI-compatible endpoint (AMD Token Factory): verification, env, Vercel server-side opt-in |
+| `docs/TOKEN_FACTORY_SETUP.md` | Connect a hosted OpenAI-compatible endpoint (AMD Token Factory): verification, Windows PowerShell steps (`scripts/tokenfactory-smoke.ps1`), env, Vercel server-side opt-in |
 | `docs/VERCEL_PREVIEW_SETUP.md` | Safe fixture-only Vercel preview via CLI (no production, no `master`) |
 | `docs/EVOLUS_INTEGRATION.md` | Evolus requirements, intended two-block design, blockers |
 | `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md` | Prompt contracts, failure mapping, test matrix, smoke and benchmark plan |
