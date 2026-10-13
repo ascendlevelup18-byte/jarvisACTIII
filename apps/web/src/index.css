@@ -4,33 +4,39 @@
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  /* Dark premium ops — charcoal, not neon */
-  --color-jarvis-bg: #0b0e13;
-  --color-jarvis-bg-elevated: #10141c;
-  --color-jarvis-surface: #151a24;
-  --color-jarvis-surface-2: #1a2130;
-  --color-jarvis-border: #2a3344;
-  --color-jarvis-border-strong: #3a4558;
-  --color-jarvis-muted: #8b95a8;
-  --color-jarvis-ink: #e8edf5;
-  --color-jarvis-faint: #5c6678;
+  /* Light-first commerce console: neutral gray canvas, white surfaces, restrained blue accent.
+     Semantic hues keep their meaning: AI = violet, policy = green, execution = blue. */
+  --color-jarvis-bg: #f4f5f7;
+  --color-jarvis-bg-elevated: #ffffff;
+  --color-jarvis-surface: #ffffff;
+  --color-jarvis-surface-2: #f7f8fa;
+  --color-jarvis-border: #e2e5ea;
+  --color-jarvis-border-strong: #c9ced6;
+  --color-jarvis-muted: #4f5866;
+  --color-jarvis-ink: #14181f;
+  --color-jarvis-faint: #687180;
 
-  --color-ai-surface: #1a1828;
-  --color-ai-border: #3d3560;
-  --color-ai-accent: #9b8fd4;
+  --color-ai-surface: #f8f6fe;
+  --color-ai-border: #ddd5f5;
+  --color-ai-accent: #6a52c9;
 
-  --color-policy-surface: #12201c;
-  --color-policy-border: #2f6b55;
-  --color-policy-accent: #4aad86;
+  --color-policy-surface: #f2f8f4;
+  --color-policy-border: #bcdcc8;
+  --color-policy-accent: #1d7347;
 
-  --color-deterministic: #142028;
-  --color-deterministic-border: #2f5f78;
-  --color-deterministic-accent: #5ba3c9;
+  --color-deterministic: #f1f6fd;
+  --color-deterministic-border: #c3d6f2;
+  --color-deterministic-accent: #2459c4;
 
-  --color-success: #3f9e74;
-  --color-warning: #c4a35a;
-  --color-danger: #c45c5c;
-  --color-info: #5b8fbf;
+  --color-success: #1d7347;
+  --color-warning: #95580a;
+  --color-warning-surface: #fff8ec;
+  --color-danger: #b42318;
+  --color-danger-surface: #fef3f2;
+  --color-info: #2459c4;
+
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-raised: 0 4px 12px rgba(16, 24, 40, 0.08);
 }
 
 html,
@@ -42,10 +48,7 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(47, 95, 120, 0.12), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(47, 107, 85, 0.08), transparent 50%),
-    var(--color-jarvis-bg);
+  background: var(--color-jarvis-bg);
   color: var(--color-jarvis-ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -107,5 +110,5 @@ body {
 }
 
 ::selection {
-  background: rgba(91, 163, 201, 0.35);
+  background: rgba(36, 89, 196, 0.18);
 }

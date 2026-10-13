@@ -33,7 +33,7 @@ function Side({ label, side, onOpen }: { label: string; side?: ShowdownSide; onO
       <p className="mt-0.5 text-sm font-semibold text-[var(--color-jarvis-ink)]">{side.scenario.title}</p>
       <p className="mt-1 line-clamp-2 text-xs text-[var(--color-jarvis-muted)]">“{side.scenario.request.message}”</p>
       {side.error && (
-        <p role="alert" className="mt-3 rounded border border-[var(--color-danger)]/40 bg-[#1f1416] px-3 py-2 text-sm text-[var(--color-danger)]">
+        <p role="alert" className="mt-3 rounded border border-[var(--color-danger)]/40 bg-[var(--color-danger-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
           Request failed: {side.error}
         </p>
       )}

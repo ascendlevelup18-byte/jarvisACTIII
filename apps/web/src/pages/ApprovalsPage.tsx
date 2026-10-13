@@ -27,7 +27,7 @@ export function ApprovalsPage({ history, onOpenCase }: { history: SessionCaseEnt
                 <button
                   type="button"
                   onClick={() => onOpenCase(entry)}
-                  className="w-full rounded-md border border-[var(--color-warning)]/40 bg-[#1c1810] px-4 py-3 text-left hover:border-[var(--color-warning)]"
+                  className="w-full rounded-md border border-[var(--color-warning)]/40 bg-[var(--color-warning-surface)] px-4 py-3 text-left hover:border-[var(--color-warning)]"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <StateBadge state={entry.state} />

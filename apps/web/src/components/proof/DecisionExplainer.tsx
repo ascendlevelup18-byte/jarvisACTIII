@@ -8,13 +8,13 @@ const TONE: Record<DecisionExplanation["kind"], { surface: string; title: string
     title: "text-[var(--color-policy-accent)]",
     mark: "✓",
   },
-  blocked: { surface: "border-[var(--color-warning)]/50 bg-[#1c1810]", title: "text-[var(--color-warning)]", mark: "■" },
+  blocked: { surface: "border-[var(--color-warning)]/50 bg-[var(--color-warning-surface)]", title: "text-[var(--color-warning)]", mark: "■" },
   "no-action": {
     surface: "border-[var(--color-jarvis-border-strong)] bg-[var(--color-jarvis-surface-2)]",
     title: "text-[var(--color-jarvis-ink)]",
     mark: "–",
   },
-  failed: { surface: "border-[var(--color-danger)]/50 bg-[#1f1416]", title: "text-[var(--color-danger)]", mark: "!" },
+  failed: { surface: "border-[var(--color-danger)]/50 bg-[var(--color-danger-surface)]", title: "text-[var(--color-danger)]", mark: "!" },
   "in-progress": {
     surface: "border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)]",
     title: "text-[var(--color-jarvis-ink)]",

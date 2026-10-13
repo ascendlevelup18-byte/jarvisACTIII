@@ -3,9 +3,9 @@ import { deriveVerdict, type VerdictTone } from "../../lib/verdict.ts";
 
 const toneClass: Record<VerdictTone, string> = {
   success: "border-[var(--color-policy-border)] bg-[var(--color-policy-surface)]",
-  blocked: "border-[var(--color-warning)]/40 bg-[#1c1810]",
+  blocked: "border-[var(--color-warning)]/40 bg-[var(--color-warning-surface)]",
   closed: "border-[var(--color-jarvis-border-strong)] bg-[var(--color-jarvis-surface-2)]",
-  failed: "border-[var(--color-danger)]/40 bg-[#1f1416]",
+  failed: "border-[var(--color-danger)]/40 bg-[var(--color-danger-surface)]",
   progress: "border-[var(--color-info)]/40 bg-[var(--color-deterministic)]",
 };
 

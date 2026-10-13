@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { btn, inputCls } from "../components/ui/styles.ts";
 import { AUTOMATION_MODULES, checkStoreDomain, validateModuleSelection, type AutomationModule } from "../lib/automations.ts";
 import { describeOrderBalance, fetchDemoStore, type DemoStoreSnapshot } from "../lib/demo-store.ts";
 
@@ -35,7 +36,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
 
   return (
     <div className="mx-auto flex min-h-full max-w-4xl flex-col px-4 py-10 sm:px-6">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-jarvis-faint)]">
+      <p className="text-xs font-medium text-[var(--color-jarvis-faint)]">
         JARVIS Automations · setup · step {step} of 2
       </p>
 
@@ -56,7 +57,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
                 return (
                   <label
                     key={m.id}
-                    className={`flex cursor-pointer gap-3 rounded-md border p-4 transition-colors ${
+                    className={`flex cursor-pointer gap-3 rounded-lg border p-4 shadow-card transition-colors ${
                       on
                         ? "border-[var(--color-deterministic-accent)] bg-[var(--color-deterministic)]"
                         : "border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] hover:border-[var(--color-jarvis-border-strong)]"
@@ -94,7 +95,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
               type="button"
               disabled={!selection.ok}
               onClick={() => setStep(2)}
-              className="rounded border border-[var(--color-policy-border)] bg-[var(--color-policy-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-jarvis-ink)] hover:border-[var(--color-policy-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+              className={btn.primary}
             >
               Continue
             </button>
@@ -107,7 +108,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
             Connect your store
           </h1>
 
-          <div className="rounded-md border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] p-4">
+          <div className="rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] p-4 shadow-card">
             <label htmlFor="store-domain" className="text-sm font-semibold text-[var(--color-jarvis-ink)]">
               Your store domain
             </label>
@@ -121,12 +122,12 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="yourstore.com"
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-bg)] px-3 py-2 text-sm text-[var(--color-jarvis-ink)] placeholder:text-[var(--color-jarvis-faint)]"
+                className={`${inputCls} min-w-0 flex-1 basis-48`}
               />
               <button
                 type="button"
                 disabled
-                className="cursor-not-allowed rounded border border-[var(--color-jarvis-border)] px-3 py-2 text-sm text-[var(--color-jarvis-faint)]"
+                className={`${btn.secondary} cursor-not-allowed`}
               >
                 Connect (not available yet)
               </button>
@@ -138,7 +139,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
             )}
           </div>
 
-          <div className="rounded-md border border-[var(--color-deterministic-border)] bg-[var(--color-deterministic)] p-4">
+          <div className="rounded-lg border border-[var(--color-deterministic-border)] bg-[var(--color-deterministic)] p-4">
             <p className="text-sm font-semibold text-[var(--color-jarvis-ink)]">Use the demo store</p>
             <p className="mt-0.5 text-xs text-[var(--color-jarvis-muted)]">
               A seeded store on the JARVIS backend: synthetic customers and orders, simulated payments.
@@ -148,7 +149,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
                 type="button"
                 onClick={connectDemo}
                 disabled={connecting}
-                className="mt-3 rounded border border-[var(--color-deterministic-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-jarvis-ink)] disabled:cursor-wait disabled:opacity-60"
+                className={`${btn.secondary} mt-3`}
               >
                 {connecting ? "Connecting…" : "Connect demo store"}
               </button>
@@ -178,7 +179,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="rounded border border-[var(--color-jarvis-border)] px-4 py-2 text-sm text-[var(--color-jarvis-muted)] hover:text-[var(--color-jarvis-ink)]"
+              className={btn.secondary}
             >
               Back
             </button>
@@ -186,7 +187,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
               type="button"
               disabled={!store}
               onClick={() => store && onComplete({ modules: selected, store })}
-              className="rounded border border-[var(--color-policy-border)] bg-[var(--color-policy-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-jarvis-ink)] hover:border-[var(--color-policy-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+              className={btn.primary}
             >
               Open command center
             </button>

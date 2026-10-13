@@ -30,7 +30,7 @@ export function RuntimeChips() {
   return (
     <ul className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide" aria-label="Runtime status">
       {chips.map((c) => (
-        <li key={c.text} title={c.title} className={`rounded border px-2 py-1 ${TONE[c.tone]}`}>
+        <li key={c.text} title={c.title} className={`rounded-full border bg-[var(--color-jarvis-surface)] px-2 py-0.5 ${TONE[c.tone]}`}>
           {c.text}
         </li>
       ))}

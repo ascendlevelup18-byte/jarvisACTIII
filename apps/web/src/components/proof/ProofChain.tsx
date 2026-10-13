@@ -21,12 +21,12 @@ const STATUS: Record<ProofStatus, { label: string; surface?: string; pill: strin
   done: { label: "Done", pill: "bg-[var(--color-jarvis-bg)]/60 text-[var(--color-jarvis-ink)]" },
   blocked: {
     label: "Blocked",
-    surface: "border-[var(--color-warning)]/50 bg-[#1c1810]",
+    surface: "border-[var(--color-warning)]/50 bg-[var(--color-warning-surface)]",
     pill: "bg-[var(--color-warning)]/15 text-[var(--color-warning)]",
   },
   failed: {
     label: "Failed",
-    surface: "border-[var(--color-danger)]/50 bg-[#1f1416]",
+    surface: "border-[var(--color-danger)]/50 bg-[var(--color-danger-surface)]",
     pill: "bg-[var(--color-danger)]/15 text-[var(--color-danger)]",
   },
   skipped: {
