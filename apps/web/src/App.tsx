@@ -10,8 +10,12 @@ import { ApprovalsPage } from "./pages/ApprovalsPage.tsx";
 import { AutomationsPage } from "./pages/AutomationsPage.tsx";
 import { OnboardingPage } from "./pages/OnboardingPage.tsx";
 import { StorefrontPage } from "./pages/StorefrontPage.tsx";
+import { OrdersPage, type StoreLoad } from "./pages/OrdersPage.tsx";
+import { InboxPage } from "./pages/InboxPage.tsx";
+import { btn } from "./components/ui/styles.ts";
+import { buildInboxThreads } from "./lib/commerce.ts";
 import type { AutomationModule } from "./lib/automations.ts";
-import type { DemoStoreSnapshot } from "./lib/demo-store.ts";
+import { fetchDemoStore, refundRequestFor, type DemoStoreOrder, type DemoStoreSnapshot } from "./lib/demo-store.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "./fixtures/demo-scenarios.ts";
 import type { ShowdownSide, ShowdownState } from "./components/proof/SafetyShowdown.tsx";
 import { ApiError, submitCase } from "./lib/api.ts";
@@ -60,6 +64,18 @@ export default function App() {
   const [surface, setSurface] = useState<Surface>(initialSurface);
   const [modules, setModules] = useState<AutomationModule["id"][]>(() => loadSetup() ?? ["refunds"]);
   const [storeSnapshot, setStoreSnapshot] = useState<DemoStoreSnapshot | null>(null);
+  const [storeLoad, setStoreLoad] = useState<StoreLoad>({ status: "idle" });
+
+  const loadStore = useCallback(async () => {
+    setStoreLoad({ status: "loading" });
+    try {
+      setStoreSnapshot(await fetchDemoStore());
+      setStoreLoad({ status: "idle" });
+    } catch (e) {
+      setStoreLoad({ status: "error", error: e instanceof Error ? e.message : "Request failed" });
+    }
+  }, []);
+
 
   useEffect(() => {
     const hash = surface === "store" ? "#store" : surface === "onboarding" ? "#setup" : "";
@@ -136,6 +152,18 @@ export default function App() {
     }
   }, []);
 
+  // Orders / Inbox: send an order's fixed customer request from the console (a real POST /cases).
+  const runOrder = useCallback(async (o: DemoStoreOrder) => {
+    try {
+      const result = await submitCase(refundRequestFor(o));
+      setHistory((h) => appendSessionCase(h, result, { scenarioTitle: `Order #${o.orderId}`, scenarioId: o.supportRequest.scenario }));
+    } catch (e) {
+      throw e instanceof ApiError ? new Error(`${e.message} (${e.status})`) : e;
+    }
+  }, []);
+
+  const needsHuman = buildInboxThreads(history, storeSnapshot).filter((t) => t.status === "Needs human" || t.status === "Failed").length;
+
   if (surface === "onboarding") {
     return (
       <OnboardingPage
@@ -166,6 +194,8 @@ export default function App() {
   }
 
   const onNavigate = (id: NavId) => {
+    // Orders and Inbox read the demo store; load it the first time either is opened.
+    if ((id === "orders" || id === "inbox") && !storeSnapshot && storeLoad.status !== "loading") void loadStore();
     setNav(id);
     setView("nav");
   };
@@ -178,20 +208,13 @@ export default function App() {
     <OpsShell
       activeNav={nav}
       onNavigate={onNavigate}
+      badges={{ inbox: needsHuman }}
       actions={
         <>
-          <button
-            type="button"
-            onClick={() => setSurface("store")}
-            className="rounded border border-[var(--color-deterministic-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-jarvis-ink)]"
-          >
+          <button type="button" onClick={() => setSurface("store")} className={btn.secondary}>
             Open demo store
           </button>
-          <button
-            type="button"
-            onClick={() => setSurface("onboarding")}
-            className="rounded border border-[var(--color-jarvis-border)] px-3 py-1.5 text-xs text-[var(--color-jarvis-muted)] hover:text-[var(--color-jarvis-ink)]"
-          >
+          <button type="button" onClick={() => setSurface("onboarding")} className={btn.ghost}>
             Setup
           </button>
         </>
@@ -231,7 +254,13 @@ export default function App() {
             />
           )}
           {nav === "activity" && <ActivityPage history={history} onOpenCase={onOpenCase} />}
-          {nav === "benchmarks" && <BenchmarksPage history={history} />}
+          {nav === "benchmarks" && <BenchmarksPage history={history} onOpenCase={onOpenCase} onOpenStore={() => setSurface("store")} />}
+          {nav === "orders" && (
+            <OrdersPage snapshot={storeSnapshot} load={storeLoad} onReload={loadStore} history={history} onOpenCase={onOpenCase} onRunOrder={runOrder} />
+          )}
+          {nav === "inbox" && (
+            <InboxPage history={history} snapshot={storeSnapshot} onOpenCase={onOpenCase} onOpenStore={() => setSurface("store")} onRerun={runOrder} />
+          )}
           {nav === "automations" && <AutomationsPage enabled={modules} history={history} onOpenStore={() => setSurface("store")} />}
           {nav === "approvals" && <ApprovalsPage history={history} onOpenCase={onOpenCase} />}
           {nav === "system" && <SystemPage />}
