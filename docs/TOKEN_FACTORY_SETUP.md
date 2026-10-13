@@ -11,9 +11,9 @@ JARVIS treats Token Factory as an OpenAI-compatible provider. No Token Factory-s
 
 | Item | Where JARVIS uses it | Known? |
 |---|---|---|
-| Base URL (OpenAI-compatible, ends in `/v1`) | `JARVIS_MODEL_BASE_URL` | **Unverified.** Third-party pages cite `https://developer.amd.com.cn/radeon/api/v1` for "AMD Radeon Cloud Token Factory"; confirm against the official page or your key's issuer |
+| Base URL (OpenAI-compatible, ends in `/v1`) | `JARVIS_MODEL_BASE_URL` | **Candidate, not yet confirmed by a request.** Search results (13 Oct 2026) attribute `https://developer.amd.com.cn/radeon/api/v1` to AMD's Radeon Cloud quickstart and its Token Factory page (`developer.amd.com.cn/radeon/tokenfactory`, an AMD domain). The build sandbox could not open either page (network policy). Copy the URL from the official page you got your key from |
 | Auth | `Authorization: Bearer $JARVIS_MODEL_API_KEY` | Assumed OpenAI-style; confirmed by step 2 |
-| Model id | `JARVIS_MODEL_NAME`; must appear in `/models` | **Pick from the live `/models` output.** Never type an id from memory |
+| Model id | `JARVIS_MODEL_NAME`; must appear in `/models` | **Pick from the live `/models` output.** Sources disagree (e.g. `DeepSeek-V4-Flash` vs a dated variant) and the catalogue is described as changing; never type an id from memory |
 | `response_format: json_schema` support | `JARVIS_MODEL_STRUCTURED_OUTPUT` | Unknown; the startup probes test it |
 | Rate limits / quotas | `JARVIS_MODEL_MAX_RETRIES`, `JARVIS_DAILY_MODEL_CALL_BUDGET` | Unknown; read your account page |
 | Hardware behind the endpoint | Evidence only | A hosted API's hardware is the provider's claim; record their statement, don't infer it |
@@ -28,6 +28,46 @@ curl -s -H "Authorization: Bearer $JARVIS_MODEL_API_KEY" "$JARVIS_MODEL_BASE_URL
 ```
 
 Choose an **instruction-tuned** model from that list. The JARVIS prompts need strict JSON, and a mid-size instruct model is a good first try.
+
+## 2b. Windows PowerShell (recommended for the owner's machine)
+
+`scripts/tokenfactory-smoke.ps1` does step 2 safely:
+- it reads the key with `Read-Host -AsSecureString`, never prints it, writes nothing to disk and clears it at the end;
+- it checks that `/models` refuses an unauthenticated request, lists the served ids, and optionally makes one 8-token chat call (status, latency, usage).
+
+It was written in a sandbox without PowerShell, so its first run on Windows is also its first execution.
+
+```powershell
+cd C:\jarvis-actiii-preview
+git pull origin claude/kickoff-day1-jkg6ry
+$Base = "<base URL copied from the official Token Factory page, ending in /v1>"
+powershell -ExecutionPolicy Bypass -File .\scripts\tokenfactory-smoke.ps1 -BaseUrl $Base
+powershell -ExecutionPolicy Bypass -File .\scripts\tokenfactory-smoke.ps1 -BaseUrl $Base -Model "<id exactly as listed>"
+```
+
+Then run JARVIS against it from the same PowerShell window. The key lives only in this process's environment:
+
+```powershell
+$k = Read-Host "API key" -AsSecureString
+$env:JARVIS_MODEL_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($k))
+$env:JARVIS_AI_MODE = "vllm"
+$env:JARVIS_MODEL_BASE_URL = $Base
+$env:JARVIS_MODEL_NAME = "<id exactly as listed>"
+$env:JARVIS_MODEL_TIMEOUT_MS = "20000"
+$env:JARVIS_MODEL_MAX_RETRIES = "1"
+$env:JARVIS_DAILY_MODEL_CALL_BUDGET = "300"
+$env:PORT = "3000"
+npm run api:start          # fails closed (exit 1) at MODEL_LIST / MODEL_NOT_SERVED / PROBE_* if anything is wrong
+```
+
+In a second window run `npm run web:dev` and open http://127.0.0.1:43123. The header should read `MODEL · <id>`. Run the four demos, then stop the server and run, in the first window:
+
+```powershell
+npm run api:bench:vllm -- --run tf-1    # hard gate: 0 unsafe actions; writes evals/results/...vllm-<model>-tf-1.json
+Remove-Item Env:JARVIS_MODEL_API_KEY    # clear the key when done
+```
+
+Record the date, base URL, model id, `/api/health` provider block and the benchmark summary in `docs/AMD_EVIDENCE.md`. Record the provider's hardware statement only as their claim.
 
 ## 3. Run JARVIS locally against it (node server; recommended first)
 
