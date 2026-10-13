@@ -140,6 +140,8 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 | `docs/SUBMISSION.md` | Submission text: positioning, descriptions, tags, architecture, demo outline, checklist |
 | `docs/DEMO_SCRIPT.md` | Timed 3-minute judge demo across the merchant workspace; demonstrated versus future |
 | `docs/STORYBOARD.md` | Shot list mapped to real screenshots in `docs/screenshots/` |
+| `docs/OWNER_RUNBOOK.md` | Windows PowerShell runbook: pull, install, AMD model discovery and first call, real-model mode, verification, benchmark, Vercel preview, judge access, recording |
+| `docs/SUBMISSION_PREFLIGHT.md` | Public submission requirements versus current status; slide outline |
 | `docs/BUSINESS_EVIDENCE.md` | Measured benchmark facts versus assumption-labelled value estimates |
 | `docs/AMD_DEPLOYMENT_RUNBOOK.md` | Step-by-step real-model run on AMD Developer Cloud (plus RX 6800 notes) |
 | `docs/TOKEN_FACTORY_SETUP.md` | Connect a hosted OpenAI-compatible endpoint (AMD Token Factory): verification, Windows PowerShell steps (`scripts/tokenfactory-smoke.ps1`), env, Vercel server-side opt-in |

@@ -159,7 +159,9 @@ See `README.md` §Security limitations:
 | CI | **Green** on the pushed branch head | `.github/workflows/ci.yml` |
 | Demo script and storyboard | Done | `docs/DEMO_SCRIPT.md` (3:00), `docs/STORYBOARD.md` (real screenshots) |
 | Reproducible technical results | Fixture benchmark: yes. Real model: not yet | `npm run api:bench:ci`; `api:bench:vllm` after AMD |
-| Cover image, MP4 video, PDF slides | Not started (by design, after real results) | Use only measured claims |
+| Cover image | **Prepared:** `docs/submission/cover.png` | From a real screenshot; labelled synthetic/simulated |
+| MP4 video, PDF slides | Not made. Slide outline in `docs/SUBMISSION_PREFLIGHT.md` | Record after the live AMD run; use only measured claims |
+| Full preflight against the public rules | `docs/SUBMISSION_PREFLIGHT.md` | **The AMD-workload requirement is not met yet**: see runbook §3–§7 |
 
 ## Demo outline
 
