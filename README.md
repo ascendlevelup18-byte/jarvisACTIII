@@ -24,13 +24,17 @@ The app opens on a first-run setup ("What do you want to automate?"). It then of
 
 | Page | What it shows | Data source |
 |---|---|---|
-| Overview | Fixture-benchmark KPIs (labelled), safety showdown, demo scenarios, case queue | `/cases` responses, pinned benchmark |
-| Orders | Demo-store orders joined with this session's cases: payment, refund, resolution and verification state; search, status filters, detail with linked case evidence | `GET /api/demo-store` + session cases |
-| Inbox | Three panes: conversation queue, message history, **JARVIS Copilot** (AI proposal, policy decision and cited sections, evidence, approval need, verification, audit link). The Copilot is internal; customer-visible replies are derived only from recorded case outcomes | Session cases |
-| Cases, Approvals, Audit trail | Investigations (proof chain, policy checks, audit), escalations awaiting a person | Session cases |
-| Automations | Setup choices; only Refunds is operational | Local setup |
-| Analytics | Session KPIs, case volume over time, resolved vs escalated, refund execution and verification, AI-call latency per adapter (from the audit), recent activity; source and date filters; the labelled fixture benchmark | Session cases, pinned benchmark |
-| AI provider | Runtime truth from `/api/health` | Backend |
+| Dashboard | Today's recorded cases, pending reviews, verified refunds, needs-attention list, automation status | Recorded cases, demo store |
+| Proof Mode | Safety showdown, the four canonical scenarios, labelled fixture-benchmark KPIs | `/cases` responses, pinned benchmark |
+| Orders | Sortable, searchable, filterable table (cards on mobile); detail drawer with payment records, linked cases, decision history and audit links; deep link `#/orders/<id>` | `GET /api/demo-store` + recorded cases |
+| Customers | Seed customers with their orders, cases and pending reviews | Demo store + recorded cases |
+| Support inbox | Queue, conversation (recorded messages only, case progression), **JARVIS Copilot** with distinct PROPOSED / APPROVED / EXECUTED / VERIFIED / ESCALATED states, policy, evidence, approval and audit link | Recorded cases |
+| Automation catalog | Live refund workflow (Trigger → Evidence → AI → Policy → Action → Verification → Audit), requirements; previews run nothing | Static catalog + recorded counts |
+| Cases, Approvals, Audit trail | Investigations; a review-only escalation queue with reasons; every engine audit event, filterable by kind and case | Recorded cases |
+| Analytics | Date ranges (today/7/30/90 days/all), source filter, KPIs with previous-period comparison only when earlier records exist, cases over time, resolution vs escalation, refund outcomes, automation (AI-call) activity, support activity, orders by status, drill-down case report; a separate, labelled **Sample data** mode | Recorded cases (`apps/web/src/lib/analytics.ts`), or `sample-analytics.ts` |
+| AI provider, Settings | Runtime truth from `/api/health`; setup choices, clearing recorded cases, security boundaries | Backend, this browser |
+
+Recorded cases are copies of real `/cases` responses kept in this browser (newest 50) so deep links and date ranges survive a reload. Pages deep-link with hash routes (`#/analytics`, `#/case/<id>`), and browser back/forward works.
 
 Nothing in these pages is invented: no revenue, ROI, chat history or fulfilment data. An empty session shows empty states. Browser checks: `apps/web/e2e/*.e2e.mjs` (Proof Mode, merchant journey, commerce console); screenshots in `docs/screenshots/`.
 

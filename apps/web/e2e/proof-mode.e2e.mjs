@@ -27,8 +27,10 @@ const check = async (name, fn) => {
 const shot = async (page, file, fullPage = true) => OUT && page.screenshot({ path: `${OUT}/${file}`, fullPage });
 
 async function runDemo(page, title) {
-  const back = page.getByRole("button", { name: /Back to operations/ });
+  const back = page.getByRole("button", { name: /Back to / });
   if (await back.count()) await back.click();
+  const nav = page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Proof Mode" });
+  if (!(await page.getByRole("group", { name: "Canonical demo scenarios" }).count())) await nav.click();
   await page.getByRole("group", { name: "Canonical demo scenarios" }).getByRole("button", { name: new RegExp(title) }).click();
   await page.getByText("Proof chain").waitFor();
 }
@@ -38,7 +40,7 @@ try {
   page.setDefaultTimeout(8000);
   // Skip first-run onboarding (covered by merchant-platform.e2e.mjs).
   await page.addInitScript(() => localStorage.setItem("jarvis.setup.v1", JSON.stringify({ modules: ["refunds"] })));
-  await page.goto(BASE);
+  await page.goto(`${BASE}/#/proof`);
 
   await check("runtime chips come from /api/health (fixture backend)", async () => {
     const chips = page.getByRole("list", { name: "Runtime status" }).first();
@@ -95,7 +97,7 @@ try {
   });
 
   await check("system page: truthful labels from health", async () => {
-    await page.getByRole("button", { name: /Back to operations/ }).click();
+    await page.getByRole("button", { name: /Back to / }).click();
     await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "AI provider" }).click();
     const truth = page.locator("#system-truth");
     await truth.getByText("FIXTURE AI").waitFor({ timeout: 5000 });
@@ -108,7 +110,7 @@ try {
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, reducedMotion: "reduce" });
   mobile.setDefaultTimeout(8000);
   await mobile.addInitScript(() => localStorage.setItem("jarvis.setup.v1", JSON.stringify({ modules: ["refunds"] })));
-  await mobile.goto(BASE);
+  await mobile.goto(`${BASE}/#/proof`);
   await check("mobile: investigation renders without horizontal page scroll", async () => {
     await runDemo(mobile, "Adversarial");
     await mobile.getByRole("heading", { name: "Why JARVIS refused to refund" }).waitFor();

@@ -59,7 +59,7 @@ try {
 
   await check("command center opens on Automations with the setup choices", async () => {
     await page.getByRole("button", { name: "Open command center" }).click();
-    await page.getByRole("heading", { name: "Automations", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Automation catalog", exact: true }).waitFor();
     assert.equal(await page.getByText("Selected in setup").count(), 2);
   });
 
@@ -89,13 +89,14 @@ try {
     await page.getByRole("button", { name: /See how JARVIS decided/ }).last().click();
     await page.getByRole("heading", { name: "Why JARVIS refused to refund" }).waitFor();
     await page.getByText("Demo store · order #48294").first().waitFor();
-    await page.getByRole("button", { name: /Back to operations/ }).click();
+    await page.getByRole("button", { name: /Back to / }).click();
     const nav = page.getByRole("navigation", { name: "Primary" });
     await nav.getByRole("button", { name: "Approvals" }).click();
     await page.getByText("from demo store").first().waitFor();
     await nav.getByRole("button", { name: "Analytics" }).click();
-    const fromStore = page.locator("dt", { hasText: "From demo store" }).locator("xpath=following-sibling::dd");
-    assert.equal(await fromStore.innerText(), "2");
+    const cases = page.locator("dt", { hasText: /^Recorded cases$/ }).locator("xpath=following-sibling::dd").first();
+    assert.equal(await cases.innerText(), "2");
+    await page.getByRole("region", { name: "Support activity" }).getByText("Customer requests from the demo store").waitFor();
   });
   await shot(page, "m05-merchant-analytics.png");
 

@@ -16,7 +16,7 @@ npm run web:dev                  # http://127.0.0.1:43123
 
 | Time | Show | Say |
 |---|---|---|
-| 0:00–0:20 | **Overview** page, header chips (a first visit opens setup; complete it once, or open `#setup` / `#store` directly) | "Duplicate charges are a top payments-support ticket. Refunding is easy; refunding *safely* is the hard part, because an AI agent can be talked into the wrong refund. JARVIS lets AI read the case and propose, but only deterministic code can let money move." |
+| 0:00–0:20 | **Proof Mode** (`#/proof`), header chips (a first visit opens setup; complete it once, or open `#setup` / `#store` directly) | "Duplicate charges are a top payments-support ticket. Refunding is easy; refunding *safely* is the hard part, because an AI agent can be talked into the wrong refund. JARVIS lets AI read the case and propose, but only deterministic code can let money move." |
 | 0:20–0:35 | **Safety showdown** → *Run vs Adversarial message* | "Two real requests hit the backend right now: a genuine duplicate, and a message that tries to order a $5,000 refund." |
 | 0:35–0:55 | Showdown table | "Same AI, same proposal: *refund duplicate* both times. Policy says **APPROVE** for A and **DENY** for B. A moved $89.99 and was verified by read-back; B moved $0.00." |
 | 0:55–1:35 | *Open full investigation* on A: verdict, **proof chain**, "Why the refund was allowed" | Walk the 7 steps: "The complaint is untrusted input. The purple steps are model output with no authority: the understanding, and the proposal. Evidence comes from the system of record. Green is policy: 18 of 18 checks passed, and the amount came from the records, not the model. Blue is the simulated gateway, then read-back verification confirmed the refund before the case closed." |
@@ -37,7 +37,8 @@ npm run web:dev                  # http://127.0.0.1:43123
 4. Click *See how JARVIS decided*. That opens the merchant investigation with the proof chain and the "why refused" panel. **Approvals** lists it as "from demo store", and **Analytics** counts it.
 5. **Orders:** #48291 shows *Refunded by JARVIS (simulated) · Verified*; #48294 shows *Refund blocked · Not executed*. Click #48292 for charges, the customer's request and the linked case.
 6. **Inbox:** open Dee Placeholder (#48294). The center pane shows only the recorded request and the reply the customer actually saw. The **Copilot** on the right is internal: the AI proposed a refund (no authority), policy said DENY with the failed check, a person must review, nothing to verify.
-7. **Analytics:** KPIs and charts recompute from these cases. Switch the source filter to *Console* to show the honest empty state.
+7. **Analytics:** KPIs and charts recompute from these cases; click a chart segment to filter the case report, then *Open evidence*. Switch the source to *Console* for the honest empty state, or *Sample data* for a labelled 90-day illustration (never mixed with recorded cases).
+8. **Approvals** (the *pending review* button in the header) is a review-only queue; **Audit trail** filters every engine event by kind and case.
 
 ## Demonstrated vs future
 
