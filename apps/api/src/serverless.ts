@@ -11,6 +11,7 @@
 // - The model API key is read from server-side env only; nothing here reaches the browser.
 import { loadAiConfig, AiConfigError, resolveModelTimeouts, sanitizeEndpoint } from "./ai-config.ts";
 import { initializeAi, type AiRuntime, type AiStartupReport } from "./ai-mode.ts";
+import { demoStoreSnapshot } from "./demo-store.ts";
 import { handleCaseRequest, freshWorld } from "./ingress.ts";
 import { IngressConfigError, loadIngressSecurity, LocalInferenceLimiter, type IngressLimits } from "./limits.ts";
 import { FixtureModelAdapter } from "./model-adapter.ts";
@@ -198,5 +199,11 @@ export function createServerlessHandlers(deployment: ServerlessDeployment, env: 
     });
   }
 
-  return { cases, health };
+  /** Read-only seeded demo store (synthetic orders and charges; no writes, no credentials). */
+  function demoStore(request: Request): Response {
+    if (request.method !== "GET") return json(405, { error: "method_not_allowed" });
+    return json(200, demoStoreSnapshot(() => new Date()));
+  }
+
+  return { cases, health, demoStore };
 }

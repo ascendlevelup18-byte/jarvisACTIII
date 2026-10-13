@@ -1,5 +1,6 @@
-// POST /cases -> final case result, through the shared ingress guard. GET /api/health.
+// POST /cases -> final case result, through the shared ingress guard. GET /api/health, GET /api/demo-store.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { demoStoreSnapshot } from "./demo-store.ts";
 import { clientKeyFrom, handleCaseRequest, MAX_BODY_BYTES, type CaseIngress } from "./ingress.ts";
 
 export interface AppOptions {
@@ -23,6 +24,9 @@ async function handle(req: IncomingMessage, res: ServerResponse, ingress: CaseIn
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
   if (path === "/api/health" && opts.health) {
     return req.method === "GET" ? send(res, 200, opts.health()) : send(res, 405, { error: "method_not_allowed" });
+  }
+  if (path === "/api/demo-store") {
+    return req.method === "GET" ? send(res, 200, demoStoreSnapshot(ingress.clock)) : send(res, 405, { error: "method_not_allowed" });
   }
   if (path !== "/cases") return send(res, 404, { error: "not_found" });
 
