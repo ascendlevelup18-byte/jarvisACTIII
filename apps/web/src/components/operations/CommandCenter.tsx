@@ -35,8 +35,8 @@ export function CommandCenter({
   return (
     <div className="motion-fade-in space-y-5">
       <PageHeader
-        title="Overview"
-        description="AI proposes; deterministic policy decides whether money may move; every executed refund is verified by read-back. Payments are simulated; the status chips above come from the running backend."
+        title="Proof Mode"
+        description="Run the canonical requests against the live backend and inspect how each was decided. AI proposes; deterministic policy decides whether money may move; every executed refund is verified by read-back. Payments are simulated."
       />
 
       <section

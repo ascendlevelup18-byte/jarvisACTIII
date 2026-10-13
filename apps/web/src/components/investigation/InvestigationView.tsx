@@ -18,10 +18,13 @@ export function InvestigationView({
   caseData,
   scenarioTitle,
   onBack,
+  backLabel = "operations",
 }: {
   caseData: Case;
   scenarioTitle?: string;
   onBack?: () => void;
+  /** Where the back button returns to (page name). */
+  backLabel?: string;
 }) {
   return (
     <div className="motion-fade-in space-y-4">
@@ -40,7 +43,7 @@ export function InvestigationView({
             onClick={onBack}
             className="rounded border border-[var(--color-jarvis-border)] px-3 py-1.5 text-xs text-[var(--color-jarvis-muted)] hover:text-[var(--color-jarvis-ink)]"
           >
-            ← Back to operations
+            ← Back to {backLabel}
           </button>
         )}
       </div>

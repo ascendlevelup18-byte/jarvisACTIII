@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { OpsShell } from "./components/layout/OpsShell.tsx";
 import { CommandCenter } from "./components/operations/CommandCenter.tsx";
 import { InvestigationView } from "./components/investigation/InvestigationView.tsx";
 import { ActivityPage } from "./pages/ActivityPage.tsx";
-import { BenchmarksPage } from "./pages/BenchmarksPage.tsx";
 import { CasesPage } from "./pages/CasesPage.tsx";
 import { SystemPage } from "./pages/SystemPage.tsx";
 import { ApprovalsPage } from "./pages/ApprovalsPage.tsx";
@@ -12,19 +11,26 @@ import { OnboardingPage } from "./pages/OnboardingPage.tsx";
 import { StorefrontPage } from "./pages/StorefrontPage.tsx";
 import { OrdersPage, type StoreLoad } from "./pages/OrdersPage.tsx";
 import { InboxPage } from "./pages/InboxPage.tsx";
+import { DashboardPage } from "./pages/DashboardPage.tsx";
+import { CustomersPage } from "./pages/CustomersPage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
+import { EmptyState, LoadingRows } from "./components/ui/Primitives.tsx";
 import { btn } from "./components/ui/styles.ts";
-import { buildInboxThreads } from "./lib/commerce.ts";
 import type { AutomationModule } from "./lib/automations.ts";
 import { fetchDemoStore, refundRequestFor, type DemoStoreOrder, type DemoStoreSnapshot } from "./lib/demo-store.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "./fixtures/demo-scenarios.ts";
 import type { ShowdownSide, ShowdownState } from "./components/proof/SafetyShowdown.tsx";
 import { ApiError, submitCase } from "./lib/api.ts";
 import type { Case, CaseRequest } from "./lib/case-types.ts";
-import type { NavId } from "./lib/system-truth.ts";
-import { appendSessionCase, type SessionCaseEntry } from "./lib/session-store.ts";
-
-type ViewMode = "nav" | "investigation";
-type Surface = "onboarding" | "merchant" | "store";
+import { navLabel, type NavId } from "./lib/system-truth.ts";
+import { formatRoute, parseRoute, type Route } from "./lib/routes.ts";
+import {
+  appendSessionCase,
+  clearRecordedCases,
+  loadRecordedCases,
+  saveRecordedCases,
+  type SessionCaseEntry,
+} from "./lib/session-store.ts";
 
 // Setup choices are a per-browser convenience; the app works without storage.
 const SETUP_KEY = "jarvis.setup.v1";
@@ -44,194 +50,246 @@ function saveSetup(modules: AutomationModule["id"][]): void {
     /* storage unavailable: setup simply isn't remembered */
   }
 }
-function initialSurface(): Surface {
-  const hash = typeof window === "undefined" ? "" : window.location.hash;
-  if (hash === "#store") return "store";
-  if (hash === "#setup") return "onboarding";
-  return loadSetup() ? "merchant" : "onboarding";
+
+type MerchantRoute = Extract<Route, { surface: "merchant" }>;
+// The analytics workspace (charts, sample dataset) loads on first visit.
+const BenchmarksPage = lazy(() => import("./pages/BenchmarksPage.tsx").then((m) => ({ default: m.BenchmarksPage })));
+
+const DEFAULT_ROUTE: MerchantRoute = { surface: "merchant", nav: "dashboard" };
+function initialRoute(): Route {
+  const parsed = typeof window === "undefined" ? null : parseRoute(window.location.hash);
+  if (parsed) return parsed;
+  return loadSetup() ? DEFAULT_ROUTE : { surface: "setup" };
 }
 
+const errorText = (e: unknown) => (e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed");
+
 export default function App() {
-  const [nav, setNav] = useState<NavId>("operations");
-  const [view, setView] = useState<ViewMode>("nav");
+  const [route, setRoute] = useState<Route>(initialRoute);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [caseData, setCaseData] = useState<Case | null>(null);
-  const [scenarioTitle, setScenarioTitle] = useState<string | undefined>();
   const [activeDemoId, setActiveDemoId] = useState<string | undefined>();
-  const [history, setHistory] = useState<SessionCaseEntry[]>([]);
+  const [history, setHistory] = useState<SessionCaseEntry[]>(loadRecordedCases);
   const [showdown, setShowdown] = useState<ShowdownState>({ status: "idle" });
-  const [surface, setSurface] = useState<Surface>(initialSurface);
   const [modules, setModules] = useState<AutomationModule["id"][]>(() => loadSetup() ?? ["refunds"]);
   const [storeSnapshot, setStoreSnapshot] = useState<DemoStoreSnapshot | null>(null);
-  const [storeLoad, setStoreLoad] = useState<StoreLoad>({ status: "idle" });
+  const [storeLoad, setStoreLoad] = useState<StoreLoad>({ status: "loading" });
+  // The merchant page an investigation was opened from, for its back button.
+  const [returnTo, setReturnTo] = useState<Route>(DEFAULT_ROUTE);
 
-  const loadStore = useCallback(async () => {
-    setStoreLoad({ status: "loading" });
-    try {
-      setStoreSnapshot(await fetchDemoStore());
-      setStoreLoad({ status: "idle" });
-    } catch (e) {
-      setStoreLoad({ status: "error", error: e instanceof Error ? e.message : "Request failed" });
-    }
+  const navigate = useCallback((next: Route, replace = false) => {
+    const hash = formatRoute(next);
+    if (window.location.hash !== hash) window.history[replace ? "replaceState" : "pushState"](null, "", hash);
+    setRoute(next);
   }, []);
 
-
+  // Browser back/forward and manually edited hashes.
   useEffect(() => {
-    const hash = surface === "store" ? "#store" : surface === "onboarding" ? "#setup" : "";
-    if (window.location.hash !== hash) window.history.replaceState(null, "", hash || window.location.pathname);
-  }, [surface]);
+    const sync = () => setRoute(parseRoute(window.location.hash) ?? DEFAULT_ROUTE);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("hashchange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hashchange", sync);
+    };
+  }, []);
 
-  const openInvestigation = useCallback((c: Case, title?: string, demoId?: string) => {
-    setCaseData(c);
-    setScenarioTitle(title);
-    setActiveDemoId(demoId);
-    setView("investigation");
-    setNav("cases");
+  // The demo store seed backs Orders, Customers, Inbox, search and analytics; read it once.
+  const loadStore = useCallback(() => {
+    setStoreLoad({ status: "loading" });
+    fetchDemoStore()
+      .then((s) => {
+        setStoreSnapshot(s);
+        setStoreLoad({ status: "idle" });
+      })
+      .catch((e: unknown) => setStoreLoad({ status: "error", error: errorText(e) }));
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    fetchDemoStore()
+      .then((s) => {
+        if (cancelled) return;
+        setStoreSnapshot(s);
+        setStoreLoad({ status: "idle" });
+      })
+      .catch((e: unknown) => !cancelled && setStoreLoad({ status: "error", error: errorText(e) }));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => saveRecordedCases(history), [history]);
+
+  const openCase = useCallback(
+    (caseId: string) => {
+      if (window.location.hash && !window.location.hash.startsWith("#/case/")) setReturnTo(parseRoute(window.location.hash) ?? DEFAULT_ROUTE);
+      navigate({ surface: "merchant", nav: "cases", caseId });
+    },
+    [navigate],
+  );
+
+  const record = useCallback((result: Case, meta: Parameters<typeof appendSessionCase>[2]) => {
+    setHistory((h) => appendSessionCase(h, result, meta));
   }, []);
 
   const run = useCallback(
     async (request: DemoScenario["request"], title?: string, demoId?: string) => {
       setLoading(true);
       setError(null);
-      setScenarioTitle(title);
       setActiveDemoId(demoId);
       try {
         const result = await submitCase(request);
-        setHistory((h) => appendSessionCase(h, result, { scenarioTitle: title, scenarioId: demoId }));
-        openInvestigation(result, title, demoId);
+        record(result, { scenarioTitle: title, scenarioId: demoId });
+        openCase(result.id);
       } catch (e) {
-        setCaseData(null);
-        setView("nav");
-        if (e instanceof ApiError) {
-          setError(`${e.message} (${e.status})`);
-        } else {
-          setError(e instanceof Error ? e.message : "Request failed");
-        }
+        setError(errorText(e));
       } finally {
         setLoading(false);
       }
     },
-    [openInvestigation],
+    [openCase, record],
   );
 
   // Two real requests, one after the other; each side records its own result or error.
-  const runShowdown = useCallback(async (risky: DemoScenario) => {
-    const safeScenario = DEMO_SCENARIOS.find((d) => d.id === "valid-duplicate")!;
-    const runSide = async (scenario: DemoScenario): Promise<ShowdownSide> => {
-      try {
-        const result = await submitCase(scenario.request);
-        setHistory((h) => appendSessionCase(h, result, { scenarioTitle: scenario.title, scenarioId: scenario.id }));
-        return { scenario, result };
-      } catch (e) {
-        const msg = e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed";
-        return { scenario, error: msg };
-      }
-    };
-    setShowdown({ status: "running", safe: { scenario: safeScenario }, risky: { scenario: risky } });
-    const safe = await runSide(safeScenario);
-    setShowdown({ status: "running", safe, risky: { scenario: risky } });
-    const riskySide = await runSide(risky);
-    setShowdown({ status: "done", safe, risky: riskySide });
-  }, []);
+  const runShowdown = useCallback(
+    async (risky: DemoScenario) => {
+      const safeScenario = DEMO_SCENARIOS.find((d) => d.id === "valid-duplicate")!;
+      const runSide = async (scenario: DemoScenario): Promise<ShowdownSide> => {
+        try {
+          const result = await submitCase(scenario.request);
+          record(result, { scenarioTitle: scenario.title, scenarioId: scenario.id });
+          return { scenario, result };
+        } catch (e) {
+          return { scenario, error: errorText(e) };
+        }
+      };
+      setShowdown({ status: "running", safe: { scenario: safeScenario }, risky: { scenario: risky } });
+      const safe = await runSide(safeScenario);
+      setShowdown({ status: "running", safe, risky: { scenario: risky } });
+      const riskySide = await runSide(risky);
+      setShowdown({ status: "done", safe, risky: riskySide });
+    },
+    [record],
+  );
 
   // Demo-store customer request → real case on the backend → visible to the merchant.
-  const submitFromStore = useCallback(async (request: CaseRequest, order: { orderId: string; supportRequest: { scenario: string } }) => {
-    try {
-      const result = await submitCase(request);
-      setHistory((h) =>
-        appendSessionCase(h, result, {
-          scenarioTitle: `Demo store · order #${order.orderId}`,
-          scenarioId: order.supportRequest.scenario,
-          source: "storefront",
-        }),
-      );
-      return result;
-    } catch (e) {
-      throw e instanceof ApiError ? new Error(`${e.message} (${e.status})`) : e;
-    }
-  }, []);
+  const submitFromStore = useCallback(
+    async (request: CaseRequest, order: { orderId: string; supportRequest: { scenario: string } }) => {
+      try {
+        const result = await submitCase(request);
+        record(result, { scenarioTitle: `Demo store · order #${order.orderId}`, scenarioId: order.supportRequest.scenario, source: "storefront" });
+        return result;
+      } catch (e) {
+        throw new Error(errorText(e));
+      }
+    },
+    [record],
+  );
 
   // Orders / Inbox: send an order's fixed customer request from the console (a real POST /cases).
-  const runOrder = useCallback(async (o: DemoStoreOrder) => {
-    try {
-      const result = await submitCase(refundRequestFor(o));
-      setHistory((h) => appendSessionCase(h, result, { scenarioTitle: `Order #${o.orderId}`, scenarioId: o.supportRequest.scenario }));
-    } catch (e) {
-      throw e instanceof ApiError ? new Error(`${e.message} (${e.status})`) : e;
-    }
-  }, []);
+  const runOrder = useCallback(
+    async (o: DemoStoreOrder) => {
+      try {
+        const result = await submitCase(refundRequestFor(o));
+        record(result, { scenarioTitle: `Order #${o.orderId}`, scenarioId: o.supportRequest.scenario });
+      } catch (e) {
+        throw new Error(errorText(e));
+      }
+    },
+    [record],
+  );
 
-  const needsHuman = buildInboxThreads(history, storeSnapshot).filter((t) => t.status === "Needs human" || t.status === "Failed").length;
+  const pendingReview = useMemo(() => history.filter((h) => h.state === "ESCALATED" || h.state === "FAILED").length, [history]);
 
-  if (surface === "onboarding") {
+  if (route.surface === "setup") {
     return (
       <OnboardingPage
         onComplete={(r) => {
           saveSetup(r.modules);
           setModules(r.modules);
           setStoreSnapshot(r.store);
-          setNav("automations");
-          setView("nav");
-          setSurface("merchant");
+          navigate({ surface: "merchant", nav: "automations" });
         }}
       />
     );
   }
 
-  if (surface === "store") {
+  if (route.surface === "store") {
     return (
       <StorefrontPage
         snapshot={storeSnapshot}
         onSubmit={submitFromStore}
-        onOpenCase={(c, order) => {
-          openInvestigation(c, `Demo store · order #${order.orderId}`, order.supportRequest.scenario);
-          setSurface("merchant");
+        onOpenCase={(c) => {
+          setReturnTo({ surface: "merchant", nav: "inbox" });
+          navigate({ surface: "merchant", nav: "cases", caseId: c.id });
         }}
-        onExit={() => setSurface("merchant")}
+        onExit={() => navigate(returnTo.surface === "merchant" ? returnTo : DEFAULT_ROUTE)}
       />
     );
   }
 
-  const onNavigate = (id: NavId) => {
-    // Orders and Inbox read the demo store; load it the first time either is opened.
-    if ((id === "orders" || id === "inbox") && !storeSnapshot && storeLoad.status !== "loading") void loadStore();
-    setNav(id);
-    setView("nav");
+  const go = (nav: NavId, extra: Omit<MerchantRoute, "surface" | "nav"> = {}) =>
+    navigate({ surface: "merchant", nav, ...extra });
+  const onOpenCase = (entry: SessionCaseEntry) => openCase(entry.id);
+  const openStore = () => {
+    setReturnTo(route);
+    navigate({ surface: "store" });
   };
-
-  const onOpenCase = (entry: SessionCaseEntry) => {
-    openInvestigation(entry.caseData, entry.scenarioTitle, entry.scenarioId);
-  };
+  const openedCase = route.caseId ? history.find((h) => h.id === route.caseId) : undefined;
+  const back: MerchantRoute = returnTo.surface === "merchant" && !returnTo.caseId ? returnTo : DEFAULT_ROUTE;
 
   return (
     <OpsShell
-      activeNav={nav}
-      onNavigate={onNavigate}
-      badges={{ inbox: needsHuman }}
+      activeNav={route.nav}
+      onNavigate={(id) => go(id)}
+      badges={{ approvals: pendingReview }}
+      store={storeSnapshot}
+      history={history}
+      pendingReview={pendingReview}
+      onSearchSelect={(r) => navigate(r)}
       actions={
         <>
-          <button type="button" onClick={() => setSurface("store")} className={btn.secondary}>
+          <button type="button" onClick={openStore} className={btn.secondary}>
             Open demo store
           </button>
-          <button type="button" onClick={() => setSurface("onboarding")} className={btn.ghost}>
+          <button type="button" onClick={() => navigate({ surface: "setup" })} className={btn.ghost}>
             Setup
           </button>
         </>
       }
     >
-      {view === "investigation" && caseData ? (
-        <InvestigationView
-          caseData={caseData}
-          scenarioTitle={scenarioTitle}
-          onBack={() => {
-            setView("nav");
-            setNav("operations");
-          }}
-        />
+      {route.caseId ? (
+        openedCase ? (
+          <InvestigationView
+            caseData={openedCase.caseData}
+            scenarioTitle={openedCase.scenarioTitle}
+            backLabel={navLabel(back.nav)}
+            onBack={() => navigate(back)}
+          />
+        ) : (
+          <EmptyState
+            title="Case not found in this browser"
+            body={`Case ${route.caseId} is not among the cases recorded here. Cases are stored per browser; open it from where it was created.`}
+            action={
+              <button type="button" className={btn.primary} onClick={() => go("cases")}>
+                View recorded cases
+              </button>
+            }
+          />
+        )
       ) : (
         <>
-          {nav === "operations" && (
+          {route.nav === "dashboard" && (
+            <DashboardPage
+              history={history}
+              snapshot={storeSnapshot}
+              modules={modules}
+              onNavigate={go}
+              onOpenCase={onOpenCase}
+              onOpenStore={openStore}
+            />
+          )}
+          {route.nav === "operations" && (
             <CommandCenter
               history={history}
               loading={loading}
@@ -241,10 +299,10 @@ export default function App() {
               onOpenCase={onOpenCase}
               showdown={showdown}
               onRunShowdown={runShowdown}
-              onOpenShowdownSide={(side) => openInvestigation(side.result, side.scenario.title, side.scenario.id)}
+              onOpenShowdownSide={(side) => openCase(side.result.id)}
             />
           )}
-          {nav === "cases" && (
+          {route.nav === "cases" && (
             <CasesPage
               history={history}
               loading={loading}
@@ -253,17 +311,55 @@ export default function App() {
               onOpenCase={onOpenCase}
             />
           )}
-          {nav === "activity" && <ActivityPage history={history} onOpenCase={onOpenCase} />}
-          {nav === "benchmarks" && <BenchmarksPage history={history} onOpenCase={onOpenCase} onOpenStore={() => setSurface("store")} />}
-          {nav === "orders" && (
-            <OrdersPage snapshot={storeSnapshot} load={storeLoad} onReload={loadStore} history={history} onOpenCase={onOpenCase} onRunOrder={runOrder} />
+          {route.nav === "activity" && <ActivityPage history={history} onOpenCase={onOpenCase} />}
+          {route.nav === "benchmarks" && (
+            <Suspense fallback={<LoadingRows label="Loading analytics" rows={6} />}>
+            <BenchmarksPage
+              history={history}
+              snapshot={storeSnapshot}
+              onOpenCase={onOpenCase}
+              onOpenStore={openStore}
+              onOpenOrders={(status) => go("orders", { params: { status } })}
+            />
+            </Suspense>
           )}
-          {nav === "inbox" && (
-            <InboxPage history={history} snapshot={storeSnapshot} onOpenCase={onOpenCase} onOpenStore={() => setSurface("store")} onRerun={runOrder} />
+          {route.nav === "orders" && (
+            <OrdersPage
+              key={`${route.orderId ?? ""}|${route.params?.status ?? ""}|${route.params?.q ?? ""}`}
+              snapshot={storeSnapshot}
+              load={storeLoad}
+              onReload={loadStore}
+              history={history}
+              onOpenCase={onOpenCase}
+              onRunOrder={runOrder}
+              selectedId={route.orderId ?? null}
+              onSelect={(id) => go("orders", { ...(id ? { orderId: id } : {}), ...(route.params ? { params: route.params } : {}) })}
+              initialStatus={route.params?.status}
+              initialQuery={route.params?.q}
+            />
           )}
-          {nav === "automations" && <AutomationsPage enabled={modules} history={history} onOpenStore={() => setSurface("store")} />}
-          {nav === "approvals" && <ApprovalsPage history={history} onOpenCase={onOpenCase} />}
-          {nav === "system" && <SystemPage />}
+          {route.nav === "customers" && (
+            <CustomersPage snapshot={storeSnapshot} load={storeLoad} onReload={loadStore} history={history} onViewOrders={(q) => go("orders", { params: { q } })} />
+          )}
+          {route.nav === "inbox" && (
+            <InboxPage history={history} snapshot={storeSnapshot} onOpenCase={onOpenCase} onOpenStore={openStore} onRerun={runOrder} />
+          )}
+          {route.nav === "automations" && (
+            <AutomationsPage enabled={modules} history={history} onOpenStore={openStore} onOpenProof={() => go("operations")} onOpenCases={() => go("cases")} />
+          )}
+          {route.nav === "approvals" && <ApprovalsPage history={history} onOpenCase={onOpenCase} />}
+          {route.nav === "system" && <SystemPage />}
+          {route.nav === "settings" && (
+            <SettingsPage
+              modules={modules}
+              recordedCount={history.length}
+              onChangeSetup={() => navigate({ surface: "setup" })}
+              onClearCases={() => {
+                clearRecordedCases();
+                setHistory([]);
+              }}
+            />
+          )}
         </>
       )}
     </OpsShell>

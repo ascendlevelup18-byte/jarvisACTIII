@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import { NAV_ITEMS, NAV_SECTIONS, type NavId } from "../../lib/system-truth.ts";
+import type { DemoStoreSnapshot } from "../../lib/demo-store.ts";
+import type { Route } from "../../lib/routes.ts";
+import type { SessionCaseEntry } from "../../lib/session-store.ts";
 import { RuntimeChips } from "../ui/RuntimeChips.tsx";
+import { GlobalSearch } from "./GlobalSearch.tsx";
 
 /** Merchant console frame: compact sidebar on desktop, a scrollable nav row on small screens. */
 export function OpsShell({
@@ -8,6 +12,10 @@ export function OpsShell({
   onNavigate,
   actions,
   badges,
+  store,
+  history,
+  pendingReview,
+  onSearchSelect,
   children,
 }: {
   activeNav: NavId;
@@ -16,6 +24,11 @@ export function OpsShell({
   actions?: ReactNode;
   /** Optional counts beside nav items (e.g. open inbox conversations). Only real session counts. */
   badges?: Partial<Record<NavId, number>>;
+  store: DemoStoreSnapshot | null;
+  history: SessionCaseEntry[];
+  /** Escalated or failed recorded cases. */
+  pendingReview: number;
+  onSearchSelect: (r: Route) => void;
   children: ReactNode;
 }) {
   return (
@@ -88,10 +101,33 @@ export function OpsShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)]/95 backdrop-blur">
-          <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+        <header className="z-20 lg:sticky lg:top-0 border-b border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)]/95 backdrop-blur">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[var(--color-jarvis-ink)]">{store?.store.name ?? "Demo store"}</p>
+              <p className="text-[11px] text-[var(--color-jarvis-faint)]">Demo environment · synthetic data · simulated payments</p>
+            </div>
+            <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1">
+              <GlobalSearch store={store} history={history} onSelect={onSearchSelect} />
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onNavigate("approvals")}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${
+                  pendingReview
+                    ? "border-[var(--color-warning)]/40 bg-[var(--color-warning-surface)] text-[var(--color-warning)]"
+                    : "border-[var(--color-jarvis-border)] text-[var(--color-jarvis-muted)]"
+                }`}
+              >
+                <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${pendingReview ? "bg-[var(--color-warning)]" : "bg-[var(--color-jarvis-border-strong)]"}`} />
+                {pendingReview} pending review
+              </button>
+              {actions}
+            </div>
+          </div>
+          <div className="border-t border-[var(--color-jarvis-border)] px-4 py-1.5 sm:px-6">
             <RuntimeChips />
-            {actions && <div className="ml-auto flex flex-wrap gap-2">{actions}</div>}
           </div>
         </header>
         <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-6">

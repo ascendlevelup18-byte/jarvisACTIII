@@ -47,3 +47,36 @@ export function countByState(history: SessionCaseEntry[]): Record<string, number
   }
   return counts;
 }
+
+// Recorded cases persist in this browser (real /cases responses only), so date ranges and deep
+// links survive a reload. Storage may be unavailable; the app then simply starts empty.
+const CASES_KEY = "jarvis.cases.v1";
+export const MAX_RECORDED_CASES = 50;
+
+export function loadRecordedCases(): SessionCaseEntry[] {
+  try {
+    const raw = window.localStorage.getItem(CASES_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? (parsed as SessionCaseEntry[]).filter((e) => e && typeof e.id === "string" && e.caseData && typeof e.submittedAt === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecordedCases(history: SessionCaseEntry[]): void {
+  try {
+    window.localStorage.setItem(CASES_KEY, JSON.stringify(history.slice(0, MAX_RECORDED_CASES)));
+  } catch {
+    /* storage full or unavailable: cases stay in memory for this session */
+  }
+}
+
+export function clearRecordedCases(): void {
+  try {
+    window.localStorage.removeItem(CASES_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
