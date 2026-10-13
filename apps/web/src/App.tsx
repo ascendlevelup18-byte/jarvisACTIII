@@ -325,7 +325,7 @@ export default function App() {
           )}
           {route.nav === "orders" && (
             <OrdersPage
-              key={`${route.orderId ?? ""}|${route.params?.status ?? ""}|${route.params?.q ?? ""}`}
+              key={`${route.params?.status ?? ""}|${route.params?.q ?? ""}`}
               snapshot={storeSnapshot}
               load={storeLoad}
               onReload={loadStore}

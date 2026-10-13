@@ -58,16 +58,19 @@ try {
     await page.getByRole("radiogroup", { name: "Dataset" }).getByRole("radio", { name: "Sample data" }).click();
     await page.getByRole("note").getByText("Sample data.").waitFor();
     assert.notEqual(await kpi(page, "Sample cases"), "0");
+    // Sample figures never read as real money or a merchant's history.
+    assert.equal(await page.locator("dt", { hasText: /^Verified simulated refunds$/ }).count(), 0);
+    await page.getByText("Illustrative only: not money, not a merchant's history").waitFor();
     await page.getByRole("region", { name: "Resolution vs escalation" }).getByRole("button", { name: /Escalated to a person/ }).click();
     const report = page.getByRole("region", { name: "Case report" });
     await report.getByText(/Clear filter: Escalated to a person/).waitFor();
     const outcomes = await report.locator("tbody tr td:nth-child(5)").allInnerTexts();
     assert.ok(outcomes.length > 0 && outcomes.every((t) => t.trim() === "ESCALATED"));
     assert.ok((await report.getByText("Sample record").count()) > 0);
+    if (OUT) await page.screenshot({ path: `${OUT}/c07-analytics-sample.png`, fullPage: true });
     await page.getByRole("radiogroup", { name: "Dataset" }).getByRole("radio", { name: "Recorded" }).click();
     assert.equal(await kpi(page, "Recorded cases"), "0");
   });
-  await shot(page, "c07-analytics-sample.png");
 
   await check("orders: 4 seeded orders from the backend, no case claims yet; sorting works", async () => {
     await go(page, "Orders");
@@ -112,6 +115,11 @@ try {
     await page.getByLabel("Search orders", { exact: true }).fill("");
     await page.getByRole("radiogroup", { name: "Order status" }).getByRole("radio", { name: "Needs review" }).click();
     assert.equal(await table.locator("tbody tr").count(), 2);
+    // Opening an order keeps the active filter (regression: selection used to remount the page).
+    await page.getByRole("button", { name: "#48294" }).click();
+    await page.getByRole("complementary", { name: "Order 48294 details" }).waitFor();
+    assert.equal(await table.locator("tbody tr").count(), 2);
+    assert.equal(await page.getByRole("radio", { name: "Needs review" }).getAttribute("aria-checked"), "true");
     await page.getByRole("radiogroup", { name: "Order status" }).getByRole("radio", { name: "All" }).click();
     await page.getByRole("button", { name: "#48292" }).click();
     const detail = page.getByRole("complementary", { name: "Order 48292 details" });

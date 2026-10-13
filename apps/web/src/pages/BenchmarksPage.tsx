@@ -200,8 +200,12 @@ export function BenchmarksPage({
           <KpiCard label={sample ? "Sample cases" : "Recorded cases"} value={String(s.cases)} hint={deltaText(delta((x) => x.cases))} />
           <KpiCard label="Resolved (verified)" value={String(s.outcomes.resolved)} hint={deltaText(delta((x) => x.outcomes.resolved))} />
           <KpiCard label="Escalated to a person" value={String(s.outcomes.escalated)} hint={deltaText(delta((x) => x.outcomes.escalated))} />
-          <KpiCard label="Verified simulated refunds" value={money(s.verifiedRefundMinor)} hint={`${s.refunds.verified} refund${s.refunds.verified === 1 ? "" : "s"} confirmed by read-back`} />
-          <KpiCard label="Autonomous resolution rate" value={s.autonomousRate === null ? "—" : pct(s.autonomousRate)} hint="Resolved or correctly closed, no person needed" />
+          <KpiCard
+            label={sample ? "Sample refund total" : "Verified simulated refunds"}
+            value={money(s.verifiedRefundMinor)}
+            hint={sample ? "Illustrative only: not money, not a merchant's history" : `${s.refunds.verified} refund${s.refunds.verified === 1 ? "" : "s"} confirmed by read-back`}
+          />
+          <KpiCard label={sample ? "Sample resolution rate" : "Autonomous resolution rate"} value={s.autonomousRate === null ? "—" : pct(s.autonomousRate)} hint="Resolved or correctly closed, no person needed" />
           <KpiCard label="Pending reviews" value={String(s.pendingReview)} hint="Escalated or failed; approval is review-only" />
           <KpiCard label="AI calls" value={String(s.aiCalls)} hint={s.aiErrors ? `${s.aiErrors} failed` : "Understanding + decision calls"} />
         </dl>
