@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { OpsShell } from "./components/layout/OpsShell.tsx";
 import { CommandCenter } from "./components/operations/CommandCenter.tsx";
 import { InvestigationView } from "./components/investigation/InvestigationView.tsx";
@@ -6,14 +6,46 @@ import { ActivityPage } from "./pages/ActivityPage.tsx";
 import { BenchmarksPage } from "./pages/BenchmarksPage.tsx";
 import { CasesPage } from "./pages/CasesPage.tsx";
 import { SystemPage } from "./pages/SystemPage.tsx";
+import { ApprovalsPage } from "./pages/ApprovalsPage.tsx";
+import { AutomationsPage } from "./pages/AutomationsPage.tsx";
+import { OnboardingPage } from "./pages/OnboardingPage.tsx";
+import { StorefrontPage } from "./pages/StorefrontPage.tsx";
+import type { AutomationModule } from "./lib/automations.ts";
+import type { DemoStoreSnapshot } from "./lib/demo-store.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "./fixtures/demo-scenarios.ts";
 import type { ShowdownSide, ShowdownState } from "./components/proof/SafetyShowdown.tsx";
 import { ApiError, submitCase } from "./lib/api.ts";
-import type { Case } from "./lib/case-types.ts";
+import type { Case, CaseRequest } from "./lib/case-types.ts";
 import type { NavId } from "./lib/system-truth.ts";
 import { appendSessionCase, type SessionCaseEntry } from "./lib/session-store.ts";
 
 type ViewMode = "nav" | "investigation";
+type Surface = "onboarding" | "merchant" | "store";
+
+// Setup choices are a per-browser convenience; the app works without storage.
+const SETUP_KEY = "jarvis.setup.v1";
+function loadSetup(): AutomationModule["id"][] | null {
+  try {
+    const raw = window.localStorage.getItem(SETUP_KEY);
+    const parsed = raw ? (JSON.parse(raw) as { modules?: unknown }) : null;
+    return Array.isArray(parsed?.modules) ? (parsed.modules as AutomationModule["id"][]) : null;
+  } catch {
+    return null;
+  }
+}
+function saveSetup(modules: AutomationModule["id"][]): void {
+  try {
+    window.localStorage.setItem(SETUP_KEY, JSON.stringify({ modules }));
+  } catch {
+    /* storage unavailable: setup simply isn't remembered */
+  }
+}
+function initialSurface(): Surface {
+  const hash = typeof window === "undefined" ? "" : window.location.hash;
+  if (hash === "#store") return "store";
+  if (hash === "#setup") return "onboarding";
+  return loadSetup() ? "merchant" : "onboarding";
+}
 
 export default function App() {
   const [nav, setNav] = useState<NavId>("operations");
@@ -25,6 +57,14 @@ export default function App() {
   const [activeDemoId, setActiveDemoId] = useState<string | undefined>();
   const [history, setHistory] = useState<SessionCaseEntry[]>([]);
   const [showdown, setShowdown] = useState<ShowdownState>({ status: "idle" });
+  const [surface, setSurface] = useState<Surface>(initialSurface);
+  const [modules, setModules] = useState<AutomationModule["id"][]>(() => loadSetup() ?? ["refunds"]);
+  const [storeSnapshot, setStoreSnapshot] = useState<DemoStoreSnapshot | null>(null);
+
+  useEffect(() => {
+    const hash = surface === "store" ? "#store" : surface === "onboarding" ? "#setup" : "";
+    if (window.location.hash !== hash) window.history.replaceState(null, "", hash || window.location.pathname);
+  }, [surface]);
 
   const openInvestigation = useCallback((c: Case, title?: string, demoId?: string) => {
     setCaseData(c);
@@ -79,6 +119,52 @@ export default function App() {
     setShowdown({ status: "done", safe, risky: riskySide });
   }, []);
 
+  // Demo-store customer request → real case on the backend → visible to the merchant.
+  const submitFromStore = useCallback(async (request: CaseRequest, order: { orderId: string; supportRequest: { scenario: string } }) => {
+    try {
+      const result = await submitCase(request);
+      setHistory((h) =>
+        appendSessionCase(h, result, {
+          scenarioTitle: `Demo store · order #${order.orderId}`,
+          scenarioId: order.supportRequest.scenario,
+          source: "storefront",
+        }),
+      );
+      return result;
+    } catch (e) {
+      throw e instanceof ApiError ? new Error(`${e.message} (${e.status})`) : e;
+    }
+  }, []);
+
+  if (surface === "onboarding") {
+    return (
+      <OnboardingPage
+        onComplete={(r) => {
+          saveSetup(r.modules);
+          setModules(r.modules);
+          setStoreSnapshot(r.store);
+          setNav("automations");
+          setView("nav");
+          setSurface("merchant");
+        }}
+      />
+    );
+  }
+
+  if (surface === "store") {
+    return (
+      <StorefrontPage
+        snapshot={storeSnapshot}
+        onSubmit={submitFromStore}
+        onOpenCase={(c, order) => {
+          openInvestigation(c, `Demo store · order #${order.orderId}`, order.supportRequest.scenario);
+          setSurface("merchant");
+        }}
+        onExit={() => setSurface("merchant")}
+      />
+    );
+  }
+
   const onNavigate = (id: NavId) => {
     setNav(id);
     setView("nav");
@@ -89,7 +175,28 @@ export default function App() {
   };
 
   return (
-    <OpsShell activeNav={nav} onNavigate={onNavigate}>
+    <OpsShell
+      activeNav={nav}
+      onNavigate={onNavigate}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={() => setSurface("store")}
+            className="rounded border border-[var(--color-deterministic-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-jarvis-ink)]"
+          >
+            Open demo store
+          </button>
+          <button
+            type="button"
+            onClick={() => setSurface("onboarding")}
+            className="rounded border border-[var(--color-jarvis-border)] px-3 py-1.5 text-xs text-[var(--color-jarvis-muted)] hover:text-[var(--color-jarvis-ink)]"
+          >
+            Setup
+          </button>
+        </>
+      }
+    >
       {view === "investigation" && caseData ? (
         <InvestigationView
           caseData={caseData}
@@ -124,7 +231,9 @@ export default function App() {
             />
           )}
           {nav === "activity" && <ActivityPage history={history} onOpenCase={onOpenCase} />}
-          {nav === "benchmarks" && <BenchmarksPage />}
+          {nav === "benchmarks" && <BenchmarksPage history={history} />}
+          {nav === "automations" && <AutomationsPage enabled={modules} history={history} onOpenStore={() => setSurface("store")} />}
+          {nav === "approvals" && <ApprovalsPage history={history} onOpenCase={onOpenCase} />}
           {nav === "system" && <SystemPage />}
         </>
       )}

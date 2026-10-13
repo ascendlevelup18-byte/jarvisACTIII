@@ -5,10 +5,13 @@ import { RuntimeChips } from "../ui/RuntimeChips.tsx";
 export function OpsShell({
   activeNav,
   onNavigate,
+  actions,
   children,
 }: {
   activeNav: NavId;
   onNavigate: (id: NavId) => void;
+  /** Header actions (e.g. open the demo store, re-run setup). */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -23,11 +26,12 @@ export function OpsShell({
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--color-jarvis-faint)]">
-              Autonomous commerce operations
+              Merchant command center
             </p>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--color-jarvis-ink)] sm:text-2xl">JARVIS</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--color-jarvis-ink)] sm:text-2xl">JARVIS Automations</h1>
           </div>
           <RuntimeChips />
+          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
         <nav
           className="mx-auto max-w-[1600px] px-4 sm:px-6"

@@ -7,6 +7,8 @@ export interface SessionCaseEntry {
   state: Case["state"];
   scenarioTitle?: string;
   scenarioId?: string;
+  /** Where the case came from in this UI (the merchant console or the demo storefront). */
+  source?: "operations" | "storefront";
   submittedAt: string;
   caseData: Case;
 }
@@ -15,7 +17,7 @@ export interface SessionCaseEntry {
 export function appendSessionCase(
   history: SessionCaseEntry[],
   caseData: Case,
-  meta: { scenarioTitle?: string; scenarioId?: string },
+  meta: { scenarioTitle?: string; scenarioId?: string; source?: "operations" | "storefront" },
 ): SessionCaseEntry[] {
   const entry: SessionCaseEntry = {
     id: caseData.id,
@@ -24,6 +26,7 @@ export function appendSessionCase(
     state: caseData.state,
     scenarioTitle: meta.scenarioTitle,
     scenarioId: meta.scenarioId,
+    source: meta.source ?? "operations",
     submittedAt: caseData.updatedAt || caseData.createdAt,
     caseData,
   };

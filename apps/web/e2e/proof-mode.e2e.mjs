@@ -36,6 +36,8 @@ async function runDemo(page, title) {
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.setDefaultTimeout(8000);
+  // Skip first-run onboarding (covered by merchant-platform.e2e.mjs).
+  await page.addInitScript(() => localStorage.setItem("jarvis.setup.v1", JSON.stringify({ modules: ["refunds"] })));
   await page.goto(BASE);
 
   await check("runtime chips come from /api/health (fixture backend)", async () => {
@@ -94,7 +96,7 @@ try {
 
   await check("system page: truthful labels from health", async () => {
     await page.getByRole("button", { name: /Back to operations/ }).click();
-    await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "System" }).click();
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "AI provider" }).click();
     const truth = page.locator("#system-truth");
     await truth.getByText("FIXTURE AI").waitFor({ timeout: 5000 });
     await truth.getByText("NODE-SERVER").waitFor();
@@ -105,6 +107,7 @@ try {
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true });
   mobile.setDefaultTimeout(8000);
+  await mobile.addInitScript(() => localStorage.setItem("jarvis.setup.v1", JSON.stringify({ modules: ["refunds"] })));
   await mobile.goto(BASE);
   await check("mobile: investigation renders without horizontal page scroll", async () => {
     await runDemo(mobile, "Adversarial");

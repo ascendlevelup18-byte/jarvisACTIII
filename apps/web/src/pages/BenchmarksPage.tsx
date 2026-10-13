@@ -1,15 +1,34 @@
 import { FIXTURE_BENCHMARK, pct } from "../lib/bench-metrics.ts";
 import { FixtureBenchmarkNotice } from "../components/ui/FixtureBenchmarkNotice.tsx";
 import { Panel } from "../components/ui/Panel.tsx";
+import { countByState, type SessionCaseEntry } from "../lib/session-store.ts";
 
-export function BenchmarksPage() {
+export function BenchmarksPage({ history = [] }: { history?: SessionCaseEntry[] }) {
   const b = FIXTURE_BENCHMARK;
+  const counts = countByState(history);
+  const fromStore = history.filter((h) => h.source === "storefront").length;
   return (
     <div className="motion-fade-in space-y-4">
       <header>
-        <h2 className="text-xl font-semibold">Benchmarks</h2>
-        <p className="mt-1 max-w-2xl text-sm text-[var(--color-warning)]">{b.disclaimer}</p>
+        <h2 className="text-xl font-semibold">Analytics</h2>
+        <p className="mt-1 max-w-2xl text-sm text-[var(--color-jarvis-muted)]">
+          Case outcomes from this session and the pinned safety benchmark. No revenue, ROI or customer figures — none are
+          measured.
+        </p>
       </header>
+
+      <Panel title="This session · real cases on the backend · synthetic store data" variant="muted">
+        <dl className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <Metric label="Cases" value={String(history.length)} />
+          <Metric label="Resolved (verified)" value={String(counts.RESOLVED)} />
+          <Metric label="Escalated to a human" value={String(counts.ESCALATED)} />
+          <Metric label="Closed, no action" value={String(counts.CLOSED_NO_ACTION)} />
+          <Metric label="Failed safely" value={String(counts.FAILED)} />
+          <Metric label="From demo store" value={String(fromStore)} />
+        </dl>
+      </Panel>
+
+      <p className="max-w-2xl text-sm text-[var(--color-warning)]">{b.disclaimer}</p>
 
       <FixtureBenchmarkNotice />
 
