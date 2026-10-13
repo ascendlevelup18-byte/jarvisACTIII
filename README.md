@@ -20,7 +20,19 @@ JARVIS resolves one ecommerce operations exception end to end: a customer report
 
 ## JARVIS Automations (merchant platform)
 
-The app opens on a first-run setup ("What do you want to automate?"). It then offers a **demo store** and a **merchant command center**: Overview, Automations, Cases (evidence and decisions), Approvals, Analytics, Audit trail, AI provider.
+The app opens on a first-run setup ("What do you want to automate?"). It then offers a **demo store** and a light, sidebar-based **merchant command center**:
+
+| Page | What it shows | Data source |
+|---|---|---|
+| Overview | Fixture-benchmark KPIs (labelled), safety showdown, demo scenarios, case queue | `/cases` responses, pinned benchmark |
+| Orders | Demo-store orders joined with this session's cases: payment, refund, resolution and verification state; search, status filters, detail with linked case evidence | `GET /api/demo-store` + session cases |
+| Inbox | Three panes: conversation queue, message history, **JARVIS Copilot** (AI proposal, policy decision and cited sections, evidence, approval need, verification, audit link). The Copilot is internal; customer-visible replies are derived only from recorded case outcomes | Session cases |
+| Cases, Approvals, Audit trail | Investigations (proof chain, policy checks, audit), escalations awaiting a person | Session cases |
+| Automations | Setup choices; only Refunds is operational | Local setup |
+| Analytics | Session KPIs, case volume over time, resolved vs escalated, refund execution and verification, AI-call latency per adapter (from the audit), recent activity; source and date filters; the labelled fixture benchmark | Session cases, pinned benchmark |
+| AI provider | Runtime truth from `/api/health` | Backend |
+
+Nothing in these pages is invented: no revenue, ROI, chat history or fulfilment data. An empty session shows empty states. Browser checks: `apps/web/e2e/*.e2e.mjs` (Proof Mode, merchant journey, commerce console); screenshots in `docs/screenshots/`.
 
 | Automation | Status |
 |---|---|

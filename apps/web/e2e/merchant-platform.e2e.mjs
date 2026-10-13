@@ -33,7 +33,7 @@ async function requestFromStore(page, orderNumber) {
 }
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
   page.setDefaultTimeout(8000);
   await page.goto(BASE);
 
@@ -99,7 +99,7 @@ try {
   });
   await shot(page, "m05-merchant-analytics.png");
 
-  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true });
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, reducedMotion: "reduce" });
   mobile.setDefaultTimeout(8000);
   await mobile.goto(`${BASE}/#store`);
   await check("mobile storefront: refund flow works without horizontal scroll", async () => {

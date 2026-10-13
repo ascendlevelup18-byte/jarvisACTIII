@@ -35,6 +35,9 @@ npm run web:dev                  # http://127.0.0.1:43123
    - The customer sees "Refund of $89.99 issued … payment is simulated". That text appears only because the case is RESOLVED with a verified read-back.
 3. Look up order **48294** (the hostile message) and send it. The customer sees "Passed to our team for review. No refund has been made yet".
 4. Click *See how JARVIS decided*. That opens the merchant investigation with the proof chain and the "why refused" panel. **Approvals** lists it as "from demo store", and **Analytics** counts it.
+5. **Orders:** #48291 shows *Refunded by JARVIS (simulated) · Verified*; #48294 shows *Refund blocked · Not executed*. Click #48292 for charges, the customer's request and the linked case.
+6. **Inbox:** open Dee Placeholder (#48294). The center pane shows only the recorded request and the reply the customer actually saw. The **Copilot** on the right is internal: the AI proposed a refund (no authority), policy said DENY with the failed check, a person must review, nothing to verify.
+7. **Analytics:** KPIs and charts recompute from these cases. Switch the source filter to *Console* to show the honest empty state.
 
 ## Demonstrated vs future
 
@@ -43,7 +46,7 @@ npm run web:dev                  # http://127.0.0.1:43123
 | Ingress guard, proof chain, policy gate, simulated execution, read-back verification, audit trail | **Demonstrated** (fixture AI) |
 | Failed verification is never shown as resolved | **Demonstrated** in tests (`apps/web/test/proof-mode.test.ts`) and in benchmark case DC-E05. The demo UI has no fault-injection button |
 | Real open model on AMD Developer Cloud (vLLM) | **FUTURE.** Code ready (`npm run api:start` with `JARVIS_AI_MODE=vllm`). Show it only after `docs/AMD_EVIDENCE.md` holds a real run |
-| Onboarding, demo store, merchant Automations / Approvals / Analytics | **Demonstrated.** Store requests are real `/cases` calls; the five non-refund modules are labelled preview |
+| Onboarding, demo store, merchant Orders / Inbox + Copilot / Automations / Approvals / Analytics | **Demonstrated.** Store requests are real `/cases` calls; the five non-refund modules are labelled preview |
 | Connecting a real store by domain; customer free text in public | **Not available** (labelled in the UI) |
 | Evolus Knowledge Library / Workflow hand-off | **FUTURE.** Not integrated (`docs/EVOLUS_INTEGRATION.md`) |
 | Real payments | Not planned for the demo. The gateway is simulated |
