@@ -18,6 +18,23 @@ JARVIS resolves one ecommerce operations exception end to end: a customer report
 > - The public demo runs **fixture AI** (deterministic adapters).
 > - The real-model (vLLM / OpenAI-compatible) path is implemented and tested **against a local fake server only**. **No AMD GPU inference has been run yet.** See `docs/AMD_EVIDENCE.md`.
 
+## JARVIS Automations (merchant platform)
+
+The app opens on a first-run setup ("What do you want to automate?"). It then offers a **demo store** and a **merchant command center**: Overview, Automations, Cases (evidence and decisions), Approvals, Analytics, Audit trail, AI provider.
+
+| Automation | Status |
+|---|---|
+| Refunds and returns (duplicate charges) | **Operational:** the full engine below |
+| Risk and exceptions, Customer support, Order operations, Inventory alerts, Store analytics | **Preview:** shown with exactly what is not built; nothing runs |
+
+**Demo store** (open with `#store`):
+- Order lookup reads the backend seed (`GET /api/demo-store`).
+- "Request a refund" sends that order's fixed request through `POST /cases`. It's a real case, and the merchant sees it.
+- Customer free text needs an operator token in the public demo.
+- "Connect your store" with a real domain is not available. No external store is read.
+
+**Model providers:** one OpenAI-compatible adapter covers both hosted inference (AMD Token Factory, see `docs/TOKEN_FACTORY_SETUP.md`) and self-hosted vLLM on AMD GPUs (`docs/AMD_DEPLOYMENT_RUNBOOK.md`). Only `JARVIS_MODEL_BASE_URL`, `JARVIS_MODEL_NAME` and the server-side key differ. Without them, the app runs fixture AI and says so in the header.
+
 ## Requirements
 
 - Node.js ≥ 24 (TypeScript runs natively; no build step for the API)
@@ -37,7 +54,7 @@ Local demo:
 
 ```bash
 PORT=3000 npm run api:start          # terminal A (fixture mode by default)
-npm run web:dev                      # terminal B → http://127.0.0.1:43123
+npm run web:dev                      # terminal B → http://127.0.0.1:43123  (#store = demo store, #setup = onboarding)
 ```
 
 ## Demo scenarios
