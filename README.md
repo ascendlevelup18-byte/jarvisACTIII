@@ -107,6 +107,7 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 | `docs/DEMO_SCRIPT.md` | Timed judge demo using Proof Mode; demonstrated versus future |
 | `docs/BUSINESS_EVIDENCE.md` | Measured benchmark facts versus assumption-labelled value estimates |
 | `docs/AMD_DEPLOYMENT_RUNBOOK.md` | Step-by-step real-model run on AMD Developer Cloud (plus RX 6800 notes) |
+| `docs/TOKEN_FACTORY_SETUP.md` | Connect a hosted OpenAI-compatible endpoint (AMD Token Factory): verification, env, Vercel server-side opt-in |
 | `docs/VERCEL_PREVIEW_SETUP.md` | Safe fixture-only Vercel preview via CLI (no production, no `master`) |
 | `docs/EVOLUS_INTEGRATION.md` | Evolus requirements, intended two-block design, blockers |
 | `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md` | Prompt contracts, failure mapping, test matrix, smoke and benchmark plan |
