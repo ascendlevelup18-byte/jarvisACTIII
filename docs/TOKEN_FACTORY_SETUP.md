@@ -35,7 +35,7 @@ Choose an **instruction-tuned** model from that list. The JARVIS prompts need st
 - it reads the key with `Read-Host -AsSecureString`, never prints it, writes nothing to disk and clears it at the end;
 - it checks that `/models` refuses an unauthenticated request, lists the served ids, and optionally makes one 8-token chat call (status, latency, usage).
 
-It was written in a sandbox without PowerShell, so its first run on Windows is also its first execution.
+It works in Windows PowerShell 5.1 (it enables TLS 1.2) and PowerShell 7. It was written in a sandbox without PowerShell and is covered by static tests (`apps/api/test/scripts.test.ts`), so its first run on Windows is also its first execution.
 
 ```powershell
 cd C:\jarvis-actiii-preview
@@ -49,7 +49,9 @@ Then run JARVIS against it from the same PowerShell window. The key lives only i
 
 ```powershell
 $k = Read-Host "API key" -AsSecureString
-$env:JARVIS_MODEL_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($k))
+$b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($k)
+$env:JARVIS_MODEL_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b)
+[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b); Remove-Variable k, b
 $env:JARVIS_AI_MODE = "vllm"
 $env:JARVIS_MODEL_BASE_URL = $Base
 $env:JARVIS_MODEL_NAME = "<id exactly as listed>"
