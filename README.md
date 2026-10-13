@@ -71,6 +71,7 @@ Local demo:
 ```bash
 PORT=3000 npm run api:start          # terminal A (fixture mode by default)
 npm run web:dev                      # terminal B → http://127.0.0.1:43123  (#store = demo store, #setup = onboarding)
+npm run demo:verify                  # terminal C: 13 live checks (health, store, 3 outcomes, audit, refusals) before recording
 ```
 
 ## Demo scenarios

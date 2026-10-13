@@ -66,3 +66,21 @@ Connect the repo to Git only after doing one of these first:
 - Add an Ignored Build Step that exits 0 (skips the build) for `master`.
 
 Confirm in the dashboard that no production deployment was created.
+
+## Readiness check (13 Oct 2026, branch head `b8fc21e` + local)
+
+Verified in the build sandbox (no deployment made):
+- **`vercel build` (CLI 63.1.2) succeeds.** Output: static SPA from `apps/web/dist` and three Node 24 functions (`api/cases`, `api/demo-store`, `api/health`, maxDuration 60). Routes: `/cases` → `/api/cases`, and an SPA fallback that excludes `/api/`.
+- **Invoked locally, the built functions return:**
+  - `health` 200 (`aiMode: fixture`, `deployment: vercel`, payments simulated);
+  - `demo-store` 200 (4 orders);
+  - #48291 → RESOLVED and verified, #48294 → ESCALATED, #48293 → CLOSED_NO_ACTION;
+  - free text without a token → 403;
+  - `JARVIS_AI_MODE=vllm` without `JARVIS_SERVERLESS_REAL_MODEL=enabled` → 503 (refuses rather than silently serving fixtures).
+- **Env:** none required for the fixture demo. Real-model env is server-side only (table in `docs/TOKEN_FACTORY_SETUP.md` §4). `JARVIS_CASES_TOKEN` is optional; without it, free text is refused.
+- **Preview vs production:** `git.deploymentEnabled.master: false` stops automatic production builds from `master` only if the project is Git-connected. CLI deploys are previews unless `--prod` is passed.
+
+**Not verifiable from here:** the existing `jarvis-actiii-preview.vercel.app` deployment (the sandbox cannot reach vercel.app; the connector lacks project access), and its protection settings.
+
+**After deploying a preview:** run `npm run demo:verify -- https://<preview-url>`. Add `VERCEL_AUTOMATION_BYPASS_SECRET` to the environment if protection is on; it is sent as a header and never printed.
+
