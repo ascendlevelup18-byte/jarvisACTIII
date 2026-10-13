@@ -10,6 +10,8 @@ export interface AutomationModule {
   summary: string;
   /** What actually runs today (operational) or what is missing (preview). */
   reality: string;
+  /** What it needs to run (operational) or would need before it could exist (preview). */
+  requirements: string[];
 }
 
 export const AUTOMATION_MODULES: AutomationModule[] = [
@@ -19,6 +21,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     status: "operational",
     summary: "Resolve duplicate-charge refunds end to end.",
     reality: "Runs today: AI reads the request, deterministic policy decides, simulated refund, read-back verification, audit trail.",
+    requirements: ["Demo store order records (seeded)", "AI provider: fixture by default, or an OpenAI-compatible endpoint on the server", "Simulated payment gateway (no real money)"],
   },
   {
     id: "risk",
@@ -26,6 +29,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     status: "preview",
     summary: "Catch unsafe or contradictory requests before money moves.",
     reality: "Escalation of unsafe refund requests already runs inside Refunds; standalone risk scoring is not built.",
+    requirements: ["A risk model or rules engine beyond the refund policy", "Signals data not present in the demo store"],
   },
   {
     id: "support",
@@ -33,6 +37,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     status: "preview",
     summary: "Turn support conversations into operational cases.",
     reality: "The demo store's support chat feeds the Refunds automation with fixed requests; open-ended support answers are not automated.",
+    requirements: ["Open-ended answer generation with its own safety policy", "Operator-token gated free text in production"],
   },
   {
     id: "orders",
@@ -40,6 +45,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     status: "preview",
     summary: "Cancellations, address changes, shipping exceptions.",
     reality: "Not built. Cancellation requests are currently escalated to a human.",
+    requirements: ["Order-write APIs (cancel, address change) and their policies", "A store integration; none is connected"],
   },
   {
     id: "inventory",
@@ -47,6 +53,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     status: "preview",
     summary: "Low-stock and oversell warnings.",
     reality: "Not built. No inventory data exists in the demo store.",
+    requirements: ["Inventory and stock-level data", "A store integration; none is connected"],
   },
   {
     id: "analytics",
@@ -54,6 +61,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     status: "preview",
     summary: "Trends across orders, refunds and support.",
     reality: "Not built for store sales. JARVIS shows case outcomes and benchmark results only.",
+    requirements: ["Sales, traffic and fulfilment data from a real store"],
   },
 ];
 

@@ -7,6 +7,8 @@ import {
   copilotBrief,
   filterThreads,
   INBOX_FILTER_LABELS,
+  lifecycleOf,
+  progressionOf,
   paymentStateOf,
   type InboxFilter,
   type InboxThread,
@@ -15,6 +17,7 @@ import {
 import { describeOrderBalance, type DemoStoreOrder, type DemoStoreSnapshot } from "../lib/demo-store.ts";
 import { formatMinor } from "../lib/money.ts";
 import { CHECK_LABELS } from "../lib/verdict.ts";
+import { explainDecision } from "../lib/proof.ts";
 import type { SessionCaseEntry } from "../lib/session-store.ts";
 
 const STATUS_TONE: Record<ThreadStatus, PillTone> = {
@@ -148,7 +151,7 @@ export function InboxPage({
 function InboxHeader() {
   return (
     <header>
-      <h2 className="text-xl font-semibold tracking-tight text-[var(--color-jarvis-ink)]">Inbox</h2>
+      <h2 className="text-xl font-semibold tracking-tight text-[var(--color-jarvis-ink)]">Support inbox</h2>
       <p className="mt-1 max-w-3xl text-sm text-[var(--color-jarvis-muted)]">
         Customer requests and the replies JARVIS derived from each recorded case outcome. The Copilot panel is internal and never
         shown to the customer.
@@ -213,6 +216,23 @@ function Conversation({
         </dl>
       )}
 
+      <div className="border-b border-[var(--color-jarvis-border)] px-4 py-2">
+        <p className="text-[11px] font-medium text-[var(--color-jarvis-muted)]">Case progression · latest case</p>
+        <ol aria-label="Case progression" className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
+          {progressionOf(thread.latest.caseData).map((p, i, all) => (
+            <li key={`${p.state}-${i}`} className="flex items-center gap-1">
+              <span
+                className={`rounded px-1.5 py-0.5 font-medium ${
+                  i === all.length - 1 ? "bg-[var(--color-deterministic)] text-[var(--color-deterministic-accent)]" : "bg-[var(--color-jarvis-surface-2)] text-[var(--color-jarvis-muted)]"
+                }`}
+              >
+                {p.state.replaceAll("_", " ")}
+              </span>
+              {i < all.length - 1 && <span aria-hidden className="text-[var(--color-jarvis-faint)]">›</span>}
+            </li>
+          ))}
+        </ol>
+      </div>
       <ol aria-label="Message history" className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {thread.messages.map((m, i) =>
           m.kind === "customer" ? (
@@ -283,6 +303,35 @@ function Copilot({ thread, onOpenCase }: { thread: InboxThread; onOpenCase: (e: 
         <h3 className="text-sm font-semibold text-[var(--color-jarvis-ink)]">JARVIS Copilot</h3>
         <p className="text-[11px] text-[var(--color-jarvis-faint)]">Internal · not visible to the customer · case {c.id}</p>
       </div>
+
+      <CopilotSection title="Case summary">
+        <p className="text-sm text-[var(--color-jarvis-ink)]">{explainDecision(c).title}</p>
+        <p className="mt-0.5 text-xs text-[var(--color-jarvis-muted)]">{explainDecision(c).points[0]}</p>
+      </CopilotSection>
+
+      <CopilotSection title="Control-plane status">
+        <ol aria-label="Control-plane status" className="space-y-1.5">
+          {lifecycleOf(c).map((step) => (
+            <li key={step.key} className="flex items-start gap-2 text-xs">
+              <span
+                className={`mt-0.5 w-[74px] shrink-0 rounded px-1 py-0.5 text-center text-[10px] font-bold tracking-wide ${
+                  step.reached
+                    ? step.key === "ESCALATED"
+                      ? "bg-[var(--color-warning-surface)] text-[var(--color-warning)]"
+                      : "bg-[var(--color-policy-surface)] text-[var(--color-policy-accent)]"
+                    : "bg-[var(--color-jarvis-surface-2)] text-[var(--color-jarvis-faint)]"
+                }`}
+              >
+                {step.key}
+              </span>
+              <span className={step.reached ? "text-[var(--color-jarvis-ink)]" : "text-[var(--color-jarvis-muted)]"}>
+                <span className="sr-only">{step.reached ? "Reached: " : "Not reached: "}</span>
+                {step.detail}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </CopilotSection>
 
       <CopilotSection title="AI proposal" tag={<Pill tone="ai">No execution authority</Pill>}>
         {brief.proposal ? (

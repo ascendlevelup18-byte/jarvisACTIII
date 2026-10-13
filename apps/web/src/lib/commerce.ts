@@ -402,3 +402,117 @@ export function copilotBrief(c: Case): CopilotBrief {
     evidence,
   };
 }
+
+export type OrderSortKey = "order" | "customer" | "value" | "refund" | "resolution";
+export type SortDir = "asc" | "desc";
+
+/** Stable sort of order rows; ties keep order-number order. */
+export function sortOrderRows(rows: OrderRow[], key: OrderSortKey, dir: SortDir): OrderRow[] {
+  const val = (r: OrderRow): string | number =>
+    key === "order"
+      ? Number(r.order.orderId)
+      : key === "customer"
+        ? r.order.customerName.toLowerCase()
+        : key === "value"
+          ? r.order.totalMinor
+          : key === "refund"
+            ? r.refundState
+            : (r.resolution ?? "~");
+  const sign = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const x = val(a);
+    const y = val(b);
+    if (x < y) return -sign;
+    if (x > y) return sign;
+    return Number(a.order.orderId) - Number(b.order.orderId);
+  });
+}
+
+export const isOrderStatusFilter = (v: string | undefined): v is OrderStatusFilter => !!v && v in ORDER_FILTER_LABELS;
+
+export type LifecycleKey = "PROPOSED" | "APPROVED" | "EXECUTED" | "VERIFIED" | "ESCALATED";
+export interface LifecycleStep {
+  key: LifecycleKey;
+  reached: boolean;
+  detail: string;
+}
+
+/**
+ * The distinct control-plane milestones, each read from its own record — never inferred from another:
+ * PROPOSED (AI proposal exists) ≠ APPROVED (engine entered APPROVED after policy) ≠ EXECUTED (gateway
+ * accepted) ≠ VERIFIED (read-back observed the refund). ESCALATED means a person must decide.
+ */
+export function lifecycleOf(c: Case): LifecycleStep[] {
+  const entered = (s: string) => c.audit.some((e) => e.type === "STATE_TRANSITION" && e.to === s);
+  const executed = c.action?.status === "ACCEPTED";
+  const verified = !!c.verification?.verified;
+  return [
+    {
+      key: "PROPOSED",
+      reached: !!c.proposal,
+      detail: c.proposal ? `AI proposed ${c.proposal.action.replaceAll("_", " ").toLowerCase()} (advisory)` : "No proposal recorded",
+    },
+    {
+      key: "APPROVED",
+      reached: entered("APPROVED"),
+      detail: entered("APPROVED")
+        ? `Policy ${c.authorization?.outcome ?? ""} · ${c.authorization?.checks.filter((k) => k.passed).length ?? 0}/${c.authorization?.checks.length ?? 0} checks`
+        : c.authorization
+          ? `Policy ${c.authorization.outcome}: not approved for execution`
+          : "Policy not reached",
+    },
+    {
+      key: "EXECUTED",
+      reached: executed,
+      detail: executed ? `Simulated gateway accepted ${c.action?.providerRefundId ?? "the refund"}` : c.action ? `Gateway: ${c.action.status}${c.action.error ? ` · ${c.action.error}` : ""}` : "Nothing sent to the gateway",
+    },
+    {
+      key: "VERIFIED",
+      reached: verified,
+      detail: verified ? `Read-back observed ${c.verification?.observedRefund?.id ?? "the refund"}` : c.verification ? "Read-back did not confirm the refund" : "No read-back performed",
+    },
+    {
+      key: "ESCALATED",
+      reached: c.state === "ESCALATED" || c.state === "FAILED",
+      detail: c.state === "ESCALATED" ? "Routed to a person; no money moved" : c.state === "FAILED" ? "Failed safely; a person must follow up" : "Not escalated",
+    },
+  ];
+}
+
+/** State transitions as the engine recorded them (case progression). */
+export function progressionOf(c: Case): { state: string; at: string }[] {
+  return c.audit.filter((e) => e.type === "STATE_TRANSITION" && e.to).map((e) => ({ state: e.to as string, at: e.at }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Customers (demo store seed joined with recorded cases)
+
+export interface CustomerRow {
+  customerId: string;
+  name: string;
+  orders: number;
+  orderValueMinor: number;
+  currency: string;
+  cases: number;
+  pendingReview: number;
+  latest: SessionCaseEntry | null;
+}
+
+/** Customers as the demo store seed defines them, joined with recorded cases. Nothing else is known about them. */
+export function customerRows(snapshot: DemoStoreSnapshot, history: SessionCaseEntry[]): CustomerRow[] {
+  const by = new Map<string, CustomerRow>();
+  for (const o of snapshot.orders) {
+    const row = by.get(o.customerId) ?? { customerId: o.customerId, name: o.customerName, orders: 0, orderValueMinor: 0, currency: o.currency, cases: 0, pendingReview: 0, latest: null };
+    row.orders += 1;
+    row.orderValueMinor += o.totalMinor;
+    by.set(o.customerId, row);
+  }
+  for (const h of history) {
+    const row = by.get(h.customerId);
+    if (!row) continue;
+    row.cases += 1;
+    if (h.state === "ESCALATED" || h.state === "FAILED") row.pendingReview += 1;
+    if (!row.latest) row.latest = h; // history is newest-first
+  }
+  return [...by.values()];
+}
