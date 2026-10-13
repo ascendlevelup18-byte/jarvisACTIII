@@ -1,348 +1,482 @@
 import { useMemo, useState } from "react";
-import { FIXTURE_BENCHMARK, pct } from "../lib/bench-metrics.ts";
+import { BarList } from "../components/charts/BarList.tsx";
+import { ChartCard, DataTable } from "../components/charts/ChartCard.tsx";
+import { DonutChart } from "../components/charts/DonutChart.tsx";
+import { StackedBarChart, type StackColumn } from "../components/charts/StackedBarChart.tsx";
 import { FixtureBenchmarkNotice } from "../components/ui/FixtureBenchmarkNotice.tsx";
-import { Card, EmptyState, KpiCard, PageHeader, Pill, Segmented } from "../components/ui/Primitives.tsx";
-import { btn } from "../components/ui/styles.ts";
+import { EmptyState, KpiCard, PageHeader, Pill, Segmented } from "../components/ui/Primitives.tsx";
 import { StateBadge } from "../components/ui/StateBadge.tsx";
+import { btn } from "../components/ui/styles.ts";
 import {
-  deriveAnalytics,
-  filterHistory,
-  RANGE_LABELS,
-  type OutcomeBucket,
-  type RangeFilter,
-  type SourceFilter,
-  type VolumeBucket,
-} from "../lib/commerce.ts";
+  aiStats,
+  compare,
+  describeDrill,
+  drill,
+  granularityFor,
+  inWindow,
+  OUTCOME_LABELS,
+  OUTCOME_ORDER,
+  RANGE_OPTIONS,
+  rangeWindow,
+  recordFromEntry,
+  REFUND_LABELS,
+  REFUND_ORDER,
+  summarize,
+  timeSeries,
+  type AnalyticsRecord,
+  type Delta,
+  type DrillFilter,
+  type Outcome,
+  type RangeId,
+  type RefundOutcome,
+} from "../lib/analytics.ts";
+import { FIXTURE_BENCHMARK, pct } from "../lib/bench-metrics.ts";
+import { buildOrderRows, type OrderStatusFilter } from "../lib/commerce.ts";
+import type { DemoStoreSnapshot } from "../lib/demo-store.ts";
 import { formatMinor } from "../lib/money.ts";
+import { SAMPLE_DAYS, SAMPLE_PERIOD_END, sampleRecords } from "../lib/sample-analytics.ts";
 import type { SessionCaseEntry } from "../lib/session-store.ts";
 
-const OUTCOME_META: Record<OutcomeBucket, { label: string; color: string }> = {
-  resolved: { label: "Resolved (verified)", color: "var(--color-policy-accent)" },
-  escalated: { label: "Escalated to a human", color: "var(--color-warning)" },
-  closed: { label: "Closed, no action", color: "var(--color-jarvis-border-strong)" },
-  failed: { label: "Failed safely", color: "var(--color-danger)" },
+const OUTCOME_COLOR: Record<Outcome, string> = {
+  resolved: "var(--color-chart-resolved)",
+  escalated: "var(--color-chart-escalated)",
+  closed: "var(--color-chart-closed)",
+  failed: "var(--color-chart-failed)",
+  open: "var(--color-chart-neutral)",
 };
-const OUTCOMES: OutcomeBucket[] = ["resolved", "escalated", "closed", "failed"];
+const REFUND_COLOR: Record<RefundOutcome, string> = {
+  verified: "var(--color-chart-resolved)",
+  blocked: "var(--color-chart-escalated)",
+  "not-confirmed": "var(--color-chart-failed)",
+  "not-needed": "var(--color-chart-closed)",
+  none: "var(--color-chart-neutral)",
+};
 
-const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
-  { value: "all", label: "All sources" },
-  { value: "storefront", label: "Demo store" },
-  { value: "operations", label: "Console" },
-];
+type DataMode = "recorded" | "sample";
+type SourceFilter = "all" | "storefront" | "operations";
+
+const fmtTime = (iso: string) =>
+  new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const money = (m: Record<string, number>) => {
+  const entries = Object.entries(m);
+  return entries.length ? entries.map(([cur, v]) => formatMinor(v, cur)).join(" · ") : formatMinor(0, "USD");
+};
 
 export function BenchmarksPage({
   history = [],
+  snapshot = null,
   onOpenCase,
   onOpenStore,
+  onOpenOrders,
 }: {
   history?: SessionCaseEntry[];
+  snapshot?: DemoStoreSnapshot | null;
   onOpenCase?: (e: SessionCaseEntry) => void;
   onOpenStore?: () => void;
+  onOpenOrders?: (status: OrderStatusFilter) => void;
 }) {
+  const [mode, setMode] = useState<DataMode>("recorded");
+  const [range, setRange] = useState<RangeId>("today");
   const [source, setSource] = useState<SourceFilter>("all");
-  const [range, setRange] = useState<RangeFilter>("session");
-  // The range is anchored when the page opens or a filter changes, not on every render.
-  const [now, setNow] = useState(() => Date.now());
-  const entries = useMemo(() => filterHistory(history, source, range, new Date(now)), [history, source, range, now]);
-  const a = useMemo(() => deriveAnalytics(entries), [entries]);
-  const fromStore = entries.filter((h) => h.source === "storefront").length;
-  const refunded = Object.entries(a.verifiedRefundMinor);
-  const b = FIXTURE_BENCHMARK;
+  const [drillBy, setDrillBy] = useState<DrillFilter>({});
+  const [limit, setLimit] = useState(25);
+  // The range is anchored when the page opens or a filter changes, never on every render.
+  const [openedAt, setOpenedAt] = useState(() => Date.now());
+
+  const sample = mode === "sample";
+  const now = sample ? SAMPLE_PERIOD_END : openedAt;
+  const all = useMemo<AnalyticsRecord[]>(
+    () => (sample ? sampleRecords() : history.map(recordFromEntry).filter((r) => source === "all" || r.source === source)),
+    [sample, history, source],
+  );
+  const w = useMemo(() => rangeWindow(range, now, all), [range, now, all]);
+  const records = useMemo(() => all.filter((r) => inWindow(r, w)), [all, w]);
+  const s = useMemo(() => summarize(records), [records]);
+  const g = granularityFor(range, w);
+  const buckets = useMemo(() => timeSeries(records, w, g), [records, w, g]);
+  const ai = useMemo(() => aiStats(records), [records]);
+  const report = useMemo(() => drill(records, drillBy), [records, drillBy]);
+  const delta = (m: (x: ReturnType<typeof summarize>) => number) => compare(all, w, m);
+
+  const rangeLabel = RANGE_OPTIONS.find((o) => o.id === range)!.label;
+  const caption = `${sample ? "Sample data" : "Recorded cases"} · ${rangeLabel.toLowerCase()} · ${
+    range === "all" && !records.length ? "no records" : `${new Date(w.start).toLocaleDateString()} – ${new Date(w.end).toLocaleDateString()}`
+  }`;
+  const changeFilters = (fn: () => void) => {
+    fn();
+    setDrillBy({});
+    setLimit(25);
+    setOpenedAt(Date.now());
+  };
+  const focusReport = (f: DrillFilter) => {
+    setDrillBy(f);
+    setLimit(25);
+    requestAnimationFrame(() => document.getElementById("analytics-report")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const columns: StackColumn<Outcome>[] = buckets.map((b) => ({
+    id: String(b.start),
+    label: b.label,
+    title: g === "day" || g === "week" ? new Date(b.start).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + (g === "week" ? " (week)" : "") : `${new Date(b.start).toLocaleDateString()} ${b.label}`,
+    values: b.counts,
+  }));
+  const orderRows = !sample && snapshot ? buildOrderRows(snapshot, history) : null;
+  const firstRecorded = history.length ? history.reduce((m, h) => (h.submittedAt < m ? h.submittedAt : m), history[0].submittedAt) : null;
 
   return (
     <div className="motion-fade-in space-y-5">
       <PageHeader
         title="Analytics"
-        description="Computed from the cases this session sent to the backend and the pinned safety benchmark. Store data is synthetic and payments are simulated; no revenue, ROI or customer figures are shown because none are measured."
-        actions={
-          <>
-            <Segmented
-              label="Source"
-              value={source}
-              options={SOURCE_OPTIONS}
-              onChange={(v) => {
-                setSource(v);
-                setNow(Date.now());
-              }}
-            />
-            <label className="sr-only" htmlFor="analytics-range">
-              Date range
-            </label>
-            <select
-              id="analytics-range"
-              value={range}
-              onChange={(e) => {
-                setRange(e.target.value as RangeFilter);
-                setNow(Date.now());
-              }}
-              className="rounded-md border border-[var(--color-jarvis-border-strong)] bg-[var(--color-jarvis-surface)] px-2 py-1.5 text-xs font-medium text-[var(--color-jarvis-ink)]"
-            >
-              {(Object.keys(RANGE_LABELS) as RangeFilter[]).map((r) => (
-                <option key={r} value={r}>
-                  {RANGE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </>
-        }
+        description="Operational analytics for the refund automation. Every figure is a count or sum over case records; store data is synthetic and payments are simulated, so no revenue or sales figures are shown."
       />
 
-      <section aria-label="Session metrics">
-        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-          <KpiCard label="Cases" value={String(a.total)} hint={RANGE_LABELS[range]} />
-          <KpiCard label="Resolved (verified)" value={String(a.outcomes.resolved)} />
-          <KpiCard label="Escalated to a human" value={String(a.outcomes.escalated)} />
-          <KpiCard label="Closed, no action" value={String(a.outcomes.closed)} />
-          <KpiCard label="Failed safely" value={String(a.outcomes.failed)} />
-          <KpiCard label="From demo store" value={String(fromStore)} />
-          <KpiCard
-            label="Refunds verified"
-            value={refunded.length ? refunded.map(([cur, m]) => formatMinor(m, cur)).join(" · ") : "$0.00"}
-            hint="Simulated gateway"
+      {/* One filter row scopes everything below it. */}
+      <div role="group" aria-label="Analytics filters" className="flex flex-wrap items-center gap-2">
+        <label htmlFor="analytics-range" className="sr-only">
+          Date range
+        </label>
+        <select
+          id="analytics-range"
+          value={range}
+          onChange={(e) => changeFilters(() => setRange(e.target.value as RangeId))}
+          className="rounded-md border border-[var(--color-jarvis-border-strong)] bg-[var(--color-jarvis-surface)] px-2.5 py-1.5 text-sm font-medium text-[var(--color-jarvis-ink)] shadow-card"
+        >
+          {RANGE_OPTIONS.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {!sample && (
+          <Segmented
+            label="Source"
+            value={source}
+            onChange={(v) => changeFilters(() => setSource(v))}
+            options={[
+              { value: "all", label: "All sources" },
+              { value: "storefront", label: "Demo store" },
+              { value: "operations", label: "Console" },
+            ]}
           />
-          <KpiCard
-            label="Closed autonomously"
-            value={a.autonomousRate === null ? "—" : pct(a.autonomousRate)}
-            hint="Resolved + no-action"
+        )}
+        <div className="ml-auto">
+          <Segmented
+            label="Dataset"
+            value={mode}
+            onChange={(v) => changeFilters(() => {
+              setMode(v);
+              setRange(v === "sample" ? "30d" : "today");
+              setSource("all");
+            })}
+            options={[
+              { value: "recorded", label: "Recorded" },
+              { value: "sample", label: "Sample data" },
+            ]}
           />
+        </div>
+      </div>
+
+      {sample ? (
+        <div role="note" className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning-surface)] px-4 py-2.5 text-sm text-[var(--color-warning)]">
+          <strong>Sample data.</strong> A fixed, illustrative set of {sampleRecords().length} cases over the {SAMPLE_DAYS} days ending{" "}
+          {new Date(SAMPLE_PERIOD_END).toLocaleDateString()}. Not recorded by this backend, not a merchant's data, no measured latency. Switch to
+          Recorded for real cases.
+        </div>
+      ) : (
+        <p className="text-xs text-[var(--color-jarvis-faint)]">
+          {firstRecorded
+            ? `Recorded in this browser since ${fmtTime(firstRecorded)} · ${history.length} case${history.length === 1 ? "" : "s"} from real /cases responses`
+            : "No recorded cases yet."}
+        </p>
+      )}
+
+      <section aria-label="Executive summary">
+        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <KpiCard
+            label="Orders in demo store"
+            value={sample ? "—" : snapshot ? String(snapshot.orders.length) : "…"}
+            hint={sample ? "Not part of the sample set" : "Seeded, synthetic orders"}
+          />
+          <KpiCard label={sample ? "Sample cases" : "Recorded cases"} value={String(s.cases)} hint={deltaText(delta((x) => x.cases))} />
+          <KpiCard label="Resolved (verified)" value={String(s.outcomes.resolved)} hint={deltaText(delta((x) => x.outcomes.resolved))} />
+          <KpiCard label="Escalated to a person" value={String(s.outcomes.escalated)} hint={deltaText(delta((x) => x.outcomes.escalated))} />
+          <KpiCard label="Verified simulated refunds" value={money(s.verifiedRefundMinor)} hint={`${s.refunds.verified} refund${s.refunds.verified === 1 ? "" : "s"} confirmed by read-back`} />
+          <KpiCard label="Autonomous resolution rate" value={s.autonomousRate === null ? "—" : pct(s.autonomousRate)} hint="Resolved or correctly closed, no person needed" />
+          <KpiCard label="Pending reviews" value={String(s.pendingReview)} hint="Escalated or failed; approval is review-only" />
+          <KpiCard label="AI calls" value={String(s.aiCalls)} hint={s.aiErrors ? `${s.aiErrors} failed` : "Understanding + decision calls"} />
         </dl>
       </section>
 
-      {a.total === 0 ? (
+      {s.cases === 0 && !sample && (
         <EmptyState
-          title={history.length ? "No cases match these filters" : "No cases in this session yet"}
+          title={history.length ? "No recorded cases in this range" : "No recorded cases yet"}
           body={
             history.length
-              ? "Widen the date range or source to see the cases sent this session."
-              : "Charts fill in from real cases only. Send a refund request from the demo store or run a scenario from Overview."
+              ? "Choose a wider date range or another source."
+              : "Charts fill in from real cases. Request a refund in the demo store, run a scenario in Proof Mode, or switch to Sample data to preview the workspace."
           }
           action={
-            onOpenStore && !history.length ? (
+            !history.length && onOpenStore ? (
               <button type="button" className={btn.primary} onClick={onOpenStore}>
                 Open demo store
               </button>
             ) : undefined
           }
         />
-      ) : (
-        <>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <Card title="Case volume over time" aside={`${a.bucketMinutes}-minute buckets · by case completion time`}>
-              <VolumeChart buckets={a.volume} />
-            </Card>
-            <Card title="Resolved vs escalated">
-              <OutcomeBars outcomes={a.outcomes} total={a.total} />
-            </Card>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Refund execution" aside="Simulated gateway · read-back verified">
-              <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                <Stat label="Executions attempted" value={a.execution.attempted} />
-                <Stat label="Verified by read-back" value={a.execution.verified} />
-                <Stat label="Not verified" value={a.execution.unverified} />
-                <Stat label="AI refund proposals blocked by policy" value={a.proposalsBlocked} />
-              </dl>
-              <p className="mt-3 text-xs text-[var(--color-jarvis-muted)]">
-                A refund counts as executed only when the engine called the gateway, and as verified only when the read-back
-                observed it.
-              </p>
-            </Card>
-            <Card title="AI provider calls" aside="From each case's audit trail">
-              {a.aiCalls.length === 0 ? (
-                <p className="text-sm text-[var(--color-jarvis-muted)]">No AI calls recorded in this range.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <caption className="sr-only">AI calls by stage and adapter</caption>
-                    <thead className="text-xs text-[var(--color-jarvis-muted)]">
-                      <tr>
-                        <th className="py-1 pr-3 font-medium">Stage</th>
-                        <th className="py-1 pr-3 font-medium">Adapter</th>
-                        <th className="py-1 pr-3 text-right font-medium">Calls</th>
-                        <th className="py-1 pr-3 text-right font-medium">Avg</th>
-                        <th className="py-1 pr-3 text-right font-medium">Max</th>
-                        <th className="py-1 text-right font-medium">Errors</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--color-jarvis-border)] tabular-nums">
-                      {a.aiCalls.map((s) => (
-                        <tr key={`${s.stage}-${s.adapter}`}>
-                          <td className="py-1.5 pr-3">{s.stage}</td>
-                          <td className="py-1.5 pr-3 font-mono text-xs">{s.adapter}</td>
-                          <td className="py-1.5 pr-3 text-right">{s.calls}</td>
-                          <td className="py-1.5 pr-3 text-right">{s.avgMs} ms</td>
-                          <td className="py-1.5 pr-3 text-right">{s.maxMs} ms</td>
-                          <td className="py-1.5 text-right">{s.errors}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {a.aiCalls.some((s) => s.adapter.startsWith("fixture")) && (
-                <p className="mt-3 text-xs text-[var(--color-jarvis-muted)]">
-                  Fixture adapters run in-process, so their latency is not model inference time.
-                </p>
-              )}
-            </Card>
-          </div>
-
-          <Card title="Recent activity">
-            <ul className="divide-y divide-[var(--color-jarvis-border)]">
-              {a.activity.map((item) => {
-                const entry = entries.find((e) => e.id === item.caseId);
-                return (
-                  <li key={item.caseId} className="flex flex-wrap items-center gap-3 py-2">
-                    <StateBadge state={item.state} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-[var(--color-jarvis-ink)]">
-                        Order #{item.orderId} · {item.summary}
-                      </p>
-                      <p className="text-xs text-[var(--color-jarvis-faint)]">
-                        {new Date(item.at).toLocaleTimeString()} · {item.source === "storefront" ? "Demo store" : "Console"} ·{" "}
-                        <span className="font-mono">{item.caseId}</span>
-                      </p>
-                    </div>
-                    {entry && onOpenCase && (
-                      <button type="button" className={btn.ghost} onClick={() => onOpenCase(entry)}>
-                        Open case
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        </>
       )}
 
-      <section aria-labelledby="bench-title" className="space-y-3 pt-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 id="bench-title" className="text-base font-semibold text-[var(--color-jarvis-ink)]">
-            Safety benchmark
-          </h3>
-          <Pill tone="warning">Fixture model · not AMD · not real-model</Pill>
-        </div>
-        <FixtureBenchmarkNotice />
-        <p className="max-w-3xl text-sm text-[var(--color-warning)]">{b.disclaimer}</p>
-        <dl className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <KpiCard label="Unsafe autonomous actions" value={String(b.unsafeAutonomousActions)} hint="CI gate: must stay 0" />
-          <KpiCard label="Safe resolution rate" value={pct(b.safeResolutionRate)} hint={`${b.passed}/${b.totalCases} cases`} />
-          <KpiCard label="Correct escalations" value={`${b.correctEscalations} / ${b.groundTruthEscalation}`} hint={pct(b.correctEscalationRate)} />
-          <KpiCard
-            label="Correct autonomous"
-            value={`${b.correctAutonomousResolutions} / ${b.groundTruthAutonomous}`}
-            hint="DC-S04 escalated conservatively"
+      <section aria-label="Operational trends" className="grid gap-4 lg:grid-cols-3">
+        <ChartCard
+          className="lg:col-span-2"
+          title="Cases over time"
+          caption={`${caption} · by ${g === "5min" ? "5 minutes" : g}`}
+          legend={OUTCOME_ORDER.map((o) => ({ key: o, label: OUTCOME_LABELS[o], color: OUTCOME_COLOR[o] }))}
+          table={
+            <DataTable
+              caption="Cases over time by outcome"
+              columns={["Period", ...OUTCOME_ORDER.map((o) => OUTCOME_LABELS[o]), "Total"]}
+              rows={buckets.flatMap((b, i) => (b.total ? [[columns[i].title, ...OUTCOME_ORDER.map((o) => b.counts[o]), b.total]] : []))}
+            />
+          }
+        >
+          <StackedBarChart
+            series={OUTCOME_ORDER.map((o) => ({ key: o, label: OUTCOME_LABELS[o], color: OUTCOME_COLOR[o] }))}
+            columns={columns}
+            onSelect={(o) => focusReport({ outcome: o })}
+            emptyText="No cases in this period."
           />
-          <KpiCard label="Conservative escalations" value={String(b.conservativeEscalations)} hint="Safe, but a miss" />
-          <KpiCard label="Workflow success" value={pct(b.workflowSuccessRate)} />
-          <KpiCard label="Verification success" value={pct(b.verificationSuccessRate)} />
-          <KpiCard label="Total cases" value={String(b.totalCases)} />
-        </dl>
-        <Card title="Dataset pin">
-          <dl className="space-y-2 text-sm">
-            <div>
-              <dt className="text-xs text-[var(--color-jarvis-muted)]">Dataset</dt>
-              <dd className="font-mono text-xs">
-                {b.datasetId} v{b.datasetVersion}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-[var(--color-jarvis-muted)]">SHA-256</dt>
-              <dd className="break-all font-mono text-[11px]">{b.datasetSha256}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-[var(--color-jarvis-muted)]">Model / payments / data</dt>
-              <dd className="text-xs text-[var(--color-jarvis-muted)]">
-                {b.model} · {b.payments} · {b.data}
-              </dd>
-            </div>
-          </dl>
-        </Card>
+        </ChartCard>
+        <ChartCard
+          title="Resolution vs escalation"
+          caption={caption}
+          table={<DataTable caption="Case outcomes" columns={["Outcome", "Cases"]} rows={OUTCOME_ORDER.map((o) => [OUTCOME_LABELS[o], s.outcomes[o]])} />}
+        >
+          <DonutChart
+            segments={OUTCOME_ORDER.map((o) => ({ key: o, label: OUTCOME_LABELS[o], value: s.outcomes[o], color: OUTCOME_COLOR[o] }))}
+            centerLabel="cases"
+            onSelect={(o) => focusReport({ outcome: o })}
+            emptyText="No outcomes yet."
+          />
+        </ChartCard>
+        <ChartCard
+          title="Refund outcomes"
+          caption={caption}
+          table={<DataTable caption="Refund outcomes" columns={["Outcome", "Cases"]} rows={REFUND_ORDER.map((o) => [REFUND_LABELS[o], s.refunds[o]])} />}
+        >
+          <DonutChart
+            segments={REFUND_ORDER.map((o) => ({ key: o, label: REFUND_LABELS[o], value: s.refunds[o], color: REFUND_COLOR[o] }))}
+            centerLabel="cases"
+            onSelect={(o) => focusReport({ refund: o })}
+            emptyText="No refund decisions yet."
+          />
+        </ChartCard>
+        <ChartCard title="Automation activity" caption={`${caption} · from each case's audit trail`}>
+          {ai.length === 0 ? (
+            <BarList rows={[]} emptyText="No AI calls recorded in this period." />
+          ) : (
+            <>
+              <BarList
+                rows={ai.map((a) => ({
+                  key: `${a.stage}-${a.adapter}`,
+                  label: `${a.stage} · ${a.adapter}`,
+                  value: a.calls,
+                  note: a.avgMs === null ? "latency not measured" : `avg ${a.avgMs} ms · p95 ${a.p95Ms} ms`,
+                }))}
+                emptyText=""
+              />
+              <p className="mt-3 text-[11px] text-[var(--color-jarvis-faint)]">
+                {sample
+                  ? "Sample records carry call counts only; latency is never simulated."
+                  : ai.some((a) => a.adapter.startsWith("fixture"))
+                    ? "Fixture adapters run in-process: their latency is not model inference time."
+                    : "Latency as recorded by the engine around each provider call."}
+              </p>
+            </>
+          )}
+        </ChartCard>
+        <ChartCard title="Support activity" caption={caption}>
+          <BarList
+            rows={
+              sample
+                ? [{ key: "sample", label: "Sample requests", value: s.cases }]
+                : [
+                    { key: "storefront", label: "Customer requests from the demo store", value: s.storefront, onSelect: () => focusReport({ source: "storefront" }) },
+                    { key: "operations", label: "Cases run from the console", value: s.cases - s.storefront, onSelect: () => focusReport({ source: "operations" }) },
+                    { key: "review", label: "Cases requiring human review", value: s.pendingReview, onSelect: () => focusReport({ reviewOnly: true }) },
+                  ]
+            }
+            emptyText="No support requests in this period."
+          />
+          <p className="mt-3 text-[11px] text-[var(--color-jarvis-faint)]">Workflow: duplicate-charge refund (the only operational automation).</p>
+        </ChartCard>
       </section>
+
+      {!sample && (
+        <section aria-label="Business operations" className="grid gap-4 lg:grid-cols-2">
+          <ChartCard title="Orders by status" caption="Demo store orders joined with the latest recorded case · not range-filtered">
+            {orderRows ? (
+              <BarList
+                rows={(
+                  [
+                    ["needs-review", "Needs review", orderRows.filter((r) => r.resolution === "ESCALATED" || r.resolution === "FAILED").length],
+                    ["refunded", "Refunded", orderRows.filter((r) => r.refundState === "Refunded by JARVIS (simulated)" || r.refundState === "Refunded before JARVIS").length],
+                    ["closed", "Closed, no action", orderRows.filter((r) => r.resolution === "CLOSED_NO_ACTION").length],
+                    ["no-case", "No case yet", orderRows.filter((r) => !r.latestCase).length],
+                  ] as [OrderStatusFilter, string, number][]
+                ).map(([key, label, value]) => ({ key, label, value, onSelect: onOpenOrders ? () => onOpenOrders(key) : undefined }))}
+                emptyText="No orders."
+              />
+            ) : (
+              <BarList rows={[]} emptyText="Loading the demo store…" />
+            )}
+          </ChartCard>
+          <ChartCard title="Recent operational events" caption={caption}>
+            {records.length === 0 ? (
+              <BarList rows={[]} emptyText="No events in this period." />
+            ) : (
+              <ol className="space-y-1.5">
+                {[...records]
+                  .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+                  .slice(0, 5)
+                  .map((r) => (
+                    <li key={r.id} className="flex items-center gap-2 text-xs">
+                      <span className="w-24 shrink-0 tabular-nums text-[var(--color-jarvis-faint)]">{fmtTime(r.at)}</span>
+                      <span className="min-w-0 flex-1 truncate text-[var(--color-jarvis-ink)]">
+                        #{r.orderId} · {REFUND_LABELS[r.refund]}
+                      </span>
+                      {r.entry && onOpenCase ? (
+                        <button type="button" className={btn.ghost} onClick={() => onOpenCase(r.entry!)}>
+                          Evidence
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+              </ol>
+            )}
+          </ChartCard>
+        </section>
+      )}
+
+      <section id="analytics-report" aria-label="Case report" className="scroll-mt-20 rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] shadow-card">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-jarvis-border)] px-4 py-2.5">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-jarvis-ink)]">Case report</h3>
+            <p className="text-[11px] text-[var(--color-jarvis-faint)]">
+              {report.length} of {records.length} cases · {describeDrill(drillBy) ?? "all outcomes"} · click a chart segment to filter
+            </p>
+          </div>
+          {describeDrill(drillBy) && (
+            <button type="button" className={btn.ghost} onClick={() => setDrillBy({})}>
+              Clear filter: {describeDrill(drillBy)}
+            </button>
+          )}
+        </header>
+        {report.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-[var(--color-jarvis-muted)]">No cases match.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <caption className="sr-only">Cases in the selected period and filter</caption>
+              <thead className="bg-[var(--color-jarvis-surface-2)] text-xs text-[var(--color-jarvis-muted)]">
+                <tr>
+                  {["Completed", "Case", "Order", "Source", "Outcome", "Refund", "Amount", ""].map((h) => (
+                    <th key={h} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-jarvis-border)]">
+                {report.slice(0, limit).map((r) => (
+                  <tr key={r.id}>
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-[var(--color-jarvis-muted)]">{fmtTime(r.at)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px]">{r.id.slice(0, 13)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">#{r.orderId}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-[var(--color-jarvis-muted)]">
+                      {r.source === "sample" ? "Sample" : r.source === "storefront" ? "Demo store" : "Console"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <StateBadge state={{ resolved: "RESOLVED", escalated: "ESCALATED", closed: "CLOSED_NO_ACTION", failed: "FAILED", open: "IN_PROGRESS" }[r.outcome]} />
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs">{REFUND_LABELS[r.refund]}</td>
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.refund === "verified" ? formatMinor(r.refundMinor, r.currency) : "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      {r.entry && onOpenCase ? (
+                        <button type="button" className={btn.ghost} onClick={() => onOpenCase(r.entry!)}>
+                          Open evidence
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-[var(--color-jarvis-faint)]">Sample record</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {report.length > limit && (
+              <div className="border-t border-[var(--color-jarvis-border)] px-4 py-2 text-center">
+                <button type="button" className={btn.ghost} onClick={() => setLimit((l) => l + 25)}>
+                  Show more ({report.length - limit} remaining)
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <SafetyBenchmark />
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <dt className="text-xs text-[var(--color-jarvis-muted)]">{label}</dt>
-      <dd className="mt-0.5 text-xl font-semibold tabular-nums">{value}</dd>
-    </div>
-  );
+function deltaText(d: Delta | null): string {
+  if (!d) return "No prior-period data to compare";
+  const diff = d.current - d.previous;
+  const sign = diff > 0 ? "+" : "";
+  return `${sign}${diff} vs previous period${d.change === null ? "" : ` (${sign}${Math.round(d.change * 100)}%)`}`;
 }
 
-function Legend() {
+function SafetyBenchmark() {
+  const b = FIXTURE_BENCHMARK;
   return (
-    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-jarvis-muted)]">
-      {OUTCOMES.map((o) => (
-        <li key={o} className="flex items-center gap-1.5">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-sm" style={{ background: OUTCOME_META[o].color }} />
-          {OUTCOME_META[o].label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Stacked bars per time bucket. Each bar also carries a text summary for screen readers. */
-function VolumeChart({ buckets }: { buckets: VolumeBucket[] }) {
-  const max = Math.max(1, ...buckets.map((b) => b.resolved + b.escalated + b.closed + b.failed));
-  const shown = buckets.slice(-24);
-  return (
-    <figure>
-      <div className="flex h-44 items-end gap-1.5 border-b border-l border-[var(--color-jarvis-border)] pl-1">
-        {shown.map((b) => {
-          const total = b.resolved + b.escalated + b.closed + b.failed;
-          const time = new Date(b.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          return (
-            <div
-              key={b.start}
-              role="img"
-              aria-label={`${time}: ${total} cases — ${b.resolved} resolved, ${b.escalated} escalated, ${b.closed} closed, ${b.failed} failed`}
-              title={`${time} · ${total} cases`}
-              className="flex h-full min-w-3 max-w-12 flex-1 flex-col-reverse"
-            >
-              {OUTCOMES.map((o) =>
-                b[o] ? (
-                  <div key={o} style={{ height: `${(b[o] / max) * 100}%`, background: OUTCOME_META[o].color }} />
-                ) : null,
-              )}
-            </div>
-          );
-        })}
+    <section aria-labelledby="bench-title" className="space-y-3 pt-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 id="bench-title" className="text-base font-semibold text-[var(--color-jarvis-ink)]">
+          Safety benchmark
+        </h3>
+        <Pill tone="warning">Fixture model · not AMD · not real-model</Pill>
       </div>
-      <div className="mt-1 flex justify-between text-[11px] tabular-nums text-[var(--color-jarvis-faint)]">
-        <span>{new Date(shown[0].start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-        <span>Peak {max} per bucket</span>
-        <span>{new Date(shown[shown.length - 1].start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-      </div>
-      <Legend />
-    </figure>
-  );
-}
-
-function OutcomeBars({ outcomes, total }: { outcomes: Record<OutcomeBucket, number>; total: number }) {
-  return (
-    <ul className="space-y-3">
-      {OUTCOMES.map((o) => {
-        const share = total ? outcomes[o] / total : 0;
-        return (
-          <li key={o}>
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--color-jarvis-ink)]">{OUTCOME_META[o].label}</span>
-              <span className="tabular-nums text-[var(--color-jarvis-muted)]">
-                {outcomes[o]} · {pct(share)}
-              </span>
-            </div>
-            <div className="mt-1 h-2 rounded-full bg-[var(--color-jarvis-surface-2)]" aria-hidden>
-              <div className="h-2 rounded-full" style={{ width: `${share * 100}%`, background: OUTCOME_META[o].color }} />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+      <FixtureBenchmarkNotice />
+      <p className="max-w-3xl text-sm text-[var(--color-warning)]">{b.disclaimer}</p>
+      <dl className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Unsafe autonomous actions" value={String(b.unsafeAutonomousActions)} hint="CI gate: must stay 0" />
+        <KpiCard label="Safe resolution rate" value={pct(b.safeResolutionRate)} hint={`${b.passed}/${b.totalCases} cases`} />
+        <KpiCard label="Correct escalations" value={`${b.correctEscalations} / ${b.groundTruthEscalation}`} hint={pct(b.correctEscalationRate)} />
+        <KpiCard label="Correct autonomous" value={`${b.correctAutonomousResolutions} / ${b.groundTruthAutonomous}`} hint="DC-S04 escalated conservatively" />
+        <KpiCard label="Workflow success" value={pct(b.workflowSuccessRate)} />
+        <KpiCard label="Verification success" value={pct(b.verificationSuccessRate)} />
+      </dl>
+      <details className="rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] px-4 py-2 text-sm shadow-card">
+        <summary className="cursor-pointer font-medium text-[var(--color-jarvis-ink)]">Dataset pin</summary>
+        <dl className="mt-2 space-y-2">
+          <div>
+            <dt className="text-xs text-[var(--color-jarvis-muted)]">Dataset</dt>
+            <dd className="font-mono text-xs">
+              {b.datasetId} v{b.datasetVersion} · {b.totalCases} cases · {b.conservativeEscalations} conservative escalation
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-[var(--color-jarvis-muted)]">SHA-256</dt>
+            <dd className="break-all font-mono text-[11px]">{b.datasetSha256}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-[var(--color-jarvis-muted)]">Model / payments / data</dt>
+            <dd className="text-xs text-[var(--color-jarvis-muted)]">
+              {b.model} · {b.payments} · {b.data}
+            </dd>
+          </div>
+        </dl>
+      </details>
+    </section>
   );
 }
