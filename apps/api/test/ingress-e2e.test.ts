@@ -161,7 +161,7 @@ describe("serverless ingress (Netlify + Vercel wrappers)", () => {
     const r = await webPost(cases)(PUBLIC_DEMOS["valid-duplicate"]);
     assert.equal(r.status, 503);
     assert.equal(((await r.json()) as { error: string }).error, "serverless_is_fixture_only");
-    const h = (await health(new Request("https://demo.example/api/health")).json()) as { ok: boolean; remoteModel: boolean };
+    const h = (await (await health(new Request("https://demo.example/api/health"))).json()) as { ok: boolean; remoteModel: boolean };
     assert.equal(h.ok, false);
     assert.equal(h.remoteModel, false);
   });
@@ -176,7 +176,7 @@ describe("serverless ingress (Netlify + Vercel wrappers)", () => {
   test("health is honest on both hosts", async () => {
     for (const [name, h] of [
       ["netlify", await netlifyHealth(new Request("https://demo.example/api/health"))],
-      ["vercel", vercelHealth(new Request("https://demo.example/api/health"))],
+      ["vercel", await vercelHealth(new Request("https://demo.example/api/health"))],
     ] as const) {
       const body = (await h.json()) as Record<string, unknown>;
       assert.equal(body.deployment, name);
@@ -264,5 +264,89 @@ describe("vLLM-mode server ingress (fake model server; not AMD)", () => {
     } finally {
       server.close();
     }
+  });
+});
+
+describe("serverless real-model mode (opt-in; fake OpenAI-compatible server, not AMD)", () => {
+  let fake: FakeOpenAIServer;
+  before(async () => {
+    fake = await startFakeOpenAIServer();
+    fake.setModelsScenario({ kind: "list", ids: ["fake-model"] });
+  });
+  after(() => fake.close());
+  const env = (extra: Record<string, string> = {}) => ({
+    JARVIS_AI_MODE: "vllm",
+    JARVIS_SERVERLESS_REAL_MODEL: "enabled",
+    JARVIS_MODEL_BASE_URL: fake.baseUrl,
+    JARVIS_MODEL_NAME: "fake-model",
+    JARVIS_MODEL_API_KEY: "sk-serverless-SECRET-123",
+    JARVIS_MODEL_TIMEOUT_MS: "3000",
+    JARVIS_DAILY_MODEL_CALL_BUDGET: "50",
+    ...extra,
+  });
+  const health = async (h: { health: (r: Request) => Response | Promise<Response> }) =>
+    (await (await h.health(new Request("https://demo.example/api/health"))).json()) as Record<string, unknown>;
+
+  test("without the explicit opt-in, vllm config still refuses cases (503) and never calls the model", async () => {
+    const before = fake.requestCount;
+    const { cases } = createServerlessHandlers("vercel", { ...env(), JARVIS_SERVERLESS_REAL_MODEL: "" });
+    const r = await webPost(cases)(PUBLIC_DEMOS["valid-duplicate"]);
+    assert.equal(r.status, 503);
+    assert.equal(fake.requestCount, before);
+  });
+
+  test("opted in: startup checks run once per instance, demos run through the model, health is truthful", async () => {
+    fake.setScenario({ kind: "respond", respond: fixtureLikeAnswer });
+    const h = createServerlessHandlers("vercel", env());
+    const post = webPost(h.cases);
+    const before = fake.requestCount;
+    const a = await post(PUBLIC_DEMOS["valid-duplicate"]);
+    assert.equal(a.status, 200);
+    assert.equal(a.headers.get("x-jarvis-ai-mode"), "vllm");
+    assert.equal(((await a.json()) as Case).state, "RESOLVED");
+    assert.equal(fake.requestCount - before, 4, "2 startup probes + 2 case calls");
+    const b = await post(PUBLIC_DEMOS["prompt-injection"]);
+    assert.equal(((await b.json()) as Case).state, "ESCALATED");
+    assert.equal(fake.requestCount - before, 6, "startup checks are not repeated");
+    const callsBeforeHealth = fake.requestCount;
+    const hb = await health(h);
+    assert.equal(hb.aiMode, "vllm");
+    assert.equal(hb.model, "fake-model");
+    assert.equal(hb.ok, true);
+    assert.equal(hb.remoteModel, true);
+    const p = hb.provider as { reachable: boolean; modelListed: boolean; endpoint: string; error: string | null };
+    assert.deepEqual([p.reachable, p.modelListed, p.endpoint, p.error], [true, true, fake.baseUrl, null]);
+    assert.equal(fake.requestCount, callsBeforeHealth, "health uses GET /models only, no completion calls");
+    assert.ok(!JSON.stringify(hb).includes("SECRET"));
+  });
+
+  test("opted in: free text stays token-gated; failed startup is 503 and retried on the next request", async () => {
+    const h = createServerlessHandlers("vercel", env());
+    const before = fake.requestCount;
+    assert.equal((await webPost(h.cases)(FREE_TEXT)).status, 403);
+    assert.equal(fake.requestCount, before, "a rejected request must not trigger startup probes or model calls");
+    fake.setModelsScenario({ kind: "list", ids: ["other-model"] });
+    const r = await webPost(h.cases)(PUBLIC_DEMOS["valid-duplicate"]);
+    assert.equal(r.status, 503);
+    const body = (await r.json()) as { error: string; detail: string };
+    assert.equal(body.error, "model_unavailable");
+    assert.match(body.detail, /MODEL_NOT_SERVED/);
+    assert.ok(!JSON.stringify(body).includes("SECRET"));
+    const unhealthy = await health(createServerlessHandlers("vercel", env()));
+    assert.equal(unhealthy.ok, false);
+    assert.equal((unhealthy.provider as { modelListed: boolean }).modelListed, false);
+    fake.setModelsScenario({ kind: "list", ids: ["fake-model"] });
+    fake.setScenario({ kind: "respond", respond: fixtureLikeAnswer });
+    assert.equal((await webPost(h.cases)(PUBLIC_DEMOS["valid-duplicate"])).status, 200);
+  });
+
+  test("opted in without an explicit budget: refuses (503), never calls the model", async () => {
+    const before = fake.requestCount;
+    const e: Record<string, string> = env();
+    delete e.JARVIS_DAILY_MODEL_CALL_BUDGET;
+    const r = await webPost(createServerlessHandlers("vercel", e).cases)(PUBLIC_DEMOS["valid-duplicate"]);
+    assert.equal(r.status, 503);
+    assert.equal(((await r.json()) as { error: string }).error, "ingress_misconfigured");
+    assert.equal(fake.requestCount, before);
   });
 });

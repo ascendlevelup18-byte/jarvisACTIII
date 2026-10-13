@@ -62,6 +62,14 @@ export interface CaseIngress {
   clock: () => Date;
   /** One entry per handled request: no message text, no token. */
   log?: (entry: Record<string, unknown>) => void;
+  /**
+   * Optional lazy runtime (serverless real-model mode): called only for requests that
+   * passed the access guard, before any budget is reserved. Overrides the adapter fields.
+   */
+  resolveRuntime?: () => Promise<
+    | { ok: true; runtime: Pick<CaseIngress, "aiMode" | "understanding" | "model" | "engineTimeoutMs" | "modelCallsPerCase"> }
+    | { ok: false; status: number; body: unknown }
+  >;
 }
 
 export interface IngressRequest {
@@ -86,7 +94,7 @@ const DENIAL_BODY: Record<LimitDenial, string> = {
 
 export async function handleCaseRequest(req: IngressRequest, ing: CaseIngress): Promise<IngressResponse> {
   const started = performance.now();
-  const base = { "x-jarvis-ai-mode": ing.aiMode, "x-jarvis-payments": "simulated" };
+  const base: Record<string, string> = { "x-jarvis-ai-mode": ing.aiMode, "x-jarvis-payments": "simulated" };
   const reply = (status: number, body: unknown, extra: Record<string, string> = {}, logged: Record<string, unknown> = {}) => {
     ing.log?.({ status, ...logged, latencyMs: Math.round(performance.now() - started) });
     return { status, body, headers: { ...base, ...extra } };
@@ -126,7 +134,15 @@ export async function handleCaseRequest(req: IngressRequest, ing: CaseIngress): 
     }
   }
 
-  const slot = ing.limiter.tryAcquire(req.clientKey, ing.modelCallsPerCase ?? (ing.aiMode === "vllm" ? 2 : 0));
+  let rt: Pick<CaseIngress, "aiMode" | "understanding" | "model" | "engineTimeoutMs" | "modelCallsPerCase"> = ing;
+  if (ing.resolveRuntime) {
+    const resolved = await ing.resolveRuntime();
+    if (!resolved.ok) return reply(resolved.status, resolved.body, {}, { requestClass, denied: "RUNTIME_UNAVAILABLE" });
+    rt = resolved.runtime;
+    base["x-jarvis-ai-mode"] = rt.aiMode;
+  }
+
+  const slot = ing.limiter.tryAcquire(req.clientKey, rt.modelCallsPerCase ?? (rt.aiMode === "vllm" ? 2 : 0));
   if (!slot.ok) {
     return reply(
       429,
@@ -140,12 +156,12 @@ export async function handleCaseRequest(req: IngressRequest, ing: CaseIngress): 
     const world = demo ? freshWorld(ing.clock) : ing.privilegedWorld();
     const deps: EngineDeps = {
       ...world,
-      understanding: ing.understanding,
-      model: ing.model,
+      understanding: rt.understanding,
+      model: rt.model,
       policy: REFUND_POLICY,
       permissions: { autoRefund: true },
       clock: ing.clock,
-      modelTimeoutMs: ing.engineTimeoutMs,
+      modelTimeoutMs: rt.engineTimeoutMs,
     };
     const c = await runCase(parsed.data, deps);
     const runId = demo ? `DEMO-${randomUUID()}` : null;

@@ -1,6 +1,6 @@
 // Deployment config invariants for the public fixture demo (Vercel + Netlify).
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { test } from "node:test";
 
 const ROOT = new URL("../../../", import.meta.url);
@@ -24,4 +24,21 @@ test("vercel.json: no inline env (no model keys); commit-triggered master deploy
   assert.equal(vercel.env, undefined);
   assert.equal(vercel.build?.env, undefined);
   assert.equal(vercel.git?.deploymentEnabled?.master, false);
+});
+
+test("web source never references model credentials or server-only env", () => {
+  const files: string[] = [];
+  const walk = (dir: URL) => {
+    for (const name of readdirSync(dir)) {
+      const u = new URL(`${name}`, dir);
+      if (statSync(u).isDirectory()) walk(new URL(`${name}/`, dir));
+      else if (/\.(ts|tsx)$/.test(name)) files.push(readFileSync(u, "utf8"));
+    }
+  };
+  walk(new URL("apps/web/src/", ROOT));
+  assert.ok(files.length > 10);
+  for (const src of files) {
+    assert.doesNotMatch(src, /JARVIS_MODEL|JARVIS_CASES_TOKEN|API_KEY/);
+    assert.doesNotMatch(src, /import\.meta\.env\.VITE_[A-Z_]*(KEY|TOKEN|SECRET)/);
+  }
 });
