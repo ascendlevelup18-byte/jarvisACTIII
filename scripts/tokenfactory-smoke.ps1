@@ -65,7 +65,8 @@ try {
   Write-Host "2) /models with the key:"
   try { $models = Invoke-RestMethod -Method Get -Uri "$BaseUrl/models" -Headers $headers -TimeoutSec 30 }
   catch { Fail "step 2 (/models with key)" $_ }
-  $ids = @($models.data | ForEach-Object { $_.id })
+  $ids = @($models.data | Where-Object { $_ -and $_.id } | ForEach-Object { [string]$_.id })
+  if ($ids.Count -eq 0) { Write-Host "   No models are served for this key (empty or unexpected /models response)." -ForegroundColor Red; exit 1 }
   Write-Host ("   {0} model(s):" -f $ids.Count)
   $ids | ForEach-Object { Write-Host "   - $_" }
 
@@ -77,6 +78,10 @@ try {
     try { $r = Invoke-RestMethod -Method Post -Uri "$BaseUrl/chat/completions" -Headers $headers -ContentType "application/json" -Body $body -TimeoutSec 60 }
     catch { Fail "step 3 (chat completion)" $_ }
     $sw.Stop()
+    if (-not $r -or -not $r.choices -or -not $r.choices[0].message) {
+      Write-Host "   FAILED at step 3: malformed reply (no choices[0].message); not an OpenAI-compatible chat response." -ForegroundColor Red
+      exit 1
+    }
     Write-Host ("   ok · {0} ms · model={1} · prompt_tokens={2} · completion_tokens={3}" -f $sw.ElapsedMilliseconds, $r.model, $r.usage.prompt_tokens, $r.usage.completion_tokens)
     $text = "" + $r.choices[0].message.content
     Write-Host ("   reply: " + ($text -replace '\s+', ' ').Substring(0, [Math]::Min(40, $text.Length)))

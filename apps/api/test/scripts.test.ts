@@ -38,6 +38,33 @@ describe("tokenfactory-smoke.ps1", () => {
   });
 });
 
+describe("tokenfactory-smoke.ps1: Windows PowerShell 5.1 compatibility (static)", () => {
+  test("uses no PowerShell 7-only syntax or parameters", () => {
+    const forbidden: [RegExp, string][] = [
+      [/\?\?/, "null-coalescing ??"],
+      [/\?\./, "null-conditional ?."],
+      [/\s\?\s[^:]+\s:\s/, "ternary ? :"],
+      [/&&|\|\|/, "pipeline chain && / ||"],
+      [/-AsPlainText/, "ConvertFrom-SecureString -AsPlainText (PS 7)"],
+      [/-Parallel/, "ForEach-Object -Parallel"],
+      [/-SkipHttpErrorCheck|-StatusCodeVariable|-ResponseHeadersVariable/, "PS 7 web cmdlet parameters"],
+      [/-AsHashtable/, "ConvertFrom-Json -AsHashtable"],
+    ];
+    for (const [re, what] of forbidden) assert.doesNotMatch(code, re, what);
+  });
+
+  test("web calls work on 5.1: basic parsing and explicit TLS 1.2 before the first request", () => {
+    assert.match(code, /Invoke-WebRequest -UseBasicParsing/);
+    assert.ok(code.indexOf("Tls12") < code.indexOf("Invoke-WebRequest"), "TLS must be set before the first request");
+    assert.match(code, /\$PSVersionTable\.PSVersion\.Major -lt 6/);
+  });
+
+  test("empty model lists and malformed replies are handled explicitly", () => {
+    assert.match(code, /\$ids\.Count -eq 0/);
+    assert.match(code, /-not \$r\.choices/);
+  });
+});
+
 describe("verify-demo.mjs", () => {
   test("never prints the bypass secret and only sends the public demo requests", () => {
     assert.doesNotMatch(verify, /console\.(log|error)\([^)]*(extra|BYPASS)/);

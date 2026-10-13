@@ -21,6 +21,7 @@
     "api:bench:ci": "node apps/api/eval/run-benchmark.ts --ci",
     "api:bench:vllm": "node apps/api/eval/run-benchmark.ts --mode vllm",
     "demo:verify": "node scripts/verify-demo.mjs",
+    "test:pwsh": "node --test apps/api/test/tokenfactory-smoke.test.ts",
     "web:dev": "npm run dev --prefix apps/web",
     "web:build": "npm run build --prefix apps/web",
     "web:typecheck": "npm run build --prefix apps/web",
