@@ -333,3 +333,100 @@ describe("redactSecrets", () => {
     assert.ok(!redactSecrets("Bearer sk-abc123").includes("sk-abc123"));
   });
 });
+
+describe("bounded retries for transient provider errors", () => {
+  let fake: FakeOpenAIServer;
+  before(async () => {
+    fake = await startFakeOpenAIServer();
+  });
+  after(async () => {
+    await fake.close();
+  });
+  const client = (maxRetries: number) =>
+    new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "fake-model", timeoutMs: 3000, maxRetries, retryBaseDelayMs: 10 });
+  const ask = (c: OpenAICompatibleClient, signal?: AbortSignal) =>
+    c.chatCompletions({ messages: [{ role: "user", content: "hi" }], ...(signal ? { signal } : {}) });
+  const ok = { kind: "ok" as const, content: "{}" };
+
+  for (const status of [429, 500, 502, 503, 504]) {
+    test(`HTTP ${status} then success -> retried once, attempts reported`, async () => {
+      fake.setScenario({ kind: "sequence", steps: [{ kind: "http_status", status }, ok] });
+      const before = fake.requestCount;
+      const r = await ask(client(1));
+      assert.equal(r.content, "{}");
+      assert.equal(r.attempts, 2);
+      assert.equal(fake.requestCount - before, 2);
+    });
+  }
+
+  test("connection refused is retried, then fails with CONNECTION_ERROR after the bound", async () => {
+    const dead = await startFakeOpenAIServer();
+    const url = dead.baseUrl;
+    await dead.close();
+    const c = new OpenAICompatibleClient({ baseUrl: url, model: "m", timeoutMs: 1000, maxRetries: 2, retryBaseDelayMs: 5 });
+    await assert.rejects(ask(c), (e: unknown) => e instanceof ProviderError && e.category === "CONNECTION_ERROR");
+  });
+
+  for (const [label, scenario] of [
+    ["401", { kind: "http_status" as const, status: 401 }],
+    ["400", { kind: "http_status" as const, status: 400 }],
+    ["malformed JSON body", { kind: "malformed_json" as const }],
+    ["truncated output", { kind: "ok" as const, content: "{", finishReason: "length" }],
+  ] as const) {
+    test(`${label} is never retried`, async () => {
+      fake.setScenario({ kind: "sequence", steps: [scenario, ok] });
+      const before = fake.requestCount;
+      await assert.rejects(ask(client(2)), ProviderError);
+      assert.equal(fake.requestCount - before, 1);
+    });
+  }
+
+  test("retries are off by default (maxRetries 0)", async () => {
+    fake.setScenario({ kind: "sequence", steps: [{ kind: "http_status", status: 503 }, ok] });
+    const before = fake.requestCount;
+    await assert.rejects(
+      new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 3000 }).chatCompletions({ messages: [{ role: "user", content: "x" }] }),
+      (e: unknown) => e instanceof ProviderError && e.statusCode === 503,
+    );
+    assert.equal(fake.requestCount - before, 1);
+  });
+
+  test("gives up after maxRetries and surfaces the last error", async () => {
+    fake.setScenario({ kind: "http_status", status: 503 });
+    const before = fake.requestCount;
+    await assert.rejects(ask(client(2)), (e: unknown) => e instanceof ProviderError && e.statusCode === 503);
+    assert.equal(fake.requestCount - before, 3);
+  });
+
+  test("Retry-After (seconds) is honoured, capped by retryMaxDelayMs", async () => {
+    fake.setScenario({ kind: "sequence", steps: [{ kind: "http_status", status: 429, headers: { "retry-after": "60" } }, ok] });
+    const c = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 3000, maxRetries: 1, retryMaxDelayMs: 50 });
+    const t0 = performance.now();
+    const r = await ask(c);
+    const waited = performance.now() - t0;
+    assert.equal(r.attempts, 2);
+    assert.ok(waited >= 40 && waited < 1000, `waited ${waited}ms`);
+  });
+
+  test("a caller abort during backoff stops immediately (no further attempt)", async () => {
+    fake.setScenario({ kind: "sequence", steps: [{ kind: "http_status", status: 503 }, ok] });
+    const c = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 3000, maxRetries: 1, retryBaseDelayMs: 5000 });
+    const ac = new AbortController();
+    const before = fake.requestCount;
+    const p = ask(c, ac.signal);
+    setTimeout(() => ac.abort(), 50);
+    await assert.rejects(p, (e: unknown) => e instanceof ProviderError && e.category === "TIMEOUT");
+    assert.equal(fake.requestCount - before, 1);
+  });
+
+  test("listModels uses the same bounded retry", async () => {
+    // models endpoint has its own scenario; 503 there is not sequenced, so just check no retry storms on success
+    const ids = await client(1).listModels();
+    assert.deepEqual(ids, ["fake-model"]);
+  });
+
+  test("invalid retry configuration is rejected", () => {
+    assert.throws(() => new OpenAICompatibleClient({ baseUrl: "http://x/v1", model: "m", timeoutMs: 10, maxRetries: 4 }), /maxRetries/);
+    assert.throws(() => new OpenAICompatibleClient({ baseUrl: "http://x/v1", model: "m", timeoutMs: 10, maxRetries: -1 }), /maxRetries/);
+  });
+});

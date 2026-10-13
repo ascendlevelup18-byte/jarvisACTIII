@@ -16,6 +16,8 @@ export interface AiConfig {
   modelApiKey: string | undefined;
   modelTimeoutMs: number;
   structuredOutput: StructuredOutputMode;
+  /** Extra attempts on transient provider errors (429/5xx/connection). 0..3, default 0. */
+  modelMaxRetries: number;
 }
 
 export class AiConfigError extends Error {
@@ -36,6 +38,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * - JARVIS_MODEL_API_KEY: optional
  * - JARVIS_MODEL_TIMEOUT_MS: positive int; invalid values fail; default 30000
  * - JARVIS_MODEL_STRUCTURED_OUTPUT: json_schema | off (default json_schema)
+ * - JARVIS_MODEL_MAX_RETRIES: 0..3 (default 0); retries only transient 429/5xx/connection errors
  *
  * Fixture mode does not require an endpoint.
  */
@@ -68,6 +71,12 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   }
   const structuredOutput: StructuredOutputMode = structuredRaw;
 
+  const retriesRaw = env.JARVIS_MODEL_MAX_RETRIES?.trim() || "0";
+  const modelMaxRetries = Number(retriesRaw);
+  if (!Number.isInteger(modelMaxRetries) || modelMaxRetries < 0 || modelMaxRetries > 3) {
+    throw new AiConfigError(`JARVIS_MODEL_MAX_RETRIES must be an integer 0..3 (got ${JSON.stringify(env.JARVIS_MODEL_MAX_RETRIES)})`);
+  }
+
   const modelBaseUrl = emptyToUndefined(env.JARVIS_MODEL_BASE_URL);
   const modelName = emptyToUndefined(env.JARVIS_MODEL_NAME);
   const modelApiKey = emptyToUndefined(env.JARVIS_MODEL_API_KEY);
@@ -94,6 +103,7 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     modelApiKey,
     modelTimeoutMs,
     structuredOutput,
+    modelMaxRetries,
   };
 }
 
@@ -137,5 +147,6 @@ export function aiConfigSummary(config: AiConfig): Record<string, unknown> {
     modelApiKeyConfigured: Boolean(config.modelApiKey),
     modelTimeoutMs: config.modelTimeoutMs,
     structuredOutput: config.structuredOutput,
+    modelMaxRetries: config.modelMaxRetries,
   };
 }

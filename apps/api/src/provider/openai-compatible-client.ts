@@ -16,6 +16,15 @@ export interface OpenAICompatibleClientOptions {
   timeoutMs: number;
   /** Reject response bodies larger than this. Default 1 MiB. */
   maxResponseBytes?: number;
+  /**
+   * Extra attempts after a transient failure (connection error, HTTP 429/500/502/503/504).
+   * 0..3, default 0. Never retries other 4xx, timeouts, or unusable output.
+   */
+  maxRetries?: number;
+  /** First backoff delay; doubles per attempt. Default 400 ms. */
+  retryBaseDelayMs?: number;
+  /** Cap on any single backoff, including a server's Retry-After. Default 4000 ms. */
+  retryMaxDelayMs?: number;
 }
 
 export interface ChatMessage {
@@ -43,6 +52,8 @@ export interface ChatCompletionResult {
   finishReason?: string;
   /** Token usage, if the provider reports it. */
   usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+  /** HTTP attempts made (1 unless a transient error was retried). */
+  attempts: number;
 }
 
 /** What a model adapter needs from a client (lets callers wrap one, e.g. for call logging). */
@@ -52,6 +63,9 @@ export interface ChatClient {
 }
 
 const DEFAULT_MAX_RESPONSE_BYTES = 1_048_576;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+// Retry-After per failed response; only read by the retry loop below.
+const retryAfterMs = new WeakMap<ProviderError, number>();
 
 export class OpenAICompatibleClient {
   readonly #baseUrl: string;
@@ -59,6 +73,9 @@ export class OpenAICompatibleClient {
   readonly #apiKey: string | undefined;
   readonly #timeoutMs: number;
   readonly #maxResponseBytes: number;
+  readonly #maxRetries: number;
+  readonly #retryBaseDelayMs: number;
+  readonly #retryMaxDelayMs: number;
 
   constructor(opts: OpenAICompatibleClientOptions) {
     if (!opts.baseUrl?.trim()) {
@@ -75,6 +92,17 @@ export class OpenAICompatibleClient {
     this.#apiKey = opts.apiKey;
     this.#timeoutMs = opts.timeoutMs;
     this.#maxResponseBytes = opts.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    const retries = opts.maxRetries ?? 0;
+    if (!Number.isInteger(retries) || retries < 0 || retries > 3) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "maxRetries must be an integer 0..3" });
+    }
+    this.#maxRetries = retries;
+    this.#retryBaseDelayMs = opts.retryBaseDelayMs ?? 400;
+    this.#retryMaxDelayMs = opts.retryMaxDelayMs ?? 4000;
+  }
+
+  get maxRetries(): number {
+    return this.#maxRetries;
   }
 
   get model(): string {
@@ -97,12 +125,32 @@ export class OpenAICompatibleClient {
       ...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
       ...(params.extra ?? {}),
     };
-    return extractChatCompletion(await this.#requestJson("POST", "/chat/completions", body, params.signal));
+    const { json, attempts } = await this.#withRetries(() => this.#requestJson("POST", "/chat/completions", body, params.signal), params.signal);
+    return { ...extractChatCompletion(json), attempts };
   }
 
   /** GET {baseUrl}/models: ids of the models the server is serving (startup / health checks). */
   async listModels(signal?: AbortSignal): Promise<string[]> {
-    return extractModelIds(await this.#requestJson("GET", "/models", undefined, signal));
+    const { json } = await this.#withRetries(() => this.#requestJson("GET", "/models", undefined, signal), signal);
+    return extractModelIds(json);
+  }
+
+  // Bounded retry for transient failures only. Each attempt keeps its own timeout; the
+  // caller's signal (the engine's case timer) still bounds the whole call, including backoff.
+  async #withRetries(attempt: () => Promise<unknown>, signal?: AbortSignal): Promise<{ json: unknown; attempts: number }> {
+    for (let n = 0; ; n++) {
+      try {
+        return { json: await attempt(), attempts: n + 1 };
+      } catch (e) {
+        const transient =
+          e instanceof ProviderError &&
+          (e.category === "CONNECTION_ERROR" || (e.statusCode !== undefined && RETRYABLE_STATUS.has(e.statusCode)));
+        if (!transient || n >= this.#maxRetries) throw e;
+        const hinted = retryAfterMs.get(e);
+        const delay = Math.min(hinted ?? this.#retryBaseDelayMs * 2 ** n, this.#retryMaxDelayMs);
+        await sleep(delay, signal);
+      }
+    }
   }
 
   // Shared transport: bearer auth, timeout + caller signal, bounded body, typed errors.
@@ -139,11 +187,14 @@ export class OpenAICompatibleClient {
     if (!res.ok) {
       const category = categorizeHttpStatus(res.status);
       const snippet = redactSecrets(rawText.replace(/\s+/g, " ").trim().slice(0, 200));
-      throw new ProviderError({
+      const err = new ProviderError({
         category,
         statusCode: res.status,
         message: `provider HTTP ${res.status}${snippet ? `: ${snippet}` : ""}`,
       });
+      const hint = parseRetryAfter(res.headers.get("retry-after"));
+      if (hint !== null) retryAfterMs.set(err, hint);
+      throw err;
     }
 
     try {
@@ -156,6 +207,30 @@ export class OpenAICompatibleClient {
       });
     }
   }
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : null;
+}
+
+// Backoff that ends early (as a TIMEOUT ProviderError) if the caller aborts.
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      reject(new ProviderError({ category: "TIMEOUT", message: "provider request aborted during retry backoff" }));
+    };
+    if (signal?.aborted) return abort();
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 function errorChainText(err: unknown): string {
@@ -254,7 +329,7 @@ async function readBodyLimited(res: Response, maxBytes: number): Promise<string>
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function extractChatCompletion(json: unknown): ChatCompletionResult {
+function extractChatCompletion(json: unknown): Omit<ChatCompletionResult, "attempts"> {
   if (!json || typeof json !== "object") {
     throw new ProviderError({
       category: "INVALID_PROVIDER_RESPONSE",

@@ -190,6 +190,42 @@ describe("AI startup (fake OpenAI-compatible server; not real inference)", () =>
     assert.equal(c.reasons[0]?.code, "UNDERSTANDING_TIMEOUT");
   });
 
+  test("retries: transient 503 during a case is retried once; call log records attempts and usage", async () => {
+    healthy();
+    const calls: ModelCallLog[] = [];
+    const { runtime } = await initializeAi(vllmConfig(fake, { JARVIS_MODEL_MAX_RETRIES: "1" }), { onCall: (e) => calls.push(e) });
+    assert.equal(runtime.modelCallsPerCase, 4);
+    fake.setScenario({
+      kind: "sequence",
+      steps: [{ kind: "http_status", status: 503 }, { kind: "respond", respond: fixtureLikeAnswer }],
+    });
+    const deps = makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assert.equal(c.state, "RESOLVED");
+    const caseCalls = calls.slice(2); // after the two startup probes
+    assert.equal(caseCalls[0]?.attempts, 2);
+    assert.equal(caseCalls[0]?.promptTokens, 11);
+    assert.equal(caseCalls[0]?.completionTokens, 7);
+  });
+
+  test("retries: a persistent 401 is never retried and fails the case before any action", async () => {
+    healthy();
+    const { runtime } = await initializeAi(vllmConfig(fake, { JARVIS_MODEL_MAX_RETRIES: "2" }));
+    fake.setScenario({ kind: "http_status", status: 401 });
+    const before = fake.requestCount;
+    const deps = makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assert.equal(c.state, "FAILED");
+    assert.equal(c.reasons[0]?.code, "UNDERSTANDING_ERROR");
+    assert.equal(c.action, null);
+    assert.equal(fake.requestCount - before, 1);
+  });
+
+  test("JARVIS_MODEL_MAX_RETRIES is validated (0..3)", () => {
+    assert.throws(() => vllmConfig(fake, { JARVIS_MODEL_MAX_RETRIES: "5" }), /JARVIS_MODEL_MAX_RETRIES/);
+    assert.equal(loadAiConfig({}).modelMaxRetries, 0);
+  });
+
   test("9: endpoint is logged without credentials, query or fragment", () => {
     assert.equal(sanitizeEndpoint("https://user:pa55@gpu.example.com:8000/v1?token=abc#x"), "https://gpu.example.com:8000/v1");
     assert.equal(sanitizeEndpoint("not a url"), "[invalid url]");

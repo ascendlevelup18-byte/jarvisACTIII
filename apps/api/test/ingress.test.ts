@@ -200,6 +200,15 @@ describe("cost limits (checked after auth, before any model call)", () => {
     assert.equal((await handleCaseRequest(req(SCENARIOS.validDuplicate), ing)).status, 200);
   });
 
+  test("budget reserves modelCallsPerCase when retries raise the worst case", async () => {
+    const { ing, calls } = ingress({ aiMode: "vllm", modelCallsPerCase: 4, limits: { ...LIMITS, dailyModelCallBudget: 6 } });
+    assert.equal((await handleCaseRequest(req(SCENARIOS.validDuplicate), ing)).status, 200);
+    const spent = totalCalls(calls);
+    const over = await handleCaseRequest(req(SCENARIOS.validDuplicate), ing);
+    assert.equal(over.status, 429);
+    assert.equal(totalCalls(calls), spent);
+  });
+
   test("fixture cases reserve no model-call budget", async () => {
     const { ing } = ingress({ limits: { ...LIMITS, dailyModelCallBudget: 1 } });
     for (let i = 0; i < 3; i++) assert.equal((await handleCaseRequest(req(SCENARIOS.validDuplicate), ing)).status, 200);

@@ -1,11 +1,14 @@
 import { loadAiConfig, aiConfigSummary } from "./ai-config.ts";
-import { initializeAi, type AiRuntime, type AiStartupReport } from "./ai-mode.ts";
+import { initializeAi, type AiRuntime, type AiStartupReport, type ModelCallLog } from "./ai-mode.ts";
 import { freshWorld } from "./ingress.ts";
 import { loadIngressSecurity, LocalInferenceLimiter, type IngressSecurityConfig } from "./limits.ts";
 import { createApp } from "./server.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`invalid PORT: ${process.env.PORT}`);
+
+// Provider diagnostics for /api/health: counts and the last call, no prompts or keys.
+const providerCalls = { ok: 0, failed: 0, last: null as (ModelCallLog & { at: string }) | null };
 
 // fixture: deterministic adapters. vllm: the endpoint must list the model and pass both
 // probes before the server listens, and a daily model-call budget must be configured.
@@ -22,7 +25,11 @@ try {
     JSON.stringify({ freeText: security.accessToken ? "token required" : "disabled", limits: security.limits, trustProxy: security.trustProxy }),
   );
   const ai = await initializeAi(aiConfig, {
-    onCall: (entry) => console.log("[jarvis] model call:", JSON.stringify(entry)),
+    onCall: (entry) => {
+      console.log("[jarvis] model call:", JSON.stringify(entry));
+      providerCalls[entry.failureCategory ? "failed" : "ok"]++;
+      providerCalls.last = { ...entry, at: new Date().toISOString() };
+    },
   });
   runtime = ai.runtime;
   startup = ai.startup;
@@ -42,6 +49,7 @@ createApp(
     understanding: runtime.understanding,
     model: runtime.model,
     engineTimeoutMs: runtime.engineTimeoutMs,
+    modelCallsPerCase: runtime.modelCallsPerCase,
     accessToken: security.accessToken,
     limiter: new LocalInferenceLimiter(security.limits),
     privilegedWorld: () => persistent,
@@ -60,7 +68,19 @@ createApp(
       paymentGateway: "simulated",
       data: "synthetic",
       freeText: security.accessToken ? "token required" : "disabled",
-      limits: { ...security.limits, scope: "this process" },
+      limits: { ...security.limits, scope: "this process", modelCallsReservedPerCase: runtime.modelCallsPerCase },
+      provider:
+        runtime.mode === "vllm"
+          ? {
+              endpoint: startup.endpoint,
+              model: startup.model,
+              structuredOutput: startup.structuredOutput,
+              maxRetries: startup.maxRetries,
+              startupProbes: startup.probes,
+              calls: { ok: providerCalls.ok, failed: providerCalls.failed },
+              lastCall: providerCalls.last,
+            }
+          : null,
     }),
   },
 ).listen(port, () => {

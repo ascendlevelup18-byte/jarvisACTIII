@@ -10,9 +10,11 @@ export type FakeScenario =
   | { kind: "respond"; respond: (body: unknown) => string | Promise<string> }
   | { kind: "malformed_json" }
   | { kind: "hang" }
-  | { kind: "http_status"; status: number; body?: string }
+  | { kind: "http_status"; status: number; body?: string; headers?: Record<string, string> }
   | { kind: "unexpected_shape"; body: unknown }
   | { kind: "large"; bytes: number }
+  /** One scenario per request, in order; the last one repeats. */
+  | { kind: "sequence"; steps: FakeScenario[] }
   | { kind: "text_around_json"; content: string }
   | { kind: "code_fenced"; content: string }
   | { kind: "reasoning_then_json"; content: string }
@@ -37,6 +39,8 @@ export interface FakeOpenAIServer {
   lastAuthorization: string | null;
   /** Parsed JSON body of the last chat-completions request (for prompt-boundary tests). */
   lastRequestBody: unknown;
+  /** Number of chat-completions requests received since start. */
+  requestCount: number;
 }
 
 export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok", content: "{}" }): Promise<FakeOpenAIServer> {
@@ -44,6 +48,8 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
   let modelsScenario: FakeModelsScenario = { kind: "list", ids: ["fake-model"] };
   let lastAuthorization: string | null = null;
   let lastRequestBody: unknown = null;
+  let requestCount = 0;
+  let sequenceIndex = 0;
 
   const server: Server = createServer((req, res) => {
     void handle(req, res);
@@ -96,7 +102,12 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
       lastRequestBody = null;
     }
 
-    const s = scenario;
+    requestCount++;
+    let s = scenario;
+    if (s.kind === "sequence") {
+      s = s.steps[Math.min(sequenceIndex++, s.steps.length - 1)]!;
+    }
+    if (s.kind === "sequence") throw new Error("nested sequences are not supported");
 
     if (s.kind === "hang") {
       // Never respond — client timeout should fire.
@@ -111,7 +122,7 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     }
 
     if (s.kind === "http_status") {
-      res.writeHead(s.status, { "content-type": "application/json" });
+      res.writeHead(s.status, { "content-type": "application/json", ...(s.headers ?? {}) });
       res.end(s.body ?? JSON.stringify({ error: { message: `status ${s.status}`, type: "test" } }));
       return;
     }
@@ -197,6 +208,7 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     },
     setScenario(s: FakeScenario) {
       scenario = s;
+      sequenceIndex = 0;
     },
     setModelsScenario(s: FakeModelsScenario) {
       modelsScenario = s;
@@ -206,6 +218,9 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
     },
     get lastRequestBody() {
       return lastRequestBody;
+    },
+    get requestCount() {
+      return requestCount;
     },
     close: () =>
       new Promise<void>((resolve, reject) => {

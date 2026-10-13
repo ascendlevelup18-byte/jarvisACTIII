@@ -53,6 +53,8 @@ export interface CaseIngress {
   understanding: RequestUnderstandingAdapter;
   model: ModelAdapter;
   engineTimeoutMs: number;
+  /** Provider calls to reserve from the budget per case (default: vllm 2, fixture 0). */
+  modelCallsPerCase?: number;
   accessToken: string | null;
   limiter: InferenceLimiter;
   /** World for privileged cases (long-running server: one persistent world). */
@@ -124,7 +126,7 @@ export async function handleCaseRequest(req: IngressRequest, ing: CaseIngress): 
     }
   }
 
-  const slot = ing.limiter.tryAcquire(req.clientKey, ing.aiMode === "vllm" ? 2 : 0);
+  const slot = ing.limiter.tryAcquire(req.clientKey, ing.modelCallsPerCase ?? (ing.aiMode === "vllm" ? 2 : 0));
   if (!slot.ok) {
     return reply(
       429,

@@ -36,6 +36,8 @@ export interface AiRuntime {
   understanding: RequestUnderstandingAdapter;
   model: ModelAdapter;
   engineTimeoutMs: number;
+  /** Worst-case provider calls per case, for budget reservation (2 stages × attempts). */
+  modelCallsPerCase: number;
 }
 
 /** One line per provider call: operational metadata only, never prompts, customer text or keys. */
@@ -45,6 +47,10 @@ export interface ModelCallLog {
   responseId: string | null;
   finishReason: string | null;
   latencyMs: number;
+  /** HTTP attempts (more than 1 only when a transient error was retried). */
+  attempts: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
   failureCategory: string | null;
 }
 
@@ -53,6 +59,7 @@ export interface AiStartupReport {
   model: string | null;
   endpoint: string | null;
   structuredOutput: StructuredOutputMode | null;
+  maxRetries: number | null;
   /** null in fixture mode (no endpoint to check). */
   modelListed: boolean | null;
   probes: { understanding: "ok"; decision: "ok" } | null;
@@ -84,6 +91,7 @@ export function buildAiAdapters(config: AiConfig, opts: AiInitOptions = {}): AiR
       understanding: new FixtureRequestUnderstandingAdapter(),
       model: new FixtureModelAdapter(),
       engineTimeoutMs: timeouts.engineTimeoutMs,
+      modelCallsPerCase: 0,
       client: null,
     };
   }
@@ -96,6 +104,7 @@ export function buildAiAdapters(config: AiConfig, opts: AiInitOptions = {}): AiR
     model: config.modelName,
     ...(config.modelApiKey ? { apiKey: config.modelApiKey } : {}),
     timeoutMs: timeouts.clientTimeoutMs,
+    maxRetries: config.modelMaxRetries,
   });
   const structuredOutput = config.structuredOutput === "json_schema";
   return {
@@ -103,6 +112,7 @@ export function buildAiAdapters(config: AiConfig, opts: AiInitOptions = {}): AiR
     understanding: new VllmRequestUnderstandingAdapter(logged(client, "UNDERSTANDING", opts.onCall), { structuredOutput }),
     model: new VllmModelAdapter(logged(client, "MODEL", opts.onCall), { structuredOutput }),
     engineTimeoutMs: timeouts.engineTimeoutMs,
+    modelCallsPerCase: 2 * (1 + config.modelMaxRetries),
     client,
   };
 }
@@ -117,6 +127,7 @@ export async function initializeAi(config: AiConfig, opts: AiInitOptions = {}): 
     model: null,
     endpoint: null,
     structuredOutput: null,
+    maxRetries: null,
     modelListed: null,
     probes: null,
     promptVersions,
@@ -165,6 +176,7 @@ export async function initializeAi(config: AiConfig, opts: AiInitOptions = {}): 
       model: client.model,
       endpoint: sanitizeEndpoint(client.baseUrl),
       structuredOutput: config.structuredOutput,
+      maxRetries: config.modelMaxRetries,
       modelListed: true,
       probes: { understanding: "ok", decision: "ok" },
     }),
@@ -188,6 +200,9 @@ function logged(client: ChatClient, stage: ModelCallLog["stage"], onCall: AiInit
         responseId: r?.id ?? null,
         finishReason: r?.finishReason ?? null,
         latencyMs: Math.round(performance.now() - started),
+        attempts: r?.attempts ?? null,
+        promptTokens: r?.usage?.promptTokens ?? null,
+        completionTokens: r?.usage?.completionTokens ?? null,
         failureCategory,
       });
       try {
