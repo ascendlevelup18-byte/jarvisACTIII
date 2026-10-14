@@ -5,6 +5,11 @@
 **14 Oct 2026, owner's Windows PC (commit 2260798 + local changes):**
 - No authenticated Token Factory call yet: waiting for the base URL from the owner's `notebooks.amd.com/tokenfactory` dashboard.
 - Unauthenticated probe only: `https://developer.amd.com.cn/radeon/api/v1/models` → HTTP 401 `{"detail":"Login required"}`. This shows a live, auth-gated endpoint; it does **not** show that it is the hackathon endpoint.
+- Authenticated test of the same candidate URL (owner-chosen, not confirmed official; commit 86e4ea3; key typed at a hidden prompt, never stored or printed):
+  - `GET /models` with the owner's key → 200, 12 model ids (DeepSeek-V4.1-Flash, DeepSeek-V4-Flash, DeepSeek-V4-Flash-Vision-Exp, Gemma-4-31B-IT, GLM-5.3-Flash, MiMo-V2.6-Flash, MinerU2.5-Pro, MiniCPM5-2B, MiniCPM-V-4.7-1B, MiniCPM-V-4.7-35B-A3B, Qwen3.8-27B, Qwen3.8-Flash-Next).
+  - **That is not proof the key works:** `GET /models` also returns 200 and the same 12 ids for an arbitrary junk bearer token. Only `/chat/completions` checks the token.
+  - `POST /chat/completions` (model `DeepSeek-V4.1-Flash`, max_tokens 16) with the owner's key, 19:27 UTC → **HTTP 401, authentication rejected**. For comparison, a made-up `sk-` token gets 401 `invalid_api_key` ("Invalid LLMGateway API token ... could not be found"), and no token gets 401.
+  - Result: **no inference ran.** The key is not accepted for inference at this URL (a key for a different service, or mistyped). JARVIS real-model mode, `demo:verify --real-model` and `api:bench:vllm` were **not run**; nothing below comes from this endpoint.
 - Proof tooling added: `npm run demo:verify -- --real-model` fails unless health reports `aiMode: "vllm"` and every audited AI call used a `vllm:<model>` adapter, and writes an evidence JSON (`evals/results/demo-evidence-*.json`) to attach here.
 
 Redact before committing:
