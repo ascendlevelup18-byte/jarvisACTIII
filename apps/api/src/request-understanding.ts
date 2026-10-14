@@ -6,6 +6,7 @@ import { z } from "zod";
 import { StructuredRequestSchema, type CustomerIntent, type StructuredRequest } from "./contracts.ts";
 import { findIntentCues, OUT_OF_SCOPE_CUES } from "./intent-cues.ts";
 import { findMoneyMentions } from "./money.ts";
+import { responseFormatFor, structuredMode, type StructuredOutputMode } from "./ai-config.ts";
 import { cleanupModelContent, type ChatClient } from "./provider/index.ts";
 
 export interface UnderstandingInput {
@@ -97,8 +98,8 @@ export const UNDERSTANDING_SYSTEM_PROMPT = [
 export const UNDERSTANDING_PROMPT_VERSION = createHash("sha256").update(UNDERSTANDING_SYSTEM_PROMPT).digest("hex");
 
 export interface VllmAdapterOptions {
-  /** Send response_format json_schema (default true). Disable only if the server rejects it. */
-  structuredOutput?: boolean;
+  /** response_format mode (default json_schema). true/false are json_schema/off. Use json_object or off only if the server rejects json_schema. */
+  structuredOutput?: boolean | StructuredOutputMode;
 }
 
 // Returns the model's cleaned text; the engine's strict parse decides whether it is usable.
@@ -106,11 +107,11 @@ export interface VllmAdapterOptions {
 export class VllmRequestUnderstandingAdapter implements RequestUnderstandingAdapter {
   readonly id: string;
   readonly #client: ChatClient;
-  readonly #structuredOutput: boolean;
+  readonly #structuredOutput: StructuredOutputMode;
 
   constructor(client: ChatClient, opts: VllmAdapterOptions = {}) {
     this.#client = client;
-    this.#structuredOutput = opts.structuredOutput ?? true;
+    this.#structuredOutput = structuredMode(opts.structuredOutput);
     this.id = `vllm:${client.model}`;
   }
 
@@ -122,14 +123,7 @@ export class VllmRequestUnderstandingAdapter implements RequestUnderstandingAdap
       ],
       temperature: 0,
       maxTokens: 512,
-      extra: this.#structuredOutput
-        ? {
-            response_format: {
-              type: "json_schema",
-              json_schema: { name: "structured_request", schema: STRUCTURED_REQUEST_JSON_SCHEMA, strict: true },
-            },
-          }
-        : {},
+      extra: responseFormatFor(this.#structuredOutput, "structured_request", STRUCTURED_REQUEST_JSON_SCHEMA),
       signal,
     });
     return cleanupModelContent(result.content);

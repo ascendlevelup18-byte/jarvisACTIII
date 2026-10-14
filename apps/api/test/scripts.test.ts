@@ -17,7 +17,9 @@ describe("tokenfactory-smoke.ps1", () => {
 
   test("never prints or writes the key, headers or bearer value", () => {
     for (const line of code.split("\n").filter((l) => /Write-(Host|Output)|Out-File|Set-Content|Add-Content|Export-|Tee-Object/.test(l))) {
-      assert.doesNotMatch(line, /\$headers|\$secure|\$bstr|Bearer|Authorization|PtrToStringBSTR/, line.trim());
+      assert.doesNotMatch(line, /\$headers|\$secure|\$bstr|\$typed|Bearer|Authorization|PtrToStringBSTR/, line.trim());
+      // The plain key may be described only by its length.
+      assert.doesNotMatch(line.replace(/\$script:keyText\.Length/g, ""), /keyText/, line.trim());
     }
     assert.doesNotMatch(code, /Out-File|Set-Content|Add-Content|Export-Clixml|Tee-Object/);
     assert.doesNotMatch(code, /\$env:JARVIS_MODEL_API_KEY\s*=/);
@@ -31,10 +33,22 @@ describe("tokenfactory-smoke.ps1", () => {
   test("OpenAI-compatible calls with timeouts, model discovery and TLS 1.2 on Windows PowerShell 5.1", () => {
     assert.match(code, /"\$BaseUrl\/models"/);
     assert.match(code, /"\$BaseUrl\/chat\/completions"/);
-    assert.equal((code.match(/-TimeoutSec \d+/g) ?? []).length, 3);
+    assert.match(code, /"\$BaseUrl\/usage\?include_recent=true"/);
+    assert.equal((code.match(/-TimeoutSec (\d+|\$ChatTimeoutSec)/g) ?? []).length, 4);
     assert.match(code, /-cnotcontains \$Model/);
     assert.match(code, /Tls12/);
     assert.doesNotMatch(code, /(?<!\{)\$Model:/, "a bare \"$Model:\" is a parse error in PowerShell; use ${Model}:");
+  });
+
+  test("checks the key shape before any authenticated call and uses distinct exit codes", () => {
+    assert.match(code, /\$KeyPattern = '\^rc-\[0-9a-fA-F\]\{48\}\$'/);
+    assert.ok(code.indexOf("$KeyPattern -and") < code.indexOf("$headers = @{"), "format check precedes the first use of the key");
+    for (const n of [0, 2, 3, 4, 5, 6, 7, 8, 9, 10]) assert.match(code, new RegExp(`(exit|return) ${n}\\b`), `exit code ${n}`);
+    assert.doesNotMatch(code, /exit 1\b/, "exit 1 is reserved for unexpected PowerShell errors");
+  });
+
+  test("source is ASCII, so Windows PowerShell 5.1 reads it the same as PowerShell 7", () => {
+    assert.ok(/^[\x00-\x7f]*$/.test(ps));
   });
 });
 
@@ -61,7 +75,8 @@ describe("tokenfactory-smoke.ps1: Windows PowerShell 5.1 compatibility (static)"
 
   test("empty model lists and malformed replies are handled explicitly", () => {
     assert.match(code, /\$ids\.Count -eq 0/);
-    assert.match(code, /-not \$r\.choices/);
+    assert.match(code, /\$r\.choices -and \$r\.choices\[0\]\.message/);
+    assert.match(code, /-not \$content -or -not \("" \+ \$content\)\.Trim\(\)/);
   });
 });
 

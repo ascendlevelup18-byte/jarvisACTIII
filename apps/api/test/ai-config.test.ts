@@ -22,6 +22,20 @@ describe("loadAiConfig", () => {
     assert.equal(cfg.mode, "fixture");
   });
 
+  test("structured output accepts json_schema (default), json_object and off; rejects anything else", () => {
+    assert.equal(loadAiConfig({}).structuredOutput, "json_schema");
+    assert.equal(loadAiConfig({ JARVIS_MODEL_STRUCTURED_OUTPUT: "json_object" }).structuredOutput, "json_object");
+    assert.equal(loadAiConfig({ JARVIS_MODEL_STRUCTURED_OUTPUT: " OFF " }).structuredOutput, "off");
+    assert.throws(() => loadAiConfig({ JARVIS_MODEL_STRUCTURED_OUTPUT: "json" }), AiConfigError);
+  });
+
+  test("request spacing: default off, explicit ms accepted, invalid values fail", () => {
+    assert.equal(loadAiConfig({}).modelMinIntervalMs, 0);
+    assert.equal(loadAiConfig({ JARVIS_MODEL_MIN_INTERVAL_MS: "3100" }).modelMinIntervalMs, 3100);
+    assert.throws(() => loadAiConfig({ JARVIS_MODEL_MIN_INTERVAL_MS: "-5" }), AiConfigError);
+    assert.throws(() => loadAiConfig({ JARVIS_MODEL_MIN_INTERVAL_MS: "fast" }), AiConfigError);
+  });
+
   test("invalid timeout fails", () => {
     assert.throws(() => loadAiConfig({ JARVIS_MODEL_TIMEOUT_MS: "0" }), AiConfigError);
     assert.throws(() => loadAiConfig({ JARVIS_MODEL_TIMEOUT_MS: "-1" }), AiConfigError);

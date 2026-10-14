@@ -3,8 +3,26 @@
 // Secrets (JARVIS_MODEL_API_KEY) are never logged by this module.
 
 export type AiMode = "fixture" | "vllm";
-/** json_schema: send response_format (default). off: rely on the prompt alone; set explicitly, never auto-selected. */
-export type StructuredOutputMode = "json_schema" | "off";
+/**
+ * json_schema: send response_format json_schema (default).
+ * json_object: send response_format json_object, for servers that only offer JSON mode; the prompt carries the schema.
+ * off: rely on the prompt alone. Set explicitly, never auto-selected.
+ */
+export type StructuredOutputMode = "json_schema" | "json_object" | "off";
+
+/** Adapter option to mode: true/undefined -> json_schema, false -> off, a mode passes through. */
+export function structuredMode(opt: boolean | StructuredOutputMode | undefined): StructuredOutputMode {
+  if (opt === undefined || opt === true) return "json_schema";
+  if (opt === false) return "off";
+  return opt;
+}
+
+/** The response_format body field for a mode, or nothing when the mode is off. */
+export function responseFormatFor(mode: StructuredOutputMode, name: string, schema: unknown): Record<string, unknown> {
+  if (mode === "json_schema") return { response_format: { type: "json_schema", json_schema: { name, schema, strict: true } } };
+  if (mode === "json_object") return { response_format: { type: "json_object" } };
+  return {};
+}
 
 export interface AiConfig {
   mode: AiMode;
@@ -18,6 +36,8 @@ export interface AiConfig {
   structuredOutput: StructuredOutputMode;
   /** Extra attempts on transient provider errors (429/5xx/connection). 0..3, default 0. */
   modelMaxRetries: number;
+  /** Client-side minimum spacing between model requests (ms). 0 = off. */
+  modelMinIntervalMs: number;
 }
 
 export class AiConfigError extends Error {
@@ -37,8 +57,10 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * - JARVIS_MODEL_NAME: required for vllm
  * - JARVIS_MODEL_API_KEY: optional
  * - JARVIS_MODEL_TIMEOUT_MS: positive int; invalid values fail; default 30000
- * - JARVIS_MODEL_STRUCTURED_OUTPUT: json_schema | off (default json_schema)
+ * - JARVIS_MODEL_STRUCTURED_OUTPUT: json_schema | json_object | off (default json_schema)
  * - JARVIS_MODEL_MAX_RETRIES: 0..3 (default 0); retries only transient 429/5xx/connection errors
+ * - JARVIS_MODEL_MIN_INTERVAL_MS: non-negative int (default 0 = off); spaces request starts, e.g. 3100
+ *   keeps one process under a 20 requests/min account cap
  *
  * Fixture mode does not require an endpoint.
  */
@@ -64,9 +86,9 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   }
 
   const structuredRaw = (env.JARVIS_MODEL_STRUCTURED_OUTPUT ?? "json_schema").trim().toLowerCase();
-  if (structuredRaw !== "json_schema" && structuredRaw !== "off") {
+  if (structuredRaw !== "json_schema" && structuredRaw !== "json_object" && structuredRaw !== "off") {
     throw new AiConfigError(
-      `JARVIS_MODEL_STRUCTURED_OUTPUT must be "json_schema" or "off" (got ${JSON.stringify(env.JARVIS_MODEL_STRUCTURED_OUTPUT)})`,
+      `JARVIS_MODEL_STRUCTURED_OUTPUT must be "json_schema", "json_object" or "off" (got ${JSON.stringify(env.JARVIS_MODEL_STRUCTURED_OUTPUT)})`,
     );
   }
   const structuredOutput: StructuredOutputMode = structuredRaw;
@@ -75,6 +97,12 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const modelMaxRetries = Number(retriesRaw);
   if (!Number.isInteger(modelMaxRetries) || modelMaxRetries < 0 || modelMaxRetries > 3) {
     throw new AiConfigError(`JARVIS_MODEL_MAX_RETRIES must be an integer 0..3 (got ${JSON.stringify(env.JARVIS_MODEL_MAX_RETRIES)})`);
+  }
+
+  const intervalRaw = env.JARVIS_MODEL_MIN_INTERVAL_MS?.trim() || "0";
+  const modelMinIntervalMs = Number(intervalRaw);
+  if (!Number.isInteger(modelMinIntervalMs) || modelMinIntervalMs < 0) {
+    throw new AiConfigError(`JARVIS_MODEL_MIN_INTERVAL_MS must be a non-negative integer (got ${JSON.stringify(env.JARVIS_MODEL_MIN_INTERVAL_MS)})`);
   }
 
   const modelBaseUrl = emptyToUndefined(env.JARVIS_MODEL_BASE_URL);
@@ -104,6 +132,7 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     modelTimeoutMs,
     structuredOutput,
     modelMaxRetries,
+    modelMinIntervalMs,
   };
 }
 
@@ -148,5 +177,6 @@ export function aiConfigSummary(config: AiConfig): Record<string, unknown> {
     modelTimeoutMs: config.modelTimeoutMs,
     structuredOutput: config.structuredOutput,
     modelMaxRetries: config.modelMaxRetries,
+    modelMinIntervalMs: config.modelMinIntervalMs,
   };
 }

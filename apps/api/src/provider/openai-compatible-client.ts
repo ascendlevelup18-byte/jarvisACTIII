@@ -25,6 +25,11 @@ export interface OpenAICompatibleClientOptions {
   retryBaseDelayMs?: number;
   /** Cap on any single backoff, including a server's Retry-After. Default 4000 ms. */
   retryMaxDelayMs?: number;
+  /**
+   * Minimum spacing between request starts from this client (client-side rate limit for hosted
+   * gateways with per-minute caps). 0 (default) disables it. Waiting counts against the caller's signal.
+   */
+  minIntervalMs?: number;
 }
 
 export interface ChatMessage {
@@ -76,6 +81,8 @@ export class OpenAICompatibleClient {
   readonly #maxRetries: number;
   readonly #retryBaseDelayMs: number;
   readonly #retryMaxDelayMs: number;
+  readonly #minIntervalMs: number;
+  #nextStartAt = 0;
 
   constructor(opts: OpenAICompatibleClientOptions) {
     if (!opts.baseUrl?.trim()) {
@@ -99,6 +106,11 @@ export class OpenAICompatibleClient {
     this.#maxRetries = retries;
     this.#retryBaseDelayMs = opts.retryBaseDelayMs ?? 400;
     this.#retryMaxDelayMs = opts.retryMaxDelayMs ?? 4000;
+    const interval = opts.minIntervalMs ?? 0;
+    if (!Number.isInteger(interval) || interval < 0) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "minIntervalMs must be a non-negative integer" });
+    }
+    this.#minIntervalMs = interval;
   }
 
   get maxRetries(): number {
@@ -140,6 +152,7 @@ export class OpenAICompatibleClient {
   async #withRetries(attempt: () => Promise<unknown>, signal?: AbortSignal): Promise<{ json: unknown; attempts: number }> {
     for (let n = 0; ; n++) {
       try {
+        await this.#throttle(signal);
         return { json: await attempt(), attempts: n + 1 };
       } catch (e) {
         const transient =
@@ -151,6 +164,15 @@ export class OpenAICompatibleClient {
         await sleep(delay, signal);
       }
     }
+  }
+
+  // Reserve the next request slot, then wait for it (slots are claimed in call order).
+  async #throttle(signal?: AbortSignal): Promise<void> {
+    if (this.#minIntervalMs === 0) return;
+    const now = Date.now();
+    const startAt = Math.max(now, this.#nextStartAt);
+    this.#nextStartAt = startAt + this.#minIntervalMs;
+    if (startAt > now) await sleep(startAt - now, signal);
   }
 
   // Shared transport: bearer auth, timeout + caller signal, bounded body, typed errors.

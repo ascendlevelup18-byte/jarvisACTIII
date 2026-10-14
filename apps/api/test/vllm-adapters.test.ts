@@ -142,6 +142,21 @@ describe("vLLM adapters (fake OpenAI-compatible server)", () => {
     assert.equal(bodyOf(m).response_format, undefined);
   });
 
+  test("json_object mode: response_format {type: json_object} with no schema, for JSON-mode-only servers", async () => {
+    u.setScenario({ kind: "ok", content: DUP });
+    m.setScenario({ kind: "ok", content: proposal() });
+    const signal = new AbortController().signal;
+    await new VllmRequestUnderstandingAdapter(clientFor(u), { structuredOutput: "json_object" }).understand({ untrusted: { customerMessage: "x" } }, signal);
+    assert.deepEqual(bodyOf(u).response_format, { type: "json_object" });
+    assert.match(bodyOf(u).messages[0]!.content, /JSON/, "JSON mode needs the prompt to ask for JSON");
+    const d = deps({ m: clientFor(m) });
+    d.model = new VllmModelAdapter(clientFor(m), { structuredOutput: "json_object" });
+    const c = await runCase(SCENARIOS.validDuplicate, d);
+    assert.deepEqual(bodyOf(m).response_format, { type: "json_object" });
+    assert.match(bodyOf(m).messages.map((x) => x.content).join("\n"), /JSON/);
+    assert.equal(c.state, "RESOLVED", reasonDetails(c));
+  });
+
   test("row 2: valid proposal reaches policy and resolves with a verified refund; request follows §E", async () => {
     const { c, d } = await run(SCENARIOS.validDuplicate, DUP, proposal());
     assert.equal(c.state, "RESOLVED", reasonDetails(c));

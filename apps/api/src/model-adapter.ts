@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { DecisionProposalSchema, type DecisionProposal, type EvidenceBundle, type PolicySection } from "./contracts.ts";
+import { responseFormatFor, structuredMode, type StructuredOutputMode } from "./ai-config.ts";
 import { cleanupModelContent, type ChatClient } from "./provider/index.ts";
 
 export interface ModelInput {
@@ -177,11 +178,11 @@ export function buildDecisionMessages(input: ModelInput): { role: "system" | "us
 export class VllmModelAdapter implements ModelAdapter {
   readonly id: string;
   readonly #client: ChatClient;
-  readonly #structuredOutput: boolean;
+  readonly #structuredOutput: StructuredOutputMode;
 
-  constructor(client: ChatClient, opts: { structuredOutput?: boolean } = {}) {
+  constructor(client: ChatClient, opts: { structuredOutput?: boolean | StructuredOutputMode } = {}) {
     this.#client = client;
-    this.#structuredOutput = opts.structuredOutput ?? true;
+    this.#structuredOutput = structuredMode(opts.structuredOutput);
     this.id = `vllm:${client.model}`;
   }
 
@@ -190,14 +191,7 @@ export class VllmModelAdapter implements ModelAdapter {
       messages: buildDecisionMessages(input),
       temperature: 0,
       maxTokens: 768,
-      extra: this.#structuredOutput
-        ? {
-            response_format: {
-              type: "json_schema",
-              json_schema: { name: "decision_proposal", schema: PROPOSAL_SCHEMA, strict: true },
-            },
-          }
-        : {},
+      extra: responseFormatFor(this.#structuredOutput, "decision_proposal", PROPOSAL_SCHEMA),
       signal,
     });
     return cleanupModelContent(result.content);

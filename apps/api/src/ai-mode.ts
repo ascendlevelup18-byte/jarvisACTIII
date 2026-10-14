@@ -105,8 +105,9 @@ export function buildAiAdapters(config: AiConfig, opts: AiInitOptions = {}): AiR
     ...(config.modelApiKey ? { apiKey: config.modelApiKey } : {}),
     timeoutMs: timeouts.clientTimeoutMs,
     maxRetries: config.modelMaxRetries,
+    minIntervalMs: config.modelMinIntervalMs,
   });
-  const structuredOutput = config.structuredOutput === "json_schema";
+  const structuredOutput = config.structuredOutput;
   return {
     mode: "vllm",
     understanding: new VllmRequestUnderstandingAdapter(logged(client, "UNDERSTANDING", opts.onCall), { structuredOutput }),

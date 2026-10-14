@@ -33,6 +33,19 @@ describe("OpenAICompatibleClient", () => {
     assert.equal(result.model, "test-model");
   });
 
+  test("minIntervalMs spaces request starts; 0 is off; negative is a config error", async () => {
+    fake.setScenario({ kind: "ok", content: "{}" });
+    const spaced = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000, minIntervalMs: 150 });
+    const t0 = Date.now();
+    await Promise.all([1, 2, 3].map(() => spaced.chatCompletions({ messages: [{ role: "user", content: "hi" }] })));
+    assert.ok(Date.now() - t0 >= 290, "three calls need at least two intervals");
+    const unspaced = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000 });
+    const t1 = Date.now();
+    await Promise.all([1, 2, 3].map(() => unspaced.chatCompletions({ messages: [{ role: "user", content: "hi" }] })));
+    assert.ok(Date.now() - t1 < 290);
+    assert.throws(() => new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000, minIntervalMs: -1 }), ProviderError);
+  });
+
   test("malformed JSON -> INVALID_JSON", async () => {
     fake.setScenario({ kind: "malformed_json" });
     const client = new OpenAICompatibleClient({

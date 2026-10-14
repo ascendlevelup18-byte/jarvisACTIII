@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const PWSH = process.env.PWSH ?? "";
 const SCRIPT = fileURLToPath(new URL("../../../scripts/tokenfactory-smoke.ps1", import.meta.url));
 const HELPER = fileURLToPath(new URL("./helpers/pty-run.py", import.meta.url));
-const SECRET = "sk-test-NEVER-PRINT-3f9c2a71";
+const SECRET = "rc-" + "a1b2c3d4".repeat(6); // fake key in the contract shape
 const available =
   PWSH !== "" &&
   process.platform !== "win32" &&
@@ -83,7 +83,7 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
     assert.equal(r.code, 0, r.output);
     assert.match(r.output, /1\) \/models without a key[\s\S]*401/);
     assert.match(r.output, /2 model\(s\)[\s\S]*- model-a[\s\S]*- model-b/);
-    assert.match(r.output, /ok · \d+ ms · model=model-a · prompt_tokens=14 · completion_tokens=1/);
+    assert.match(r.output, /ok - \d+ ms - model=model-a - finish_reason=\S* - prompt_tokens=14 - completion_tokens=1/);
     assert.match(r.output, /reply: OK/);
     assert.match(r.output, /API key \(input hidden; not stored\): \*+/, "typed key is echoed only as asterisks");
     assertNoSecret(r.output);
@@ -92,7 +92,7 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
     assert.ok(seen.auth.slice(1).every((a) => a === `Bearer ${SECRET}`));
     const body = seen.chatBody as { model: string; max_tokens: number; temperature: number; messages: { role: string; content: string }[] };
     assert.equal(body.model, "model-a");
-    assert.equal(body.max_tokens, 8);
+    assert.equal(body.max_tokens, 64);
     assert.equal(body.temperature, 0);
     assert.ok(Array.isArray(body.messages) && body.messages.length === 1 && body.messages[0]?.role === "user");
   });
@@ -105,19 +105,19 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
     assertNoSecret(r.output);
   });
 
-  test("rejected key: HTTP 401 at step 2 with a hint, exit 1", async () => {
+  test("rejected key: HTTP 401 at step 2 with a hint, exit 5", async () => {
     const { base } = await fake(() => ({ status: 401, json: { error: { message: `bad key ${SECRET}` } } }));
     const r = await run(["-BaseUrl", base]);
-    assert.equal(r.code, 1);
+    assert.equal(r.code, 5);
     assert.match(r.output, /FAILED at step 2 \(\/models with key\): HTTP 401/);
     assert.match(r.output, /key was rejected/);
     assertNoSecret(r.output); // even when the server echoes the key in its error body
   });
 
-  test("empty model list: clear message, exit 1", async () => {
+  test("empty model list: clear message, exit 6", async () => {
     const { base } = await fake(endpoint({ models: () => ({ status: 200, json: models([]) }) }));
     const r = await run(["-BaseUrl", base, "-Model", "model-a"]);
-    assert.equal(r.code, 1);
+    assert.equal(r.code, 6);
     assert.match(r.output, /No models are served for this key/);
     assertNoSecret(r.output);
   });
@@ -125,15 +125,15 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
   test("invalid model selection (case-sensitive): refused before any chat call", async () => {
     const { base, seen } = await fake(endpoint());
     const r = await run(["-BaseUrl", base, "-Model", "MODEL-A"]);
-    assert.equal(r.code, 1);
+    assert.equal(r.code, 6);
     assert.match(r.output, /Model 'MODEL-A' is not in the list above/);
     assert.equal(seen.chatBody, null);
   });
 
-  test("malformed model reply: reported, exit 1", async () => {
+  test("malformed model reply: reported, exit 10", async () => {
     const { base } = await fake(endpoint({ chat: () => ({ status: 200, json: { id: "x", object: "chat.completion" } }) }));
     const r = await run(["-BaseUrl", base, "-Model", "model-a"]);
-    assert.equal(r.code, 1);
+    assert.equal(r.code, 10);
     assert.match(r.output, /malformed reply/);
     assertNoSecret(r.output);
   });
@@ -142,8 +142,8 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
     for (const status of [429, 500]) {
       const { base } = await fake(endpoint({ chat: () => ({ status, json: { error: { message: `upstream ${SECRET}` } } }) }));
       const r = await run(["-BaseUrl", base, "-Model", "model-a"]);
-      assert.equal(r.code, 1);
-      assert.match(r.output, new RegExp(`FAILED at step 3 \\(chat completion\\): HTTP ${status}`));
+      assert.equal(r.code, status === 429 ? 7 : 9);
+      assert.match(r.output, new RegExp(`FAILED at step 4 \\(chat completion\\): HTTP ${status}`));
       if (status === 429) assert.match(r.output, /Rate limited/);
       assertNoSecret(r.output);
     }
@@ -155,7 +155,7 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
     servers.at(-1)!.close();
     await new Promise((r) => setTimeout(r, 100));
     const r = await run(["-BaseUrl", `http://127.0.0.1:${port}/v1`]);
-    assert.equal(r.code, 1);
+    assert.equal(r.code, 4);
     assert.match(r.output, /FAILED at step 1[\s\S]*No HTTP response/);
     assert.doesNotMatch(r.output, /API key \(input hidden/);
   });
@@ -163,7 +163,7 @@ describe("tokenfactory-smoke.ps1 (PowerShell 7, fake endpoint)", { skip: availab
   test("base URL validation: plain http to a remote host and missing /v1 are refused", async () => {
     for (const bad of ["http://example.com/v1", "https://example.com/api"]) {
       const r = await run(["-BaseUrl", bad]);
-      assert.equal(r.code, 1, bad);
+      assert.equal(r.code, 2, bad);
       assert.match(r.output, /BaseUrl must be the OpenAI-compatible root ending in \/v1/);
     }
   });
