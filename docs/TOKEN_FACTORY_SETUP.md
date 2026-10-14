@@ -11,7 +11,7 @@ JARVIS treats Token Factory as an OpenAI-compatible provider. No Token Factory-s
 
 | Item | Where JARVIS uses it | Known? |
 |---|---|---|
-| Base URL (OpenAI-compatible, ends in `/v1`) | `JARVIS_MODEL_BASE_URL` | **Candidate, not yet confirmed by a request.** Search results (13 Oct 2026) attribute `https://developer.amd.com.cn/radeon/api/v1` to AMD's Radeon Cloud quickstart and its Token Factory page (`developer.amd.com.cn/radeon/tokenfactory`, an AMD domain). The build sandbox could not open either page (network policy). Copy the URL from the official page you got your key from |
+| Base URL (OpenAI-compatible, ends in `/v1`) | `JARVIS_MODEL_BASE_URL` | **Unknown until copied from the owner's dashboard.** The event FAQ (lablab.ai page, read 14 Oct 2026) says the hackathon is hosted on **`https://notebooks.amd.com/tokenfactory`**, which requires an AMD AI Developer Program sign-in. Copy the base URL from that dashboard, or confirm it with a successful authenticated `/models` call. `https://developer.amd.com.cn/radeon/api/v1` belongs to AMD's Radeon Cloud (China) service: unauthenticated `/models` returns 401 `{"detail":"Login required"}` there (checked 14 Oct 2026), but it is **not** the hackathon endpoint unless the dashboard shows it. Do not use it otherwise |
 | Auth | `Authorization: Bearer $JARVIS_MODEL_API_KEY` | Assumed OpenAI-style; confirmed by step 2 |
 | Model id | `JARVIS_MODEL_NAME`; must appear in `/models` | **Pick from the live `/models` output.** Sources disagree (e.g. `DeepSeek-V4-Flash` vs a dated variant) and the catalogue is described as changing; never type an id from memory |
 | `response_format: json_schema` support | `JARVIS_MODEL_STRUCTURED_OUTPUT` | Unknown; the startup probes test it |

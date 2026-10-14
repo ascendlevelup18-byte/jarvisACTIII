@@ -1,4 +1,8 @@
-# Submission preflight (prepared 13 Oct 2026; deadline Oct 18 2026, 15:00 UTC)
+# Submission preflight (prepared 13 Oct 2026; planning cutoff Oct 18 2026, 14:00 UTC = 7:00 PM Pakistan time)
+
+**Deadline (14 Oct 2026 update):** public sources conflict. The event page gives the online build as 12–18 October with on-site sessions on 17–18 October (Rome closes 5:00 PM on Oct 18), and its schedule section says "To be announced". The owner plans against the conservative cutoff **Oct 18, 14:00 UTC (7:00 PM Pakistan time)**. Do not replace it with a later time unless an official organizer source states one.
+
+**What to Submit (read directly from the event page, 14 Oct 2026):** project title, short and long descriptions, selected challenge, technology tags, working prototype; presentation with cover image, demo video, pitch presentation, and a clear explanation of the problem and intended user. Technology requirement: a meaningful part of the workload runs on AMD infrastructure or hardware, and the AMD component is part of the working product shown to judges. Event FAQ: the event is hosted on `notebooks.amd.com/tokenfactory`; the $100 cloud credit is not needed to participate, "just the api from the tokenfactory". Evolus track only: containerized app, public GitHub repository, own vLLM endpoint on AMD Developer Cloud (see `docs/EVOLUS_INTEGRATION.md`).
 
 **Sources:** public web pages only. The build sandbox cannot open lablab.ai, so nothing here comes from organizer channels. **Before submitting, read the live "What to Submit" section** of https://lablab.ai/ai-hackathons/amd-developer-hackathon-act-iii. Where the items below disagree with it, it wins.
 

@@ -62,7 +62,7 @@ npm test
 
 ## 3. Discover the live AMD models
 
-Open the official AMD Token Factory page you got your key from, and copy its OpenAI-compatible base URL. It ends in `/v1`. Do not use a URL from anywhere else.
+Sign in at **https://notebooks.amd.com/tokenfactory** (the hackathon's Token Factory, per the event FAQ) and copy the OpenAI-compatible base URL shown there. It ends in `/v1`. Do not use a URL from anywhere else; in particular, do not use `developer.amd.com.cn/radeon/api/v1` (a different AMD service) unless that dashboard shows it.
 
 ```powershell
 $Base = "<base URL copied from the official Token Factory page>"

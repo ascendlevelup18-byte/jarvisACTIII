@@ -2,6 +2,11 @@
 
 **Status: NO REAL-GPU EVIDENCE YET.** Every field marked `UNVERIFIED` is empty on purpose. Fill a field only with output captured from a real run, and paste the command that produced it.
 
+**14 Oct 2026, owner's Windows PC (commit 2260798 + local changes):**
+- No authenticated Token Factory call yet: waiting for the base URL from the owner's `notebooks.amd.com/tokenfactory` dashboard.
+- Unauthenticated probe only: `https://developer.amd.com.cn/radeon/api/v1/models` → HTTP 401 `{"detail":"Login required"}`. This shows a live, auth-gated endpoint; it does **not** show that it is the hackathon endpoint.
+- Proof tooling added: `npm run demo:verify -- --real-model` fails unless health reports `aiMode: "vllm"` and every audited AI call used a `vllm:<model>` adapter, and writes an evidence JSON (`evals/results/demo-evidence-*.json`) to attach here.
+
 Redact before committing:
 - API keys and bearer tokens
 - private IPs and hostnames, where sensitive

@@ -3,7 +3,10 @@
 // startup plumbing, NOT real model inference.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadAiConfig, sanitizeEndpoint, type AiConfig } from "../src/ai-config.ts";
@@ -279,7 +282,55 @@ describe("AI startup (fake OpenAI-compatible server; not real inference)", () =>
     assert.match(r.stdout, /"mode":"fixture"/);
     assert.match(r.stdout, /listening/);
   });
+
+  // ---------- demo:verify --real-model (proof the cases ran on the remote model) ----------
+
+  test("demo:verify --real-model passes on vllm adapters and writes non-secret evidence", async () => {
+    healthy();
+    const port = await freePort();
+    const file = join(mkdtempSync(join(tmpdir(), "jarvis-evidence-")), "evidence.json");
+    let v: { code: number | null; stdout: string } = { code: null, stdout: "" };
+    await runMain({ ...vllmEnv(fake), PORT: String(port) }, {
+      onListening: async () => {
+        v = await runVerify(["--real-model", `http://127.0.0.1:${port}`, "--evidence", file]);
+      },
+    });
+    assert.equal(v.code, 0, v.stdout);
+    assert.match(v.stdout, /PASS {2}8 Real model: health reports vllm mode/);
+    const evidence = readFileSync(file, "utf8");
+    assert.ok(!evidence.includes(SECRET), "API key leaked into the evidence file");
+    const parsed = JSON.parse(evidence) as { health: { aiMode: string }; cases: { orderId: string; aiCalls: { adapter: string }[] }[] };
+    assert.equal(parsed.health.aiMode, "vllm");
+    assert.deepEqual(parsed.cases.map((c) => c.orderId), ["48291", "48294", "48293"]);
+    assert.ok(parsed.cases.every((c) => c.aiCalls.length > 0 && c.aiCalls.every((a) => a.adapter === "vllm:fake-model")));
+  });
+
+  test("demo:verify --real-model fails against fixture mode (no silent fixture proof)", async () => {
+    const port = await freePort();
+    const file = join(mkdtempSync(join(tmpdir(), "jarvis-evidence-")), "evidence.json");
+    let v: { code: number | null; stdout: string } = { code: null, stdout: "" };
+    await runMain({ JARVIS_AI_MODE: "fixture", PORT: String(port) }, {
+      onListening: async () => {
+        v = await runVerify(["--real-model", `http://127.0.0.1:${port}`, "--evidence", file]);
+      },
+    });
+    assert.equal(v.code, 1);
+    assert.match(v.stdout, /FAIL {2}8 Real model: health reports vllm mode/);
+    assert.match(v.stdout, /FAIL {4}#48291 AI calls used the remote model/);
+  });
 });
+
+const VERIFY = fileURLToPath(new URL("../../../scripts/verify-demo.mjs", import.meta.url));
+
+function runVerify(args: string[]): Promise<{ code: number | null; stdout: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [VERIFY, ...args], { env: { PATH: process.env.PATH ?? "" }, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    child.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+    child.stderr.on("data", (d: Buffer) => (stdout += d.toString()));
+    child.on("exit", (code) => resolve({ code, stdout }));
+  });
+}
 
 async function freePort(): Promise<number> {
   return new Promise((resolve) => {

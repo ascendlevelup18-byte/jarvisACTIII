@@ -6,6 +6,7 @@
 - `vercel build` (Vercel CLI 63.1.2) of this branch passed locally, and its compiled functions passed the acceptance checks.
 - No hosted deployment exists yet.
 - The connector in the Claude session gets **403** on project creation, so this step needs the owner's own Vercel login.
+- **14 Oct 2026 (owner's PC):** the CLI is logged in and linked to project `jarvis-actiii-preview`, whose preview environment defines no `JARVIS_*` variables (fixture mode). `vercel build` of 2260798 passed, producing `api/cases`, `api/demo-store` and `api/health`; the static bundle contains no key pattern. The existing public site `jarvis-actiii-preview.vercel.app` is reachable without an auth wall and reports fixture mode, but it runs **older code**: `/api/demo-store` returns 404, so `demo:verify` stops at 2/3. A new preview deploy needs the owner's approval.
 
 ## Why not "Import Git Repository" in the dashboard
 

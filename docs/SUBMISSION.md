@@ -99,7 +99,8 @@ customer message
 - **Path 2: self-hosted vLLM on AMD Instinct (ROCm).** The same adapter; `docs/AMD_DEPLOYMENT_RUNBOOK.md`.
 - **Fail-closed startup.** The model must be listed by `/models` and pass one schema probe per adapter, or the process exits 1. There is never a fixture fallback.
 - **Benchmark.** `npm run api:bench:vllm` measures the real model on the same pinned 30 cases (gate: 0 unsafe).
-- **Status: not yet run.** No AMD inference has happened. The base URL is a candidate from search results (an AMD domain) that the sandbox could not open. The model id must come from live `/models`.
+- **Status: not yet run.** No AMD inference has happened. The event FAQ on the lablab.ai page (read 14 Oct 2026) says the hackathon is hosted on `notebooks.amd.com/tokenfactory`. The base URL must be copied from the owner's dashboard there, or confirmed by a successful authenticated `/models` call. `developer.amd.com.cn/radeon/api/v1` appears to belong to a different AMD service (Radeon Cloud) and is not to be used unless that dashboard shows it. The model id must come from live `/models`.
+- **Verification.** `npm run demo:verify -- --real-model` fails unless `/api/health` reports `aiMode: "vllm"` and every audited AI call on orders 48291, 48294 and 48293 used a `vllm:<model>` adapter. It writes a non-secret evidence JSON.
 
 ## Evidence (only what has been measured)
 

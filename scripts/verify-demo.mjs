@@ -5,8 +5,19 @@
 // Optional: VERCEL_AUTOMATION_BYPASS_SECRET=<secret> for a protected preview (sent as a header, never printed).
 // Uses only the four public synthetic demo requests and the seeded demo store. Payments are simulated.
 // Exit code 0 only if every check passes.
+//   npm run demo:verify -- --real-model [url]             # also FAILS unless health reports aiMode "vllm" and every
+//                                                         # audited AI call used a "vllm:" adapter (never "fixture");
+//                                                         # writes a non-secret evidence JSON (--evidence <file> to choose).
 
-const BASE = (process.argv[2] ?? process.env.JARVIS_BASE_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+const args = process.argv.slice(2);
+const REAL = args.includes("--real-model");
+const evidenceAt = args.indexOf("--evidence");
+const EVIDENCE = evidenceAt === -1 ? null : args[evidenceAt + 1];
+const positional = args.filter((a, i) => !a.startsWith("--") && (evidenceAt === -1 || i !== evidenceAt + 1));
+const BASE = (positional[0] ?? process.env.JARVIS_BASE_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");
 const extra = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {};
 const results = [];
 const check = (name, ok, detail = "") => results.push({ ok: !!ok, name, detail });
@@ -106,6 +117,42 @@ async function main() {
     again.status === 200 && again.json.state === "RESOLVED" && again.json.id !== vc.id,
     `HTTP ${again.status} · ${again.json?.state} · new case id`,
   );
+
+  if (REAL) realModelProof(h.json, [["48291", vc], ["48294", uc], ["48293", ac]]);
+}
+
+// Proof that the cases themselves ran on the remote model: health mode plus the adapter id on every audited AI call.
+function realModelProof(health, cases) {
+  const aiCalls = (c) => (c?.audit ?? []).filter((e) => e.type === "UNDERSTANDING_CALL" || e.type === "MODEL_CALL");
+  check("8 Real model: health reports vllm mode", health?.aiMode === "vllm" && !!health?.model, `aiMode=${health?.aiMode} · model=${health?.model}`);
+  for (const [orderId, c] of cases) {
+    const calls = aiCalls(c);
+    const adapters = [...new Set(calls.map((e) => String(e.data?.adapter)))];
+    check(
+      `  #${orderId} AI calls used the remote model`,
+      calls.some((e) => e.type === "UNDERSTANDING_CALL") && adapters.length > 0 && adapters.every((a) => a.startsWith("vllm:") && !a.includes("fixture")),
+      `${calls.length} calls · adapters ${adapters.join(", ") || "none"}`,
+    );
+  }
+  const evidence = {
+    capturedAt: new Date().toISOString(),
+    target: new URL(BASE).host,
+    health: { aiMode: health?.aiMode, model: health?.model, deployment: health?.deployment, paymentGateway: health?.paymentGateway, provider: health?.provider ?? null },
+    cases: cases.map(([orderId, c]) => ({
+      orderId,
+      caseId: c?.id,
+      state: c?.state,
+      policy: c?.authorization?.outcome ?? null,
+      execution: c?.action ? c.action.status : "none",
+      verified: c?.verification?.verified ?? null,
+      aiCalls: aiCalls(c).map((e) => ({ type: e.type, at: e.at, adapter: e.data?.adapter, latencyMs: e.data?.latencyMs, error: e.data?.error ?? null })),
+    })),
+    checks: results.map(({ ok, name, detail }) => ({ ok, name: name.trim(), detail })),
+  };
+  const file = EVIDENCE ?? `evals/results/demo-evidence-${evidence.capturedAt.replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}.json`;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(evidence, null, 2)}\n`);
+  console.log(`Evidence written: ${file}`);
 }
 
 try {
