@@ -7,7 +7,7 @@
     "liveModelFootage": false
   },
   "assets": {
-    "R1": { "kind": "product", "file": "assets/R1_dashboard.mp4", "what": "Dashboard after clearing cases; header status chips (live model chip if recorded in Mode A)" },
+    "R1": { "kind": "product", "file": "assets/R1_dashboard.mp4", "what": "Command Center (/#/command-center) if Work ships it, otherwise the Dashboard; after clearing cases; status chips showing the AI mode and simulated payments" },
     "R2": { "kind": "product", "file": "assets/R2_store_48291.mp4", "what": "Demo store: order #48291 refund request and the verified reply ($89.99, simulated)" },
     "R3": { "kind": "product", "file": "assets/R3_evidence_48291.mp4", "what": "Case evidence / audit for #48291: AI calls, policy, gateway, read-back" },
     "R4": { "kind": "product", "file": "assets/R4_store_48294.mp4", "what": "Demo store: order #48294, ESCALATED, no refund" },

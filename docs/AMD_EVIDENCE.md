@@ -6,6 +6,8 @@ Endpoint identity: the base URL `https://developer.amd.com.cn/radeon/api/v1` com
 
 Redact before committing: API keys and bearer tokens, private IPs and hostnames where sensitive, any credential in URLs. None appear below.
 
+**Provenance check (commit `90d1678`, 15 Oct):** JARVIS now rejects any reply whose provider-reported model is not the configured one (exact id, or a gateway prefix such as `self-dploy/DeepSeek-V4-Flash`, which is what the live endpoint returned in the smoke tests). A mismatch stops startup or fails the case with no action. Not yet exercised live; the observed live ids match the rule.
+
 ## 0a. Google Gemma on AMD Token Factory (15 Oct 2026)
 
 | Field | Value |

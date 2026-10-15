@@ -17,6 +17,24 @@ All commands run in Windows PowerShell from `C:\jarvis-actiii-preview`. Nothing 
 
 Rollback: every change is a local commit on `claude/kickoff-day1-jkg6ry`; the remote is still `4b0e9cc` and master `5b5a5fe`. A bad preview deploy is removed in the Vercel dashboard; production is untouched unless `--prod` is approved.
 
+## Deployment facts (read-only audit of `vercel.json`, 15 Oct)
+
+- Build: `npm ci && npm ci --prefix apps/web`, then `npm run web:build`; static output `apps/web/dist`.
+- Vercel hosts **both** the frontend and the API: serverless functions `api/cases.ts`, `api/health.ts`, `api/demo-store.ts` (60 s max); `/cases` rewrites to `/api/cases`; everything else falls back to `index.html`.
+- Runtime: fixture AI by default; no environment variables on the project (checked 14 Oct). Real-model serverless needs `JARVIS_AI_MODE=vllm` **and** `JARVIS_SERVERLESS_REAL_MODEL=enabled` plus a budget; do not enable for the public demo.
+- Judges can run the four canonical demo requests without a token; free text is refused (403).
+- Blocking today: the preview answers 302 to Vercel login; production serves the 12 Oct build.
+
+## Deck update plan (after the UI freeze)
+
+| Slide | Change |
+|---|---|
+| 3 | Replace `c05-overview.png` with the Command Center (or new Dashboard) screenshot; drop "earlier UI" |
+| 6 | Replace `02-safety-showdown.png` with the new Proof/Command Center view of #48291 vs #48294 |
+| 5 | Keep: AMD hosted DeepSeek-V4-Flash, live 14 Oct; add "Gemma path implemented, not available on the endpoint" only if the owner wants to mention Google |
+| 7 | Add: "the provider must report the model we asked for, or the case fails closed" |
+| 8 | Update test count to the post-integration run (API was 291 on 15 Oct) |
+
 ## Release sequence (in order; ⚠ = owner approval)
 
 Safe target: submit by **Oct 17** (no official deadline found; the event page schedule says "To be announced").

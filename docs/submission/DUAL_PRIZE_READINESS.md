@@ -2,6 +2,18 @@
 
 15 Oct 2026. Labels: **VERIFIED** (inspected or executed today), **REPORTED** (earlier handover, not re-run today), **UNCONFIRMED** (no authoritative evidence).
 
+## Current readiness matrix (15 Oct, late; supersedes older status lines below)
+
+| Capability | Implemented | Offline tested | Live tested (historical) | End-to-end live | Organizer confirmation |
+|---|---|---|---|---|---|
+| AMD Token Factory API, DeepSeek-V4-Flash (understanding + decision) | yes | yes (291 API tests, fixture bench 0 unsafe) | yes, 14 Oct: 17/17 demo checks, bench 26/30, 0 unsafe | yes (14 Oct) | Event FAQ: "Just the api from the tokenfactory" suffices to take part; whether `developer.amd.com.cn` is that Token Factory: UNCONFIRMED |
+| Fail-closed startup, schema validation, bounded timeouts/retries, pacing | yes | yes | yes (startup gates 14–15 Oct) | — | — |
+| Served-model provenance (provider must report the requested model) | yes (new) | yes (`engine-hardening.test.ts`) | no | no | — |
+| Gemma-4-31B-IT for understanding (opt-in) | yes | yes (two-model startup, attribution, mid-run failure, missing model) | partly: smoke HTTP 200; dual-model startup probes passed once | **no**: endpoint stopped listing Gemma (`MODEL_NOT_SERVED`, run tg-1) | Needed: does Token Factory-served Gemma count for the Google prize? Will it return? |
+| Google prize eligibility | — | — | — | — | UNCONFIRMED; page text: "Use Gemma in your project for a chance to win the Google prize" |
+
+Zero-inference Gemma availability recheck (lists models, no completion): `& .\scripts\tokenfactory-smoke.ps1 -BaseUrl https://developer.amd.com.cn/radeon/api/v1` (no `-Model`). No other Gemma endpoint appears in the project materials; none was invented.
+
 ## 1. Repository state and Work activity
 
 - HEAD `4b0e9cc` = `origin/claude/kickoff-day1-jkg6ry` (VERIFIED). Nothing staged, committed, pushed or deployed today.
