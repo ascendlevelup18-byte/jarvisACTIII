@@ -25,7 +25,10 @@ param(
   [string]$UnderstandingModel = "",
   [ValidateSet("json_schema", "json_object", "off")][string]$StructuredOutput = "json_object",
   [string]$RunId = "tf-1",
-  [int]$Port = 3000,
+  # Not 3000: a local fixture server (e.g. the web dev setup) often holds it.
+  [int]$Port = 3210,
+  # Per-call model timeout. Slower models (Gemma-4-31B-IT took 12-30+ s per call) need more than 30000.
+  [ValidateRange(5000, 120000)][int]$TimeoutMs = 30000,
   # 3100 ms keeps one process under the 20 requests/min account cap.
   [int]$MinIntervalMs = 3100,
   [string]$KeyPattern = '^rc-[0-9a-fA-F]{48}$'
@@ -47,12 +50,16 @@ $evidence = "evals/results/demo-evidence-live-$stamp.json"
 $summaryPath = "evals/results/live-gate-$stamp.json"
 $names = "JARVIS_AI_MODE", "JARVIS_MODEL_BASE_URL", "JARVIS_MODEL_NAME", "JARVIS_MODEL_API_KEY", "JARVIS_MODEL_TIMEOUT_MS",
   "JARVIS_MODEL_MAX_RETRIES", "JARVIS_DAILY_MODEL_CALL_BUDGET", "JARVIS_MODEL_STRUCTURED_OUTPUT", "JARVIS_MODEL_MIN_INTERVAL_MS", "JARVIS_UNDERSTANDING_MODEL_NAME", "PORT"
-$summary = [ordered]@{ capturedAt = (Get-Date).ToUniversalTime().ToString("o"); baseUrl = $BaseUrl; model = $Model; understandingModel = $(if ($UnderstandingModel) { $UnderstandingModel } else { $Model }); structuredOutput = $StructuredOutput; runId = $RunId; gitHead = (git rev-parse HEAD); gitDirty = [bool](git status --porcelain) }
+$summary = [ordered]@{ capturedAt = (Get-Date).ToUniversalTime().ToString("o"); baseUrl = $BaseUrl; model = $Model; timeoutMs = $TimeoutMs; understandingModel = $(if ($UnderstandingModel) { $UnderstandingModel } else { $Model }); structuredOutput = $StructuredOutput; runId = $RunId; gitHead = (git rev-parse HEAD); gitDirty = [bool](git status --porcelain) }
 $code = 0
 $api = $null
 
+if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) {
+  Write-Host "Port $Port is already in use. Pass a free port with -Port. Nothing was started." -ForegroundColor Red
+  exit 2
+}
 $secure = Read-Host "API key (input hidden; not stored)" -AsSecureString
-$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+$bstr =[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 $script:keyText = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
 $startedLocal = Get-Date
 try {
@@ -67,7 +74,7 @@ try {
   $env:JARVIS_MODEL_BASE_URL = $BaseUrl
   $env:JARVIS_MODEL_NAME = $Model
   $env:JARVIS_MODEL_API_KEY = $script:keyText
-  $env:JARVIS_MODEL_TIMEOUT_MS = "30000"
+  $env:JARVIS_MODEL_TIMEOUT_MS = "$TimeoutMs"
   $env:JARVIS_MODEL_MAX_RETRIES = "1"
   $env:JARVIS_DAILY_MODEL_CALL_BUDGET = "300"
   $env:JARVIS_MODEL_STRUCTURED_OUTPUT = $StructuredOutput

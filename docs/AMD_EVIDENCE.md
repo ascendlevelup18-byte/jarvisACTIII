@@ -11,14 +11,14 @@ Redact before committing: API keys and bearer tokens, private IPs and hostnames 
 | Field | Value |
 |---|---|
 | Test | GEMMA-LIVE-001, `scripts/tokenfactory-smoke.ps1 -Model Gemma-4-31B-IT`, key at the hidden prompt |
-| Source | Owner-reported output (no transcript available to Claude): **REPORTED** |
+| Source | Console output the owner pasted into the project thread: **VERIFIED from that output** (transcripts scanned, 0 key-shaped strings) |
 | Result | HTTP 200, model returned `self-dploy/Gemma-4-31B-IT`, finish_reason stop, 19 prompt + 3 completion tokens, reply "Hello!" |
 | Latency | 12,144 ms (one sample; may include queueing) |
-| Attempts | First attempt HTTP 401 (token rejected); second attempt with an accepted token HTTP 200 |
+| Attempts | 1: HTTP 401 "Invalid LLMGateway API token" · 2: HTTP 200 (above) · 3: no HTTP response within the 60 s client timeout · 4: empty key, nothing sent |
 | Limits (headers) | 20 requests/min, 1 USD/day; 0.994085 USD remaining after the call |
 | Evidence file | `evals/results/gemma-live-001.json` |
 
-JARVIS integration (commit `8bbee09`): `JARVIS_UNDERSTANDING_MODEL_NAME=Gemma-4-31B-IT` runs request understanding on Gemma while `JARVIS_MODEL_NAME=DeepSeek-V4-Flash` keeps the decision. Unset, JARVIS uses one model for both stages (the AMD-only path above). Startup fails closed unless both models are listed and both probes pass; there is no runtime fallback from Gemma to DeepSeek. **Not yet run live in JARVIS**: the AMD + Gemma benchmark (run `tg-1`) is pending owner approval. Google prize eligibility for Token Factory-served Gemma is **not confirmed** by the organizers.
+JARVIS integration (commit `8bbee09`): `JARVIS_UNDERSTANDING_MODEL_NAME=Gemma-4-31B-IT` runs request understanding on Gemma while `JARVIS_MODEL_NAME=DeepSeek-V4-Flash` keeps the decision. Unset, JARVIS uses one model for both stages (the AMD-only path above). Startup fails closed unless both models are listed and both probes pass; there is no runtime fallback from Gemma to DeepSeek. **First live JARVIS attempt (15 Oct, `evals/results/live-gate-20261015T172017Z.json`): FAILED safely at startup.** The Gemma understanding probe hit the 30 s per-call timeout (`PROBE_UNDERSTANDING: TIMEOUT`, 30,005 ms), so JARVIS refused to serve; no cases ran and no fallback happened. A second attempt could not start because port 3000 was held by a local fixture JARVIS API (`EADDRINUSE`). Fixes: `live-gate.ps1` now defaults to port 3210, refuses an occupied port, and takes `-TimeoutMs` (5,000–120,000). The AMD + Gemma benchmark (`tg-1`) still needs a live rerun with a longer timeout. Google prize eligibility for Token Factory-served Gemma is **not confirmed** by the organizers.
 
 ## 0. History of the authentication blocker
 
