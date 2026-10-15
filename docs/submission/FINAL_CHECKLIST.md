@@ -15,6 +15,16 @@ Requirements come from `docs/SUBMISSION_PREFLIGHT.md`, which read the public eve
 | 9 | Application URL | Medium confidence (aggregator) | Preview exists, protected; production alias is 3 days old | Unprotect the preview, or approve a production deploy |
 | 10 | Container / Dockerfile | Low confidence, track-specific | Not present | Only if your track requires it |
 | 11 | AMD key rotated | Security | **OPEN** | AMD dashboard or organizers |
+| 12 | Google prize (Gemma) | Optional partner prize (event page) | Code ready, opt-in; live run pending; eligibility of Token Factory Gemma not confirmed | Owner: rerun the gate with `-TimeoutMs 90000`; ask organizers |
+
+## Postponed owner actions (need your key, accounts or approval)
+
+1. Live AMD + Gemma benchmark: `& .\scripts\live-gate.ps1 -BaseUrl https://developer.amd.com.cn/radeon/api/v1 -UnderstandingModel Gemma-4-31B-IT -TimeoutMs 90000 -RunId tg-1` (key at the hidden prompt; ~20–30 min). If the Gemma probe still times out, submit AMD-only and leave Gemma out of the claims.
+2. Ask organizers: does Token Factory-served Gemma count for the Google prize; is there a separate field; exact deadline.
+3. Rotate the AMD key (dashboard or organizers).
+4. When ChatGPT Work finishes: say "integrate" so Claude commits the frontend separately and reruns all suites.
+5. Record the video (Mode A, `recording/RECORDING_SCRIPT.md`; stop the fixture API on port 3000 first).
+6. Approve: Vercel preview deploy and turning off preview authentication; pushing the branch; making the repo public.
 
 ## Before you press Submit
 

@@ -140,6 +140,8 @@ A genuinely backend-connected assistant is **not** recommended before the deadli
 
 ## 15. Decision
 
+**Status update (15 Oct, later):** implemented and committed (`8bbee09`, scripts `1a42df1`); fixture suites pass. Gemma smoke on Token Factory returned HTTP 200 in 12.1 s. The first live JARVIS start with Gemma was refused safely because the Gemma probe exceeded the 30 s per-call limit. Next: one live rerun with `-TimeoutMs 90000`. If it still times out, submit AMD-only and make no Google claim.
+
 **A. IMPLEMENT GOOGLE INTEGRATION NOW**, scoped to Gemma for request understanding on AMD, opt-in by config, after one approved Gemma smoke call. Eligibility for "use Gemma" is stated on the event page; the one open question (does Token Factory-served Gemma count) is worth asking organizers in parallel but does not block building, because the page itself describes Gemma "running on AMD GPUs in the cloud".
 
 ### Steps after your approval

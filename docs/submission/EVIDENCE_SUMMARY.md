@@ -14,6 +14,9 @@ Every row links to the file or command that produced it. Labels: **VERIFIED** (r
 | Live latency | understanding p50 2049 ms / p95 18684 ms; decision p50 8901 ms / p95 24030 ms | same file | VERIFIED |
 | Endpoint is the hackathon "Token Factory" | base URL taken from AMD's Token Factory API documentation supplied to the team | not independently confirmed | NOT VERIFIED |
 | Self-hosted GPU / vLLM on AMD Developer Cloud | — | not deployed | NOT VERIFIED |
+| Gemma-4-31B-IT on AMD Token Factory (smoke) | HTTP 200, 12,144 ms, 19 + 3 tokens, reply "Hello!" (15 Oct); other attempts: one 401, one no answer within 60 s | `evals/results/gemma-live-001.json` | VERIFIED (from the owner's pasted output) |
+| JARVIS with Gemma understanding + DeepSeek decision (opt-in, commit `8bbee09`) | fixture tests pass; first live start refused safely: Gemma probe exceeded the 30 s per-call limit | `evals/results/live-gate-20261015T172017Z.json` | NOT VERIFIED live; rerun with `-TimeoutMs 90000` pending |
+| Google prize eligibility for Token Factory-served Gemma | event page: "Use Gemma in your project for a chance to win the Google prize" | lablab.ai event page | NOT CONFIRMED by organizers |
 
 ## Fixture model and regression suites
 
