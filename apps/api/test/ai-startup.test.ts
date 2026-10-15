@@ -383,6 +383,16 @@ describe("AI startup (fake OpenAI-compatible server; not real inference)", () =>
     await rejectsAt(initializeAi(vllmConfig(fake, twoModels)), "PROBE_UNDERSTANDING", /schema/);
   });
 
+  test("AMD-only mode is unaffected when the endpoint stops listing the optional understanding model", async () => {
+    healthy();
+    fake.setModelsScenario({ kind: "list", ids: ["fake-model"] }); // e.g. Gemma withdrawn from the catalogue
+    const { runtime, startup } = await initializeAi(vllmConfig(fake));
+    assert.equal(startup.modelListed, true);
+    assert.equal(runtime.understanding.id, "vllm:fake-model");
+    const c = await runCase(SCENARIOS.validDuplicate, makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs }));
+    assert.equal(c.state, "RESOLVED");
+  });
+
   test("one model by default: understanding and decision share the configured model", async () => {
     healthy();
     const { runtime, startup } = await initializeAi(vllmConfig(fake));
