@@ -2,6 +2,21 @@
 
 All commands run in Windows PowerShell from `C:\jarvis-actiii-preview`. Nothing here was executed on 15 Oct except the checks in §2.
 
+## Release blockers (ranked, 15 Oct evening)
+
+| Rank | Blocker | Owner |
+|---|---|---|
+| CRITICAL | No demo video: R1–R7 footage and narration not recorded; no MP4 | Owner (after UI freeze) |
+| CRITICAL | No anonymous demo URL: preview behind Vercel login; production is the Oct 12 build | Owner approval, then Claude |
+| CRITICAL | Repository private (event page asks for a public GitHub repo) | Owner approval |
+| HIGH | Frontend not frozen or integrated; deck slides 3 and 6 show the old UI | Work, then Claude |
+| HIGH | AMD key exposed in local history on 14 Oct (line removed) and not rotated | Owner |
+| MEDIUM | Official deadline unconfirmed ("To be announced"); internal target Oct 17 | Owner (ask organizers) |
+| MEDIUM | Gemma no longer served; Google prize blocked; no Gemma claims anywhere | Organizers |
+| LOW | FFmpeg not installed (Clipchamp works without it) | Owner |
+
+Rollback: every change is a local commit on `claude/kickoff-day1-jkg6ry`; the remote is still `4b0e9cc` and master `5b5a5fe`. A bad preview deploy is removed in the Vercel dashboard; production is untouched unless `--prod` is approved.
+
 ## Release sequence (in order; ⚠ = owner approval)
 
 Safe target: submit by **Oct 17** (no official deadline found; the event page schedule says "To be announced").
