@@ -29,6 +29,19 @@ describe("loadAiConfig", () => {
     assert.throws(() => loadAiConfig({ JARVIS_MODEL_STRUCTURED_OUTPUT: "json" }), AiConfigError);
   });
 
+  test("understanding model: defaults to JARVIS_MODEL_NAME; can be set separately with its own structured output", () => {
+    const base = { JARVIS_AI_MODE: "vllm", JARVIS_MODEL_BASE_URL: "http://127.0.0.1:1/v1", JARVIS_MODEL_NAME: "DeepSeek-V4-Flash" };
+    const one = loadAiConfig({ ...base, JARVIS_MODEL_STRUCTURED_OUTPUT: "json_object" });
+    assert.equal(one.understandingModelName, "DeepSeek-V4-Flash");
+    assert.equal(one.understandingStructuredOutput, "json_object");
+    const two = loadAiConfig({ ...base, JARVIS_UNDERSTANDING_MODEL_NAME: " Gemma-4-31B-IT ", JARVIS_UNDERSTANDING_STRUCTURED_OUTPUT: "off" });
+    assert.equal(two.understandingModelName, "Gemma-4-31B-IT");
+    assert.equal(two.understandingStructuredOutput, "off");
+    assert.equal(two.modelName, "DeepSeek-V4-Flash");
+    assert.equal(aiConfigSummary(two).understandingModelName, "Gemma-4-31B-IT");
+    assert.throws(() => loadAiConfig({ ...base, JARVIS_UNDERSTANDING_STRUCTURED_OUTPUT: "json" }), AiConfigError);
+  });
+
   test("request spacing: default off, explicit ms accepted, invalid values fail", () => {
     assert.equal(loadAiConfig({}).modelMinIntervalMs, 0);
     assert.equal(loadAiConfig({ JARVIS_MODEL_MIN_INTERVAL_MS: "3100" }).modelMinIntervalMs, 3100);

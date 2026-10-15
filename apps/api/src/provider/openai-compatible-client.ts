@@ -30,6 +30,30 @@ export interface OpenAICompatibleClientOptions {
    * gateways with per-minute caps). 0 (default) disables it. Waiting counts against the caller's signal.
    */
   minIntervalMs?: number;
+  /** Share one pacing gate between clients (e.g. two models on one account). Overrides minIntervalMs. */
+  pacer?: RequestPacer;
+}
+
+/** Spaces request starts by a minimum interval, in call order. One instance can serve several clients. */
+export class RequestPacer {
+  readonly minIntervalMs: number;
+  #nextStartAt = 0;
+
+  constructor(minIntervalMs: number) {
+    if (!Number.isInteger(minIntervalMs) || minIntervalMs < 0) {
+      throw new ProviderError({ category: "CONFIG_ERROR", message: "minIntervalMs must be a non-negative integer" });
+    }
+    this.minIntervalMs = minIntervalMs;
+  }
+
+  // Reserve the next slot, then wait for it. Waiting counts against the caller's signal.
+  async wait(signal?: AbortSignal): Promise<void> {
+    if (this.minIntervalMs === 0) return;
+    const now = Date.now();
+    const startAt = Math.max(now, this.#nextStartAt);
+    this.#nextStartAt = startAt + this.minIntervalMs;
+    if (startAt > now) await sleep(startAt - now, signal);
+  }
 }
 
 export interface ChatMessage {
@@ -81,8 +105,7 @@ export class OpenAICompatibleClient {
   readonly #maxRetries: number;
   readonly #retryBaseDelayMs: number;
   readonly #retryMaxDelayMs: number;
-  readonly #minIntervalMs: number;
-  #nextStartAt = 0;
+  readonly #pacer: RequestPacer;
 
   constructor(opts: OpenAICompatibleClientOptions) {
     if (!opts.baseUrl?.trim()) {
@@ -106,11 +129,7 @@ export class OpenAICompatibleClient {
     this.#maxRetries = retries;
     this.#retryBaseDelayMs = opts.retryBaseDelayMs ?? 400;
     this.#retryMaxDelayMs = opts.retryMaxDelayMs ?? 4000;
-    const interval = opts.minIntervalMs ?? 0;
-    if (!Number.isInteger(interval) || interval < 0) {
-      throw new ProviderError({ category: "CONFIG_ERROR", message: "minIntervalMs must be a non-negative integer" });
-    }
-    this.#minIntervalMs = interval;
+    this.#pacer = opts.pacer ?? new RequestPacer(opts.minIntervalMs ?? 0);
   }
 
   get maxRetries(): number {
@@ -152,7 +171,7 @@ export class OpenAICompatibleClient {
   async #withRetries(attempt: () => Promise<unknown>, signal?: AbortSignal): Promise<{ json: unknown; attempts: number }> {
     for (let n = 0; ; n++) {
       try {
-        await this.#throttle(signal);
+        await this.#pacer.wait(signal);
         return { json: await attempt(), attempts: n + 1 };
       } catch (e) {
         const transient =
@@ -164,15 +183,6 @@ export class OpenAICompatibleClient {
         await sleep(delay, signal);
       }
     }
-  }
-
-  // Reserve the next request slot, then wait for it (slots are claimed in call order).
-  async #throttle(signal?: AbortSignal): Promise<void> {
-    if (this.#minIntervalMs === 0) return;
-    const now = Date.now();
-    const startAt = Math.max(now, this.#nextStartAt);
-    this.#nextStartAt = startAt + this.#minIntervalMs;
-    if (startAt > now) await sleep(startAt - now, signal);
   }
 
   // Shared transport: bearer auth, timeout + caller signal, bounded body, typed errors.

@@ -1,8 +1,9 @@
 // AI mode composition and fail-closed startup.
 // fixture: deterministic fixture adapters, no endpoint, no network.
-// vllm: one shared OpenAI-compatible client behind the two vLLM adapters. Before the
-// app accepts cases, the endpoint must list the configured model and answer one
-// synthetic probe per adapter with output the engine's strict parsers accept.
+// vllm: OpenAI-compatible clients behind the two vLLM adapters: one model for both stages, or a
+// separate understanding model (JARVIS_UNDERSTANDING_MODEL_NAME) on the same endpoint, sharing one
+// request pacer. Before the app accepts cases, the endpoint must list every configured model and
+// answer one synthetic probe per adapter with output the engine's strict parsers accept.
 // vllm never falls back to fixture: any failure here stops startup.
 
 import { resolveModelTimeouts, sanitizeEndpoint, type AiConfig, type AiMode, type StructuredOutputMode } from "./ai-config.ts";
@@ -19,6 +20,7 @@ import {
 import {
   isProviderError,
   OpenAICompatibleClient,
+  RequestPacer,
   type ChatClient,
   type ChatCompletionParams,
   type ChatCompletionResult,
@@ -56,9 +58,13 @@ export interface ModelCallLog {
 
 export interface AiStartupReport {
   mode: AiMode;
+  /** Decision-stage model. */
   model: string | null;
+  /** Understanding-stage model (equals model unless configured separately). */
+  understandingModel: string | null;
   endpoint: string | null;
   structuredOutput: StructuredOutputMode | null;
+  understandingStructuredOutput: StructuredOutputMode | null;
   maxRetries: number | null;
   /** null in fixture mode (no endpoint to check). */
   modelListed: boolean | null;
@@ -83,7 +89,10 @@ export interface AiInitOptions {
 }
 
 /** Builds the adapters for the configured mode. No network. vllm never builds fixture adapters. */
-export function buildAiAdapters(config: AiConfig, opts: AiInitOptions = {}): AiRuntime & { client: OpenAICompatibleClient | null } {
+export function buildAiAdapters(
+  config: AiConfig,
+  opts: AiInitOptions = {},
+): AiRuntime & { client: OpenAICompatibleClient | null; understandingClient: OpenAICompatibleClient | null } {
   const timeouts = resolveModelTimeouts(config);
   if (config.mode === "fixture") {
     return {
@@ -93,41 +102,52 @@ export function buildAiAdapters(config: AiConfig, opts: AiInitOptions = {}): AiR
       engineTimeoutMs: timeouts.engineTimeoutMs,
       modelCallsPerCase: 0,
       client: null,
+      understandingClient: null,
     };
   }
   // loadAiConfig guarantees these for vllm; re-checked so a hand-built config cannot slip through.
   if (!config.modelBaseUrl || !config.modelName || timeouts.clientTimeoutMs === null) {
     throw new Error("vllm mode requires modelBaseUrl and modelName");
   }
-  const client = new OpenAICompatibleClient({
-    baseUrl: config.modelBaseUrl,
-    model: config.modelName,
-    ...(config.modelApiKey ? { apiKey: config.modelApiKey } : {}),
-    timeoutMs: timeouts.clientTimeoutMs,
-    maxRetries: config.modelMaxRetries,
-    minIntervalMs: config.modelMinIntervalMs,
-  });
-  const structuredOutput = config.structuredOutput;
+  // One pacer for every client: the account's rate limit covers both models.
+  const pacer = new RequestPacer(config.modelMinIntervalMs);
+  const clientFor = (model: string) =>
+    new OpenAICompatibleClient({
+      baseUrl: config.modelBaseUrl!,
+      model,
+      ...(config.modelApiKey ? { apiKey: config.modelApiKey } : {}),
+      timeoutMs: timeouts.clientTimeoutMs!,
+      maxRetries: config.modelMaxRetries,
+      pacer,
+    });
+  const client = clientFor(config.modelName);
+  const understandingModel = config.understandingModelName ?? config.modelName;
+  const understandingClient = understandingModel === config.modelName ? client : clientFor(understandingModel);
   return {
     mode: "vllm",
-    understanding: new VllmRequestUnderstandingAdapter(logged(client, "UNDERSTANDING", opts.onCall), { structuredOutput }),
-    model: new VllmModelAdapter(logged(client, "MODEL", opts.onCall), { structuredOutput }),
+    understanding: new VllmRequestUnderstandingAdapter(logged(understandingClient, "UNDERSTANDING", opts.onCall), {
+      structuredOutput: config.understandingStructuredOutput,
+    }),
+    model: new VllmModelAdapter(logged(client, "MODEL", opts.onCall), { structuredOutput: config.structuredOutput }),
     engineTimeoutMs: timeouts.engineTimeoutMs,
     modelCallsPerCase: 2 * (1 + config.modelMaxRetries),
     client,
+    understandingClient,
   };
 }
 
 /** Builds the runtime and, in vllm mode, proves the endpoint is usable before returning it. */
 export async function initializeAi(config: AiConfig, opts: AiInitOptions = {}): Promise<{ runtime: AiRuntime; startup: AiStartupReport }> {
   const started = performance.now();
-  const { client, ...runtime } = buildAiAdapters(config, opts);
+  const { client, understandingClient, ...runtime } = buildAiAdapters(config, opts);
   const promptVersions = { understanding: UNDERSTANDING_PROMPT_VERSION, decision: decisionPromptVersion(REFUND_POLICY.sections) };
   const report = (over: Partial<AiStartupReport>): AiStartupReport => ({
     mode: config.mode,
     model: null,
+    understandingModel: null,
     endpoint: null,
     structuredOutput: null,
+    understandingStructuredOutput: null,
     maxRetries: null,
     modelListed: null,
     probes: null,
@@ -135,7 +155,7 @@ export async function initializeAi(config: AiConfig, opts: AiInitOptions = {}): 
     startupMs: Math.round(performance.now() - started),
     ...over,
   });
-  if (client === null) return { runtime, startup: report({}) };
+  if (client === null || understandingClient === null) return { runtime, startup: report({}) };
 
   const scrub = (msg: string) => (config.modelApiKey ? msg.split(config.modelApiKey).join("[REDACTED]") : msg);
   const fail = (stage: AiStartupStage, msg: string): never => {
@@ -149,8 +169,10 @@ export async function initializeAi(config: AiConfig, opts: AiInitOptions = {}): 
   } catch (e) {
     fail("MODEL_LIST", errorText(e));
   }
-  if (!served.includes(client.model)) {
-    fail("MODEL_NOT_SERVED", `model ${JSON.stringify(client.model)} is not served by the endpoint (served: ${served.slice(0, 10).join(", ") || "none"})`);
+  for (const model of new Set([client.model, understandingClient.model])) {
+    if (!served.includes(model)) {
+      fail("MODEL_NOT_SERVED", `model ${JSON.stringify(model)} is not served by the endpoint (served: ${served.slice(0, 12).join(", ") || "none"})`);
+    }
   }
 
   // Synthetic probes through the real adapters and the real strict parsers. No customer data.
@@ -175,8 +197,10 @@ export async function initializeAi(config: AiConfig, opts: AiInitOptions = {}): 
     runtime,
     startup: report({
       model: client.model,
+      understandingModel: understandingClient.model,
       endpoint: sanitizeEndpoint(client.baseUrl),
       structuredOutput: config.structuredOutput,
+      understandingStructuredOutput: config.understandingStructuredOutput,
       maxRetries: config.modelMaxRetries,
       modelListed: true,
       probes: { understanding: "ok", decision: "ok" },

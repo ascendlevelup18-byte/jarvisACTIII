@@ -133,11 +133,17 @@ function realModelProof(health, cases) {
       calls.some((e) => e.type === "UNDERSTANDING_CALL") && adapters.length > 0 && adapters.every((a) => a.startsWith("vllm:") && !a.includes("fixture")),
       `${calls.length} calls · adapters ${adapters.join(", ") || "none"}`,
     );
+    // Provider attribution per stage: each audited call must name the model configured for that stage.
+    const models = health?.models;
+    if (models?.understanding && models?.decision) {
+      const wrong = calls.filter((e) => String(e.data?.adapter) !== `vllm:${e.type === "UNDERSTANDING_CALL" ? models.understanding : models.decision}`);
+      check(`  #${orderId} each stage used its configured model`, calls.length > 0 && wrong.length === 0, `understanding ${models.understanding} · decision ${models.decision}${wrong.length ? ` · ${wrong.length} mismatched` : ""}`);
+    }
   }
   const evidence = {
     capturedAt: new Date().toISOString(),
     target: new URL(BASE).host,
-    health: { aiMode: health?.aiMode, model: health?.model, deployment: health?.deployment, paymentGateway: health?.paymentGateway, provider: health?.provider ?? null },
+    health: { aiMode: health?.aiMode, model: health?.model, models: health?.models ?? null, deployment: health?.deployment, paymentGateway: health?.paymentGateway, provider: health?.provider ?? null },
     cases: cases.map(([orderId, c]) => ({
       orderId,
       caseId: c?.id,

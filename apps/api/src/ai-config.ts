@@ -38,6 +38,10 @@ export interface AiConfig {
   modelMaxRetries: number;
   /** Client-side minimum spacing between model requests (ms). 0 = off. */
   modelMinIntervalMs: number;
+  /** Model for the request-understanding stage. Equals modelName unless JARVIS_UNDERSTANDING_MODEL_NAME is set. */
+  understandingModelName: string | undefined;
+  /** Structured-output mode for the understanding stage (defaults to structuredOutput). */
+  understandingStructuredOutput: StructuredOutputMode;
 }
 
 export class AiConfigError extends Error {
@@ -60,7 +64,10 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * - JARVIS_MODEL_STRUCTURED_OUTPUT: json_schema | json_object | off (default json_schema)
  * - JARVIS_MODEL_MAX_RETRIES: 0..3 (default 0); retries only transient 429/5xx/connection errors
  * - JARVIS_MODEL_MIN_INTERVAL_MS: non-negative int (default 0 = off); spaces request starts, e.g. 3100
- *   keeps one process under a 20 requests/min account cap
+ *   keeps one process under a 20 requests/min account cap (shared by both stages)
+ * - JARVIS_UNDERSTANDING_MODEL_NAME: optional; runs request understanding on a different model served by
+ *   the same endpoint (e.g. Gemma-4-31B-IT), while JARVIS_MODEL_NAME keeps the decision stage. Unset = one model
+ * - JARVIS_UNDERSTANDING_STRUCTURED_OUTPUT: optional; same values as JARVIS_MODEL_STRUCTURED_OUTPUT
  *
  * Fixture mode does not require an endpoint.
  */
@@ -92,6 +99,7 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     );
   }
   const structuredOutput: StructuredOutputMode = structuredRaw;
+  const understandingStructuredOutput = parseStructuredMode(env.JARVIS_UNDERSTANDING_STRUCTURED_OUTPUT, structuredOutput, "JARVIS_UNDERSTANDING_STRUCTURED_OUTPUT");
 
   const retriesRaw = env.JARVIS_MODEL_MAX_RETRIES?.trim() || "0";
   const modelMaxRetries = Number(retriesRaw);
@@ -108,6 +116,7 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   const modelBaseUrl = emptyToUndefined(env.JARVIS_MODEL_BASE_URL);
   const modelName = emptyToUndefined(env.JARVIS_MODEL_NAME);
   const modelApiKey = emptyToUndefined(env.JARVIS_MODEL_API_KEY);
+  const understandingModelName = emptyToUndefined(env.JARVIS_UNDERSTANDING_MODEL_NAME) ?? modelName;
 
   if (mode === "vllm") {
     if (!modelBaseUrl) {
@@ -133,7 +142,18 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     structuredOutput,
     modelMaxRetries,
     modelMinIntervalMs,
+    understandingModelName,
+    understandingStructuredOutput,
   };
+}
+
+function parseStructuredMode(raw: string | undefined, fallback: StructuredOutputMode, name: string): StructuredOutputMode {
+  const v = raw?.trim().toLowerCase();
+  if (!v) return fallback;
+  if (v !== "json_schema" && v !== "json_object" && v !== "off") {
+    throw new AiConfigError(` must be "json_schema", "json_object" or "off" (got ${JSON.stringify(raw)})`);
+  }
+  return v;
 }
 
 function emptyToUndefined(v: string | undefined): string | undefined {
@@ -178,5 +198,7 @@ export function aiConfigSummary(config: AiConfig): Record<string, unknown> {
     structuredOutput: config.structuredOutput,
     modelMaxRetries: config.modelMaxRetries,
     modelMinIntervalMs: config.modelMinIntervalMs,
+    understandingModelName: config.understandingModelName ?? null,
+    understandingStructuredOutput: config.understandingStructuredOutput,
   };
 }

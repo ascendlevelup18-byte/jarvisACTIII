@@ -15,6 +15,7 @@ export { cleanupModelContent, type CleanupOptions } from "./response-cleanup.ts"
 
 export {
   OpenAICompatibleClient,
+  RequestPacer,
   type ChatCompletionParams,
   type ChatClient,
   type ChatCompletionResult,

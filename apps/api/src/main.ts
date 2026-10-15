@@ -64,6 +64,7 @@ createApp(
       deployment: "node-server",
       aiMode: runtime.mode,
       model: startup.model,
+      models: runtime.mode === "vllm" ? { understanding: startup.understandingModel, decision: startup.model } : null,
       remoteModel: runtime.mode === "vllm",
       paymentGateway: "simulated",
       data: "synthetic",
@@ -74,7 +75,9 @@ createApp(
           ? {
               endpoint: startup.endpoint,
               model: startup.model,
+              understandingModel: startup.understandingModel,
               structuredOutput: startup.structuredOutput,
+              understandingStructuredOutput: startup.understandingStructuredOutput,
               maxRetries: startup.maxRetries,
               startupProbes: startup.probes,
               calls: { ok: providerCalls.ok, failed: providerCalls.failed },

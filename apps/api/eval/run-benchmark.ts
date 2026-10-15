@@ -106,7 +106,7 @@ async function runVllmMode(): Promise<void> {
     printSummary(
       report,
       relative(process.cwd(), outPath),
-      `mode: vllm | model: ${report.benchmark.model} | endpoint: ${report.benchmark.run.endpoint} | payments: simulated | data: synthetic`,
+      `mode: vllm | understanding: ${report.benchmark.run.models.understanding} | decision: ${report.benchmark.model} | endpoint: ${report.benchmark.run.endpoint} | payments: simulated | data: synthetic`,
     );
     console.log(`Parse failures                   ${t.parseFailures}   (understanding ${t.parseFailuresByStage.UNDERSTANDING}, decision ${t.parseFailuresByStage.MODEL})
 Provider errors / timeouts       ${t.providerErrors} / ${t.timeouts}

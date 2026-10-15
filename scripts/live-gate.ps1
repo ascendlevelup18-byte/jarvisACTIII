@@ -21,6 +21,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$BaseUrl,
   [string]$Model = "DeepSeek-V4-Flash",
+  # Optional second model for request understanding (e.g. Gemma-4-31B-IT). Empty = one model for both stages.
+  [string]$UnderstandingModel = "",
   [ValidateSet("json_schema", "json_object", "off")][string]$StructuredOutput = "json_object",
   [string]$RunId = "tf-1",
   [int]$Port = 3000,
@@ -44,8 +46,8 @@ $apiErr = Join-Path $logDir "api.err.log"
 $evidence = "evals/results/demo-evidence-live-$stamp.json"
 $summaryPath = "evals/results/live-gate-$stamp.json"
 $names = "JARVIS_AI_MODE", "JARVIS_MODEL_BASE_URL", "JARVIS_MODEL_NAME", "JARVIS_MODEL_API_KEY", "JARVIS_MODEL_TIMEOUT_MS",
-  "JARVIS_MODEL_MAX_RETRIES", "JARVIS_DAILY_MODEL_CALL_BUDGET", "JARVIS_MODEL_STRUCTURED_OUTPUT", "JARVIS_MODEL_MIN_INTERVAL_MS", "PORT"
-$summary = [ordered]@{ capturedAt = (Get-Date).ToUniversalTime().ToString("o"); baseUrl = $BaseUrl; model = $Model; structuredOutput = $StructuredOutput; runId = $RunId; gitHead = (git rev-parse HEAD); gitDirty = [bool](git status --porcelain) }
+  "JARVIS_MODEL_MAX_RETRIES", "JARVIS_DAILY_MODEL_CALL_BUDGET", "JARVIS_MODEL_STRUCTURED_OUTPUT", "JARVIS_MODEL_MIN_INTERVAL_MS", "JARVIS_UNDERSTANDING_MODEL_NAME", "PORT"
+$summary = [ordered]@{ capturedAt = (Get-Date).ToUniversalTime().ToString("o"); baseUrl = $BaseUrl; model = $Model; understandingModel = $(if ($UnderstandingModel) { $UnderstandingModel } else { $Model }); structuredOutput = $StructuredOutput; runId = $RunId; gitHead = (git rev-parse HEAD); gitDirty = [bool](git status --porcelain) }
 $code = 0
 $api = $null
 
@@ -70,6 +72,7 @@ try {
   $env:JARVIS_DAILY_MODEL_CALL_BUDGET = "300"
   $env:JARVIS_MODEL_STRUCTURED_OUTPUT = $StructuredOutput
   $env:JARVIS_MODEL_MIN_INTERVAL_MS = "$MinIntervalMs"
+  if ($UnderstandingModel) { $env:JARVIS_UNDERSTANDING_MODEL_NAME = $UnderstandingModel }
   $env:PORT = "$Port"
 
   Write-Host "1) Starting the API (startup gate: model list + probes)..."
@@ -101,7 +104,8 @@ try {
   & npm run api:bench:vllm -- --run $RunId
   $summary.benchExit = $LASTEXITCODE
   if ($LASTEXITCODE -ne 0 -and $code -eq 0) { Write-Host "   benchmark FAILED (exit $LASTEXITCODE)" -ForegroundColor Red; $code = 13 }
-  $slug = ($Model.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
+  $fileModel = if ($UnderstandingModel -and $UnderstandingModel -ne $Model) { "$UnderstandingModel+$Model" } else { $Model }
+  $slug = ($fileModel.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
   $benchFile = "evals/results/duplicate-charge-eval.v1.vllm-$slug-$RunId.json"
   if (Test-Path $benchFile) {
     $m = (Get-Content $benchFile -Raw | ConvertFrom-Json).metrics

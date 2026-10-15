@@ -318,6 +318,100 @@ describe("AI startup (fake OpenAI-compatible server; not real inference)", () =>
     assert.match(v.stdout, /FAIL {2}8 Real model: health reports vllm mode/);
     assert.match(v.stdout, /FAIL {4}#48291 AI calls used the remote model/);
   });
+
+  // ---------- two models: separate understanding model (e.g. Gemma) on the same endpoint ----------
+
+  const twoModels = { JARVIS_UNDERSTANDING_MODEL_NAME: "gemma-fake" };
+  const servesBoth = () => {
+    healthy();
+    fake.setModelsScenario({ kind: "list", ids: ["fake-model", "gemma-fake"] });
+  };
+
+  test("two models: understanding runs on its own model, decision keeps the main model; each call is attributed", async () => {
+    servesBoth();
+    const seen: { model: string; format: string | null }[] = [];
+    fake.setScenario({
+      kind: "respond",
+      respond: (body) => {
+        const b = body as { model: string; response_format?: { type: string } };
+        seen.push({ model: b.model, format: b.response_format?.type ?? null });
+        return fixtureLikeAnswer(body);
+      },
+    });
+    const calls: ModelCallLog[] = [];
+    const config = vllmConfig(fake, { ...twoModels, JARVIS_UNDERSTANDING_STRUCTURED_OUTPUT: "json_object" });
+    const { runtime, startup } = await initializeAi(config, { onCall: (e) => calls.push(e) });
+    assert.equal(runtime.understanding.id, "vllm:gemma-fake");
+    assert.equal(runtime.model.id, "vllm:fake-model");
+    assert.equal(startup.understandingModel, "gemma-fake");
+    assert.equal(startup.model, "fake-model");
+    assert.equal(startup.understandingStructuredOutput, "json_object");
+    assert.equal(startup.structuredOutput, "json_schema");
+    assert.deepEqual(calls.map((c) => [c.stage, c.model]), [["UNDERSTANDING", "gemma-fake"], ["MODEL", "fake-model"]]);
+    // The request bodies name the right model and each stage's own response_format.
+    assert.deepEqual(seen, [{ model: "gemma-fake", format: "json_object" }, { model: "fake-model", format: "json_schema" }]);
+
+    const deps = makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const c = await runCase(SCENARIOS.validDuplicate, deps);
+    assert.equal(c.state, "RESOLVED");
+    const adapterOf = (type: string) => c.audit.find((e) => e.type === type)?.data as { adapter?: string } | undefined;
+    assert.equal(adapterOf("UNDERSTANDING_CALL")?.adapter, "vllm:gemma-fake");
+    assert.equal(adapterOf("MODEL_CALL")?.adapter, "vllm:fake-model");
+  });
+
+  test("two models: the safety outcomes are unchanged (conflicting amount escalates, already-refunded closes)", async () => {
+    servesBoth();
+    const { runtime } = await initializeAi(vllmConfig(fake, twoModels));
+    const deps = () => makeDeps({ understanding: runtime.understanding, model: runtime.model, modelTimeoutMs: runtime.engineTimeoutMs });
+    const conflicting = await runCase(SCENARIOS.conflictingAmount, deps());
+    assert.equal(conflicting.state, "ESCALATED");
+    assert.equal(conflicting.action, null);
+    const refunded = await runCase(SCENARIOS.alreadyRefunded, deps());
+    assert.equal(refunded.state, "CLOSED_NO_ACTION");
+    assert.equal(refunded.action, null);
+  });
+
+  test("two models: an unserved understanding model stops startup (no fallback to the decision model)", async () => {
+    healthy();
+    fake.setModelsScenario({ kind: "list", ids: ["fake-model"] });
+    await rejectsAt(initializeAi(vllmConfig(fake, twoModels)), "MODEL_NOT_SERVED", /"gemma-fake" is not served/);
+  });
+
+  test("two models: invalid understanding output from the second model prevents startup", async () => {
+    servesBoth();
+    fake.setScenario({ kind: "ok", content: '{"intent":"NOT_AN_INTENT"}' });
+    await rejectsAt(initializeAi(vllmConfig(fake, twoModels)), "PROBE_UNDERSTANDING", /schema/);
+  });
+
+  test("one model by default: understanding and decision share the configured model", async () => {
+    healthy();
+    const { runtime, startup } = await initializeAi(vllmConfig(fake));
+    assert.equal(runtime.understanding.id, "vllm:fake-model");
+    assert.equal(startup.understandingModel, "fake-model");
+  });
+
+  test("demo:verify --real-model with two models checks per-stage attribution and records both models", async () => {
+    servesBoth();
+    const port = await freePort();
+    const file = join(mkdtempSync(join(tmpdir(), "jarvis-evidence-")), "evidence.json");
+    let v: { code: number | null; stdout: string } = { code: null, stdout: "" };
+    await runMain({ ...vllmEnv(fake, twoModels), PORT: String(port) }, {
+      onListening: async () => {
+        v = await runVerify(["--real-model", `http://127.0.0.1:${port}`, "--evidence", file]);
+      },
+    });
+    assert.equal(v.code, 0, v.stdout);
+    assert.match(v.stdout, /PASS {4}#48291 each stage used its configured model/);
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as {
+      health: { models: { understanding: string; decision: string } };
+      cases: { aiCalls: { type: string; adapter: string }[] }[];
+    };
+    assert.deepEqual(parsed.health.models, { understanding: "gemma-fake", decision: "fake-model" });
+    for (const c of parsed.cases) {
+      assert.ok(c.aiCalls.filter((a) => a.type === "UNDERSTANDING_CALL").every((a) => a.adapter === "vllm:gemma-fake"));
+      assert.ok(c.aiCalls.filter((a) => a.type === "MODEL_CALL").every((a) => a.adapter === "vllm:fake-model"));
+    }
+  });
 });
 
 const VERIFY = fileURLToPath(new URL("../../../scripts/verify-demo.mjs", import.meta.url));

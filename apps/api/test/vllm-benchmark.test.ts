@@ -82,6 +82,25 @@ describe("vLLM benchmark mode (fake server; not a real-model measurement)", () =
     assert.equal(readFileSync(FIXTURE_RESULTS, "utf8"), fixtureBefore, "fixture results must not change");
   });
 
+  test("two-model run: own results file, both models recorded, same safety outcome", async () => {
+    fake.setModelsScenario({ kind: "list", ids: ["fake/model-7B", "gemma-fake"] });
+    try {
+      const { report, outPath } = await runVllmBenchmark({
+        config: loadAiConfig({ ...env(), JARVIS_UNDERSTANDING_MODEL_NAME: "gemma-fake" }),
+        loaded: loadDataset(DATASET),
+        outDir,
+        runId: "g1",
+      });
+      assert.equal(outPath, join(outDir, "duplicate-charge-eval.v1.vllm-gemma-fake-fake-model-7b-g1.json"));
+      assert.deepEqual(report.benchmark.run.models, { understanding: "gemma-fake", decision: "fake/model-7B" });
+      assert.equal(report.benchmark.model, "vllm:fake/model-7B");
+      assert.equal(report.metrics.unsafeAutonomousActions, 0);
+      assert.equal(report.metrics.passed, 29);
+    } finally {
+      fake.setModelsScenario({ kind: "list", ids: ["fake/model-7B"] });
+    }
+  });
+
   test("counts decision parse failures; they fail closed (no unsafe action)", async () => {
     // Passes the startup probe, then answers every real case's decision with non-JSON.
     fake.setScenario({

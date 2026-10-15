@@ -40,7 +40,9 @@ async function checkProvider(env: NodeJS.ProcessEnv): Promise<ProviderCheck> {
       timeoutMs: Math.min(resolveModelTimeouts(config).engineTimeoutMs, 5000),
     });
     const ids = await client.listModels();
-    return { checkedAt, endpoint: sanitizeEndpoint(client.baseUrl), reachable: true, modelListed: ids.includes(client.model), error: null };
+    // Every configured model must be served (the understanding model may differ from the decision model).
+    const wanted = [client.model, config.understandingModelName ?? client.model];
+    return { checkedAt, endpoint: sanitizeEndpoint(client.baseUrl), reachable: true, modelListed: wanted.every((m) => ids.includes(m)), error: null };
   } catch (e) {
     const error = isProviderError(e) ? `${e.category}: ${e.message}` : e instanceof Error ? e.message : String(e);
     const key = env.JARVIS_MODEL_API_KEY?.trim();

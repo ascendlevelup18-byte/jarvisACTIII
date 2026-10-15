@@ -5,6 +5,7 @@ import {
   OpenAICompatibleClient,
   ProviderError,
   redactSecrets,
+  RequestPacer,
 } from "../src/provider/index.ts";
 import { startFakeOpenAIServer, type FakeOpenAIServer } from "./fake-openai-server.ts";
 
@@ -44,6 +45,17 @@ describe("OpenAICompatibleClient", () => {
     await Promise.all([1, 2, 3].map(() => unspaced.chatCompletions({ messages: [{ role: "user", content: "hi" }] })));
     assert.ok(Date.now() - t1 < 290);
     assert.throws(() => new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "m", timeoutMs: 5_000, minIntervalMs: -1 }), ProviderError);
+  });
+
+  test("a shared RequestPacer spaces requests across two clients (two models, one account limit)", async () => {
+    fake.setScenario({ kind: "ok", content: "{}" });
+    const pacer = new RequestPacer(150);
+    const a = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "model-a", timeoutMs: 5_000, pacer });
+    const b = new OpenAICompatibleClient({ baseUrl: fake.baseUrl, model: "model-b", timeoutMs: 5_000, pacer });
+    const t0 = Date.now();
+    await Promise.all([a, b, a].map((c) => c.chatCompletions({ messages: [{ role: "user", content: "hi" }] })));
+    assert.ok(Date.now() - t0 >= 290, "three calls across both clients need at least two intervals");
+    assert.throws(() => new RequestPacer(-1), ProviderError);
   });
 
   test("malformed JSON -> INVALID_JSON", async () => {

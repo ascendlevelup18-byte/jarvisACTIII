@@ -43,7 +43,10 @@ export async function runVllmBenchmark(opts: VllmBenchmarkOptions) {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(opts.runId) || opts.runId.includes("..")) {
     throw new Error(`invalid run id ${JSON.stringify(opts.runId)} (letters, digits, . _ - only)`);
   }
-  const outPath = join(opts.outDir, vllmResultsFileName(config.modelName, opts.runId));
+  // Two-model runs are named after both models (understanding first) so they never collide with one-model runs.
+  const understandingModel = config.understandingModelName ?? config.modelName;
+  const fileModel = understandingModel === config.modelName ? config.modelName : `${understandingModel}+${config.modelName}`;
+  const outPath = join(opts.outDir, vllmResultsFileName(fileModel, opts.runId));
   if (existsSync(outPath)) throw new Error(`${outPath} already exists; choose a new --run id`);
 
   const startedAt = new Date().toISOString();
@@ -69,7 +72,9 @@ export async function runVllmBenchmark(opts: VllmBenchmarkOptions) {
         startedAt,
         finishedAt: new Date().toISOString(),
         endpoint: startup.endpoint,
+        models: { understanding: startup.understandingModel, decision: startup.model },
         structuredOutput: startup.structuredOutput,
+        understandingStructuredOutput: startup.understandingStructuredOutput,
         engineTimeoutMs: runtime.engineTimeoutMs,
         promptVersions: startup.promptVersions,
         startupMs: startup.startupMs,
