@@ -6,6 +6,20 @@ Endpoint identity: the base URL `https://developer.amd.com.cn/radeon/api/v1` com
 
 Redact before committing: API keys and bearer tokens, private IPs and hostnames where sensitive, any credential in URLs. None appear below.
 
+## 0a. Google Gemma on AMD Token Factory (15 Oct 2026)
+
+| Field | Value |
+|---|---|
+| Test | GEMMA-LIVE-001, `scripts/tokenfactory-smoke.ps1 -Model Gemma-4-31B-IT`, key at the hidden prompt |
+| Source | Owner-reported output (no transcript available to Claude): **REPORTED** |
+| Result | HTTP 200, model returned `self-dploy/Gemma-4-31B-IT`, finish_reason stop, 19 prompt + 3 completion tokens, reply "Hello!" |
+| Latency | 12,144 ms (one sample; may include queueing) |
+| Attempts | First attempt HTTP 401 (token rejected); second attempt with an accepted token HTTP 200 |
+| Limits (headers) | 20 requests/min, 1 USD/day; 0.994085 USD remaining after the call |
+| Evidence file | `evals/results/gemma-live-001.json` |
+
+JARVIS integration (commit `8bbee09`): `JARVIS_UNDERSTANDING_MODEL_NAME=Gemma-4-31B-IT` runs request understanding on Gemma while `JARVIS_MODEL_NAME=DeepSeek-V4-Flash` keeps the decision. Unset, JARVIS uses one model for both stages (the AMD-only path above). Startup fails closed unless both models are listed and both probes pass; there is no runtime fallback from Gemma to DeepSeek. **Not yet run live in JARVIS**: the AMD + Gemma benchmark (run `tg-1`) is pending owner approval. Google prize eligibility for Token Factory-served Gemma is **not confirmed** by the organizers.
+
 ## 0. History of the authentication blocker
 
 - Earlier on 14 Oct (commit 86e4ea3): `POST /chat/completions` with model `DeepSeek-V4.1-Flash`, `response_format` json_schema, returned **HTTP 401** with the owner's key. Root cause **not established**. Candidates: a mistyped key, or that model not being enabled for the key. That script had no key format check, so a bad paste could not be ruled out.

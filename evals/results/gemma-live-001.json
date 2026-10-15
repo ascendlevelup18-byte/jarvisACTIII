@@ -1,0 +1,25 @@
+{
+  "test_id": "GEMMA-LIVE-001",
+  "captured_from": "owner-reported output of scripts/tokenfactory-smoke.ps1 on the owner's PC (15 Oct 2026); no transcript file was available to Claude, so values are as reported",
+  "provider": "AMD Token Factory hosted inference API",
+  "base_url": "https://developer.amd.com.cn/radeon/api/v1",
+  "model_requested": "Gemma-4-31B-IT",
+  "model_returned": "self-dploy/Gemma-4-31B-IT",
+  "request": { "messages": [{ "role": "user", "content": "Say hello in one sentence." }], "max_tokens": 64, "temperature": 0 },
+  "attempts": "first attempt HTTP 401 (rejected token); second attempt with an accepted token HTTP 200",
+  "authentication": "VERIFIED (second attempt)",
+  "inference": "VERIFIED",
+  "http_status": 200,
+  "latency_ms": 12144,
+  "finish_reason": "stop",
+  "prompt_tokens": 19,
+  "completion_tokens": 3,
+  "reply": "Hello!",
+  "rate_limit_headers": {
+    "x-ratelimit-limit-user-rpm": "20",
+    "x-ratelimit-limit-user-daily-usd": "1",
+    "x-ratelimit-remaining-user-daily-usd": "0.994085"
+  },
+  "secret_exposed": false,
+  "note": "One call only. 12.1 s for 3 completion tokens is a single sample and may include queueing; realistic understanding latency must come from the benchmark run."
+}
