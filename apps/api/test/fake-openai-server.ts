@@ -177,7 +177,9 @@ export async function startFakeOpenAIServer(initial: FakeScenario = { kind: "ok"
       content = s.content;
     }
 
-    const model = s.kind === "ok" ? (s.model ?? "fake-model") : "fake-model";
+    // Like real servers, echo the requested model unless a scenario overrides it.
+    const requested = (lastRequestBody as { model?: unknown } | null)?.model;
+    const model = s.kind === "ok" && s.model ? s.model : typeof requested === "string" ? requested : "fake-model";
     const finishReason = s.kind === "ok" ? (s.finishReason ?? "stop") : "stop";
     res.writeHead(200, { "content-type": "application/json" });
     res.end(

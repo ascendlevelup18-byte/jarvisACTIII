@@ -20,6 +20,7 @@ import {
 import {
   isProviderError,
   OpenAICompatibleClient,
+  ProviderError,
   RequestPacer,
   type ChatClient,
   type ChatCompletionParams,
@@ -54,6 +55,17 @@ export interface ModelCallLog {
   promptTokens: number | null;
   completionTokens: number | null;
   failureCategory: string | null;
+  /** Model id the provider says served the call (null when the response omits it). */
+  servedModel: string | null;
+}
+
+/**
+ * Does the provider's reported model match the configured one? Hosted gateways may prefix the id
+ * (e.g. "self-dploy/DeepSeek-V4-Flash" for "DeepSeek-V4-Flash"). null when the provider did not say.
+ */
+export function servedModelMatches(configured: string, served: string | null | undefined): boolean | null {
+  if (served === null || served === undefined || served === "") return null;
+  return served === configured || served.endsWith(`/${configured}`);
 }
 
 export interface AiStartupReport {
@@ -212,9 +224,9 @@ function errorText(e: unknown): string {
   return isProviderError(e) ? `${e.category}: ${e.message}` : e instanceof Error ? e.message : String(e);
 }
 
-// Wraps the shared client per stage so every provider call yields one safe log entry.
+// Wraps the client per stage: every provider call yields one safe log entry, and a reply the
+// provider attributes to a different model is rejected, so audited attribution is never wrong.
 function logged(client: ChatClient, stage: ModelCallLog["stage"], onCall: AiInitOptions["onCall"]): ChatClient {
-  if (!onCall) return client;
   return {
     model: client.model,
     async chatCompletions(params: ChatCompletionParams): Promise<ChatCompletionResult> {
@@ -229,15 +241,24 @@ function logged(client: ChatClient, stage: ModelCallLog["stage"], onCall: AiInit
         promptTokens: r?.usage?.promptTokens ?? null,
         completionTokens: r?.usage?.completionTokens ?? null,
         failureCategory,
+        servedModel: r?.model ?? null,
       });
+      let r: ChatCompletionResult;
       try {
-        const r = await client.chatCompletions(params);
-        onCall(entry(r, null));
-        return r;
+        r = await client.chatCompletions(params);
       } catch (e) {
-        onCall(entry(null, isProviderError(e) ? e.category : "UNKNOWN"));
+        onCall?.(entry(null, isProviderError(e) ? e.category : "UNKNOWN"));
         throw e;
       }
+      if (servedModelMatches(client.model, r.model) === false) {
+        onCall?.(entry(r, "MODEL_MISMATCH"));
+        throw new ProviderError({
+          category: "INVALID_PROVIDER_RESPONSE",
+          message: `provider reported model ${JSON.stringify(r.model)} for a request to ${JSON.stringify(client.model)}`,
+        });
+      }
+      onCall?.(entry(r, null));
+      return r;
     },
   };
 }
