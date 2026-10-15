@@ -1,6 +1,6 @@
 # JARVIS: submission text (draft)
 
-Every claim here must stay true at submission time. Update §Evidence once real AMD runs exist (`docs/AMD_EVIDENCE.md`). Until then, keep the fixture and fake-server labels.
+Every claim here must stay true at submission time. **15 Oct 2026 update:** live AMD inference ran on 14 Oct (see §AMD integration and `docs/AMD_EVIDENCE.md`). The paste-ready form text is `docs/submission/SUBMISSION_DESCRIPTION.md`; where this draft differs, that file is current.
 
 ## Title
 
@@ -99,7 +99,8 @@ customer message
 - **Path 2: self-hosted vLLM on AMD Instinct (ROCm).** The same adapter; `docs/AMD_DEPLOYMENT_RUNBOOK.md`.
 - **Fail-closed startup.** The model must be listed by `/models` and pass one schema probe per adapter, or the process exits 1. There is never a fixture fallback.
 - **Benchmark.** `npm run api:bench:vllm` measures the real model on the same pinned 30 cases (gate: 0 unsafe).
-- **Status: not yet run.** No AMD inference has happened. The event FAQ on the lablab.ai page (read 14 Oct 2026) says the hackathon is hosted on `notebooks.amd.com/tokenfactory`. The base URL must be copied from the owner's dashboard there, or confirmed by a successful authenticated `/models` call. `developer.amd.com.cn/radeon/api/v1` appears to belong to a different AMD service (Radeon Cloud) and is not to be used unless that dashboard shows it. The model id must come from live `/models`.
+- **Status (14 Oct 2026): verified locally.** On the owner's PC, JARVIS ran in real-model mode against AMD's hosted inference API at `https://developer.amd.com.cn/radeon/api/v1` (the base URL in the AMD Token Factory API documentation the team received), model `DeepSeek-V4-Flash`, `JARVIS_MODEL_STRUCTURED_OUTPUT=json_object`. Startup probes passed; orders 48291, 48294 and 48293 ran with every audited AI call on `vllm:DeepSeek-V4-Flash` (17/17 real-model checks); the 30-case benchmark completed 26/30 with 0 unsafe actions. The deployed preview runs fixture AI (no key is deployed). No self-hosted AMD GPU or vLLM deployment exists.
+- *Previous status (kept for history, 14 Oct morning):* no AMD inference had run, and this draft treated the `.cn` URL as possibly a different AMD service. That was superseded by the authenticated run above; whether the URL is the same service as the `notebooks.amd.com/tokenfactory` portal was not independently confirmed.
 - **Verification.** `npm run demo:verify -- --real-model` fails unless `/api/health` reports `aiMode: "vllm"` and every audited AI call on orders 48291, 48294 and 48293 used a `vllm:<model>` adapter. It writes a non-secret evidence JSON.
 
 ## Evidence (only what has been measured)
@@ -112,7 +113,9 @@ customer message
 | The three demo paths behave correctly on the running backend | `POST /cases` (13 Oct 2026, fixture): #48291 RESOLVED, APPROVE, executed and verified, $89.99, 16 audit events. #48294 ESCALATED, DENY, not executed, $0. #48293 CLOSED_NO_ACTION, NO_ACTION, $0. Free text without a token: 403 | Fixture model; also covered by browser e2e |
 | The UI never reports an unverified or blocked refund as done | Web unit tests (70) and browser e2e (30 checks across 3 suites) | Local tests |
 | CI | GitHub Actions `ci` green on the pushed head (dataset hash, typecheck, API/web/legacy tests, build, benchmark gate, drift check) | Verified |
-| Real-model accuracy, latency, AMD GPU usage | `docs/AMD_EVIDENCE.md` | **NOT YET MEASURED** |
+| Real-model safety and accuracy (AMD-hosted DeepSeek-V4-Flash) | `npm run api:bench:vllm -- --run tf-1` (14 Oct 2026): 30/30 executed, 26 passed, **0 unsafe**, 20/20 escalations; all 4 misses failed safe. `evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json` | Verified locally (live model) |
+| Real-model latency | understanding p50 2.0 s / p95 18.7 s; decision p50 8.9 s / p95 24.0 s (same file) | Verified locally (live model) |
+| AMD GPU usage | Hosted API; no self-hosted GPU | Not claimed |
 
 **Value proposition (no invented numbers):**
 - The system automates the safe majority of duplicate-charge cases.
@@ -130,7 +133,7 @@ customer message
 
 ## Known limitations
 
-- **No live AMD inference yet**: fixture AI in every measurement so far.
+- **Live AMD inference verified locally only**: the public preview runs fixture AI; the live model runs when the owner starts the API with the key (`docs/submission/recording/start-live-api.ps1`).
 - **Simulated payments, synthetic store**: no real store connection, fulfilment or sales data.
 - **Recorded cases are per browser** (local storage), not a shared database. Analytics covers what this browser recorded.
 - **Approvals are review-only**: there is no human-approval execution path. Free-text chat needs an operator token.

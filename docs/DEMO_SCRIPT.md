@@ -43,7 +43,7 @@ npm run web:dev                  # http://127.0.0.1:43123
 | Support inbox and Copilot states kept distinct | `lifecycleOf`, `buildInboxThreads` (`apps/web/src/lib/commerce.ts`) | `apps/web/test/workspace.test.ts`, `commerce.test.ts` |
 | Free text cannot trigger the model anonymously | Ingress guard (operator token) | Verifier check 7; ingress tests |
 | 0 unsafe actions on the pinned benchmark | `npm run api:bench:ci` (CI gate) | GitHub Actions `ci` |
-| AMD inference path | `apps/api/src/provider/openai-compatible-client.ts`, fail-closed startup (`ai-mode.ts`) | Fake-server tests only. **No live AMD run yet** |
+| AMD inference path | `apps/api/src/provider/openai-compatible-client.ts`, fail-closed startup (`ai-mode.ts`) | Fake-server tests, plus a live run on AMD-hosted DeepSeek-V4-Flash on 14 Oct 2026 (`docs/AMD_EVIDENCE.md`). The public preview is fixture AI |
 
 ## Demonstrated vs future
 
@@ -52,7 +52,7 @@ npm run web:dev                  # http://127.0.0.1:43123
 | Ingress guard, policy gate, simulated execution, read-back verification, audit trail, escalation | **Demonstrated** (fixture AI) |
 | Merchant workspace: Dashboard, Orders, Customers, Support inbox + Copilot, Analytics (with drill-down), Approvals (review-only), Audit trail | **Demonstrated** from recorded cases |
 | Failed verification is never shown as resolved | **Demonstrated** in tests (`apps/web/test/*.test.ts`, benchmark DC-E05). The demo UI has no fault-injection button |
-| Real open model via AMD Token Factory or vLLM on AMD GPUs | **FUTURE.** Code ready; run `scripts/tokenfactory-smoke.ps1` and `docs/TOKEN_FACTORY_SETUP.md`; show only after `docs/AMD_EVIDENCE.md` holds a real run |
+| Real open model via AMD Token Factory | **Demonstrated locally** (14 Oct 2026, `docs/AMD_EVIDENCE.md`); show it only when the header chip shows the model. Self-hosted vLLM on AMD GPUs: **FUTURE** |
 | Approving an escalation from the UI; free-text chat in public; real store connection | **Not available** (labelled in the UI) |
 | Evolus integration | **FUTURE.** Not integrated (`docs/EVOLUS_INTEGRATION.md`) |
 | Real payments | Not planned for the demo. The gateway is simulated |
