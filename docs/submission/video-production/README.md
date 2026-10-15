@@ -15,6 +15,7 @@ Rule: a VISUAL shot may explain what the product does, but it must never look li
 | `BLENDER_SHOT_LIST.md` | Motion-graphics shots, styles, durations and handoff specs |
 | `FOOTAGE_AND_ASSETS.md` | The real screen recordings to capture, and the screenshots and diagrams already in the repo |
 | `CLAIMS_CHECKLIST.md` | Every on-screen text and spoken claim with its evidence, plus words to avoid |
+| `film/` | The 3:30 edit as data: `manifest.json`, `film.mjs` (check / preview / release), generated captions and edit plan. Start here |
 | `blender/jarvis_pipeline_scene.py` | Optional Blender script that builds the pipeline animation (shot B4). **Untested: Blender is not installed on this PC** |
 
 Status on 15 Oct 2026: Blender, ffmpeg and OBS are not installed on the owner's PC. No video file exists yet.

@@ -2,6 +2,23 @@
 
 All commands run in Windows PowerShell from `C:\jarvis-actiii-preview`. Nothing here was executed on 15 Oct except the checks in §2.
 
+## Release sequence (in order; ⚠ = owner approval)
+
+Safe target: submit by **Oct 17** (no official deadline found; the event page schedule says "To be announced").
+
+| # | Step | Who | Done when |
+|---|---|---|---|
+| 1 | ChatGPT Work freezes the frontend | Owner/Work | Work says it is finished |
+| 2 | ⚠ Approve frontend integration ("integrate") | Owner | Claude commits `apps/web` separately (§1) |
+| 3 | Full regressions (§2) + `node scripts/live-preflight.mjs` | Claude | all suites pass, 0 unsafe |
+| 4 | Safe public demo config: fixture AI, no env vars, no `JARVIS_CASES_TOKEN` | Claude | `vercel env ls` empty; health `aiMode: fixture` |
+| 5 | GitHub security review (§5 items 1–3) | Claude | 0 key-shaped strings in tree and history |
+| 6 | ⚠ Push branch; ⚠ deploy preview (§3) | Owner approves, Claude runs | remote HEAD = local; preview READY |
+| 7 | ⚠ Judge access (§4): turn off preview protection or share a bypass link | Owner | `/api/health` 200 from a private window |
+| 8 | Record R1–R7 and narration; `node film.mjs release` passes; edit MP4 | Owner | `video-production/film/README.md` steps 1–7 |
+| 9 | Replace pre-redesign screenshots in the deck (§6); re-export PDF | Claude | slides 3 and 6 show the new UI |
+| 10 | Final validation: links in `SUBMISSION_DESCRIPTION.md`, ⚠ repo public, claims checklist, submit | Owner | form submitted |
+
 ## Gaps between the UI and the backend (checked 15 Oct 2026)
 
 What the backend supports today (verified in fixture mode, `POST /cases`):

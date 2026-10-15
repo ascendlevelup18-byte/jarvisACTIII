@@ -12,6 +12,8 @@
 | `FINAL_CHECKLIST.md` | Required deliverables, status and owner actions |
 | `RELEASE_PROCEDURES.md` | UI/backend gaps, regressions, Vercel, judge access, GitHub publishing, screenshots, packaging |
 | `video-production/` | Storyboard, narration, Blender shot list and script, footage list, claims checklist for the Gemini + Blender video |
+| `video-production/film/` | Film builder: `manifest.json` (11 scenes, 210 s), `film.mjs` check/preview/release, captions, claims lint, tests |
+| `../../scripts/live-preflight.mjs` | Offline pre-flight for the paid live gate (no model calls, no key) |
 | `cover.png` | Cover image |
 
 No secrets, logs, `node_modules` or build output are in this folder. The deck uses screenshots from `docs/screenshots` taken before the current UI restyle.

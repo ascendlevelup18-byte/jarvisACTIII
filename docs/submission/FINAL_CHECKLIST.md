@@ -19,7 +19,7 @@ Requirements come from `docs/SUBMISSION_PREFLIGHT.md`, which read the public eve
 
 ## Postponed owner actions (need your key, accounts or approval)
 
-1. Live AMD + Gemma benchmark: `& .\scripts\live-gate.ps1 -BaseUrl https://developer.amd.com.cn/radeon/api/v1 -UnderstandingModel Gemma-4-31B-IT -TimeoutMs 90000 -RunId tg-1` (key at the hidden prompt; ~20–30 min). If the Gemma probe still times out, submit AMD-only and leave Gemma out of the claims.
+1. Live AMD + Gemma benchmark. First `node scripts/live-preflight.mjs --understanding-model Gemma-4-31B-IT` (offline), then in a new Windows PowerShell without Start-Transcript: `cd C:\jarvis-actiii-preview; Set-ExecutionPolicy -Scope Process Bypass -Force; & .\scripts\live-gate.ps1 -BaseUrl https://developer.amd.com.cn/radeon/api/v1 -UnderstandingModel Gemma-4-31B-IT -TimeoutMs 90000 -Port 3210 -RunId tg-1` (key only at the hidden prompt; ~20–30 min). Startup already passed live once (8.0 s Gemma probe). If cases fail or time out, submit AMD-only and leave Gemma out of the claims.
 2. Ask organizers: does Token Factory-served Gemma count for the Google prize; is there a separate field; exact deadline.
 3. Rotate the AMD key (dashboard or organizers).
 4. When ChatGPT Work finishes: say "integrate" so Claude commits the frontend separately and reruns all suites.
