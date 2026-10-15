@@ -15,7 +15,7 @@ Requirements come from `docs/SUBMISSION_PREFLIGHT.md`, which read the public eve
 | 9 | Application URL | Medium confidence (aggregator) | Preview exists, protected; production alias is 3 days old | Unprotect the preview, or approve a production deploy |
 | 10 | Container / Dockerfile | Low confidence, track-specific | Not present | Only if your track requires it |
 | 11 | AMD key rotated | Security | **OPEN** | AMD dashboard or organizers |
-| 12 | Google prize (Gemma) | Optional partner prize (event page) | Code ready, opt-in; live run pending; eligibility of Token Factory Gemma not confirmed | Owner: rerun the gate with `-TimeoutMs 90000`; ask organizers |
+| 12 | Google prize (Gemma) | Optional partner prize (event page) | **Blocked: Gemma-4-31B-IT is no longer in the endpoint's model list (15 Oct, run tg-1).** Code stays opt-in; submission is AMD-only | Owner: free model-list recheck (no -Model); ask organizers whether Gemma will return |
 
 ## Postponed owner actions (need your key, accounts or approval)
 
