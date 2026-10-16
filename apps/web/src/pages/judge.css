@@ -56,6 +56,16 @@
 .authority-code .authority-who { color: var(--color-policy-accent); }
 .authority-input .authority-who { color: var(--color-jarvis-muted); }
 
+.baseline { margin-top: 1.25rem; border-top: 1px solid var(--color-jarvis-border); padding-top: 1rem; }
+.baseline h4 { font-size: 0.95rem; font-weight: 650; color: var(--color-jarvis-ink); }
+.baseline a { color: var(--color-deterministic-accent); text-decoration: underline; text-underline-offset: 3px; }
+.baseline-grid { margin-top: 0.75rem; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.baseline-grid > div { border-radius: 0.6rem; padding: 0.8rem 1rem; border: 1px solid var(--color-jarvis-border); }
+.baseline-grid dt { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-jarvis-muted); }
+.baseline-grid dd { margin-top: 0.25rem; font-size: 0.85rem; color: var(--color-jarvis-ink); }
+.baseline-grid strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; margin-right: 0.35rem; }
+.baseline-jarvis { background: var(--color-policy-surface); border-color: var(--color-policy-border) !important; }
+.baseline-bare { background: var(--color-danger-surface); border-color: color-mix(in srgb, var(--color-danger) 30%, transparent) !important; }
 .judge-amd { border-color: color-mix(in srgb, var(--judge-cyan-ink) 45%, var(--color-jarvis-border)); }
 .amd-label { display: inline-block; border-radius: 0.4rem; background: var(--judge-navy); color: var(--judge-cyan); font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.6rem; margin-bottom: 0.6rem; }
 .amd-meta, .amd-metrics { margin-top: 0.9rem; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { EVIDENCE_FILES, RECORDED_RUN, replayTimeline } from "../src/lib/recorded-amd-run.ts";
+import { BASELINE_FILE, NO_POLICY_BASELINE } from "../src/lib/baseline-result.ts";
 
 const root = new URL("../../../", import.meta.url);
 const load = (path: string) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
@@ -65,6 +66,15 @@ describe("recorded AMD run matches committed evidence", () => {
     assert.equal(t[0].offsetMs, 0);
     for (let i = 1; i < t.length; i++) assert.ok(t[i].offsetMs > t[i - 1].offsetMs);
     assert.ok(t.every((e) => e.adapter === "vllm:DeepSeek-V4-Flash"));
+  });
+
+  test("the no-policy baseline shown in Judge Mode matches its result file", () => {
+    const r = load(BASELINE_FILE);
+    assert.equal(r.experiment.mode, "fixture");
+    assert.equal(r.cases.length, NO_POLICY_BASELINE.total);
+    assert.deepEqual(r.summary.jarvis, { ...NO_POLICY_BASELINE.jarvis, total: NO_POLICY_BASELINE.total });
+    assert.deepEqual(r.summary.noPolicy, { ...NO_POLICY_BASELINE.noPolicy, total: NO_POLICY_BASELINE.total });
+    assert.match(NO_POLICY_BASELINE.label, /not an AMD or real-model result/);
   });
 
   test("the label never claims a live call", () => {
