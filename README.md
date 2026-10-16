@@ -13,10 +13,15 @@ JARVIS resolves one ecommerce operations exception end to end: a customer report
 
 **The model proposes; deterministic code decides.** The model never chooses amounts, never executes anything and never marks anything verified. Money arithmetic, policy, permissions, idempotency, execution, verification and state transitions are plain TypeScript.
 
+**Live demo:** https://jarvis-actiii-preview.vercel.app/#/command-center (no login; fixture AI, synthetic store, simulated payments).
+
+**Why it is not a chatbot:** the AI only interprets the request and proposes a structured action. Deterministic code authorizes, a simulated gateway executes, a read-back verifies, every step is audited, and anything unsafe is escalated to a person.
+
 > **Truth labels:**
-> - Payments are **simulated** and data is **synthetic**.
-> - The public demo runs **fixture AI** (deterministic adapters).
-> - The real-model (vLLM / OpenAI-compatible) path is implemented and tested **against a local fake server only**. **No AMD GPU inference has been run yet.** See `docs/AMD_EVIDENCE.md`.
+> - Payments are **simulated** and data is **synthetic**. No real money ever moves.
+> - The **public demo runs fixture AI** (deterministic adapters), so visitors trigger no paid inference and no key is deployed.
+> - **AMD hosted inference was verified locally on 14 Oct 2026:** JARVIS ran on DeepSeek-V4-Flash through AMD's hosted inference API (base URL from AMD's Token Factory API documentation): 17/17 real-model demo checks and the pinned 30-case benchmark with **0 unsafe autonomous actions** (26/30 exact outcomes, 20/20 escalations). Evidence: `docs/AMD_EVIDENCE.md`, `evals/results/`. No self-hosted AMD GPU is used.
+> - An optional Google **Gemma** understanding path is implemented and offline-tested but **not proven end to end**: the endpoint stopped listing Gemma before a full live run.
 
 ## JARVIS Automations (merchant platform)
 
@@ -114,12 +119,14 @@ The limits are in-process. They are a real global limit for one long-running ser
 | `fixture` (default) | Deterministic fixture adapters | No endpoint, no network |
 | `vllm` | `VllmRequestUnderstandingAdapter` + `VllmModelAdapter` on one OpenAI-compatible client | `GET /models` must list `JARVIS_MODEL_NAME`, and one synthetic probe per adapter must return schema-valid JSON. Otherwise the process exits 1. **Never falls back to fixture.** |
 
+Live-model environment (server-side only; never in the browser or the repo): `JARVIS_AI_MODE=vllm`, `JARVIS_MODEL_BASE_URL`, `JARVIS_MODEL_NAME` (e.g. `DeepSeek-V4-Flash`), `JARVIS_MODEL_API_KEY`, `JARVIS_DAILY_MODEL_CALL_BUDGET` (required), optional `JARVIS_MODEL_STRUCTURED_OUTPUT` (`json_schema` | `json_object` | `off`), `JARVIS_MODEL_TIMEOUT_MS`, `JARVIS_MODEL_MAX_RETRIES`, `JARVIS_MODEL_MIN_INTERVAL_MS` (pacing), `JARVIS_UNDERSTANDING_MODEL_NAME` (optional second model for understanding). Free text needs `JARVIS_CASES_TOKEN`. The safest way to set the key is `scripts/live-gate.ps1` or `docs/submission/recording/start-live-api.ps1` (hidden prompt). Replies whose provider-reported model differs from the configured one fail closed.
+
 Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench:vllm -- --run <id>`. It writes `evals/results/duplicate-charge-eval.v1.vllm-<model>-<id>.json` and never touches the fixture results or baselines.
 
 ## Deployment
 
 - **Netlify:** `netlify.toml` + `netlify/functions/*`.
-- **Vercel:** `vercel.json` + `api/*`, prepared and locally tested, **not deployed**.
+- **Vercel:** `vercel.json` + `api/*`, deployed (fixture mode, no environment variables) at https://jarvis-actiii-preview.vercel.app; verified anonymously with `npm run demo:verify -- <url>` (13/13) on 16 Oct 2026.
 - Both are thin wrappers over `apps/api/src/serverless.ts` and are **fixture-only**. A deployment configured with `JARVIS_AI_MODE=vllm` refuses cases (503) instead of silently serving fixtures.
 - Real-model inference belongs on a **private long-running host** (`npm run api:start` with `JARVIS_AI_MODE=vllm`).
 
@@ -136,7 +143,7 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 |---|---|
 | `docs/ACTIII_ENGINEERING_HANDOVER.md` | Current state: commits, verification, readiness, next task |
 | `docs/IMPLEMENTATION_STATUS.md` | Status of record (IMPLEMENTED / VERIFIED / NOT DONE) |
-| `docs/AMD_EVIDENCE.md` | Evidence template for the first real-GPU runs (all fields unverified until filled) |
+| `docs/AMD_EVIDENCE.md` | Live AMD hosted-inference evidence (14 Oct 2026), Gemma status, reproduction steps |
 | `docs/SUBMISSION.md` | Submission text: positioning, descriptions, tags, architecture, demo outline, checklist |
 | `docs/DEMO_SCRIPT.md` | Timed 3-minute judge demo across the merchant workspace; demonstrated versus future |
 | `docs/STORYBOARD.md` | Shot list mapped to real screenshots in `docs/screenshots/` |
@@ -152,4 +159,4 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 | `TESTING_GUIDE.md`, `NETLIFY_DEPLOY.md` | Verification and Netlify notes |
 | `FINAL_STATUS.md`, `CONTINUATION_GUIDE.md`, `KICKOFF_PLAN.md`, `CURSOR_*`, `HANDOFF_MANIFEST.md`, `FINAL_HANDOVER_SHA256.txt` | Historical pre-kickoff and Cursor-era docs; superseded by the handover above |
 
-Benchmark figures shown in the UI are **fixture results, not AMD or real-model results**, and are labelled as such.
+Benchmark figures shown in the UI are **fixture results, not AMD or real-model results**, and are labelled as such. The live AMD benchmark result is in `evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json`. Submission material: `docs/submission/`.
