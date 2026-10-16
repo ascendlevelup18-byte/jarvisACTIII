@@ -49,7 +49,7 @@ async function readHealth(): Promise<HealthPayload | null> {
 
 function moneyMoved(c: Case): string {
   const a = c.authorization?.action;
-  if (c.action?.status === "ACCEPTED" && a) return `${money(a.amountMinor, a.currency)} simulated`;
+  if (c.action?.status === "ACCEPTED" && c.action.replayed !== true && a) return `${money(a.amountMinor, a.currency)} simulated`;
   return "$0.00";
 }
 

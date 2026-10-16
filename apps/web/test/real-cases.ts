@@ -53,6 +53,21 @@ export async function failedVerificationCase(): Promise<Case> {
   return asJson(await runCase(PUBLIC_DEMOS["valid-duplicate"], d));
 }
 
+/** Identical valid-duplicate requests racing in one world: one executes, the rest replay its refund. */
+export async function racingDuplicateCases(n: number): Promise<Case[]> {
+  const d = deps();
+  const inner = d.gateway;
+  const slow = {
+    refund: async (a: Parameters<typeof inner.refund>[0]) => {
+      await new Promise((r) => setTimeout(r, 10));
+      return inner.refund(a);
+    },
+    findRefund: (k: string) => inner.findRefund(k),
+  };
+  const cases = await Promise.all(Array.from({ length: n }, () => runCase(PUBLIC_DEMOS["valid-duplicate"], { ...d, gateway: slow })));
+  return cases.map(asJson);
+}
+
 /** Understanding provider throws (e.g. endpoint down). */
 export async function providerFailureCase(): Promise<Case> {
   const failing = new FixtureRequestUnderstandingAdapter(() => {

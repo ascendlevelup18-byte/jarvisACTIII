@@ -64,6 +64,8 @@ export interface DecisionProposal {
 export interface ActionResult {
   status: "ACCEPTED" | "ERROR";
   providerRefundId: string | null;
+  /** The gateway returned a refund that already existed for this idempotency key: no new money moved. */
+  replayed?: boolean;
   error: string | null;
   attemptedAt: string;
 }

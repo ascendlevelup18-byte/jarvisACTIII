@@ -72,6 +72,9 @@ export function missionOutcome(c: Case) {
     detail: 'Automatic execution stopped. A person must review the evidence.' };
   if (c.state === 'CLOSED_NO_ACTION' && !c.action) return { tone: 'neutral', title: 'No further action needed', state: 'CLOSED_NO_ACTION',
     detail: 'The recorded decision required no new refund.' };
+  if (c.state === 'CLOSED_NO_ACTION' && c.action?.replayed === true && c.verification?.verified === true)
+    return { tone: 'neutral', title: 'Refund already executed', state: 'CLOSED_NO_ACTION',
+      detail: `Another request executed ${c.action.providerRefundId ?? 'this refund'} first; read-back confirms it. This case moved no money.` };
   return { tone: c.state === 'FAILED' || c.state === 'RESOLVED' ? 'error' : 'neutral',
     title: c.action ? 'Action not confirmed as resolved' : 'No verified action recorded', state: c.state,
     detail: 'Inspect the available records. A terminal label alone does not prove a successful refund.' };

@@ -43,3 +43,16 @@ test("guards: illegal edges and missing preconditions throw", () => {
   );
   assert.throws(() => assertTransition(blank({ state: "POLICY_VALIDATION" }), "CLOSED_NO_ACTION"), /NO_ACTION/);
 });
+
+test("replayed refunds: close only after a verified replay, and never resolve", () => {
+  const approve = { outcome: "APPROVE" as const, checks: [], action: { transactionId: "T", amountMinor: 1, currency: "USD" as const, idempotencyKey: "k" } };
+  const accepted = (replayed: boolean) => ({ status: "ACCEPTED" as const, providerRefundId: "RF-1", replayed, error: null, attemptedAt: "" });
+  const verified = { verified: true, observedRefund: null, detail: "" };
+  const at = (replayed: boolean, v = verified) => blank({ state: "VERIFYING", authorization: approve, action: accepted(replayed), verification: v });
+
+  assert.doesNotThrow(() => assertTransition(at(true), "CLOSED_NO_ACTION"));
+  assert.throws(() => assertTransition(at(true), "RESOLVED"), /replayed refund cannot resolve/);
+  assert.throws(() => assertTransition(at(false), "CLOSED_NO_ACTION"), /verified replayed refund/);
+  assert.throws(() => assertTransition(at(true, { ...verified, verified: false }), "CLOSED_NO_ACTION"), /verified replayed refund/);
+  assert.doesNotThrow(() => assertTransition(at(false), "RESOLVED"));
+});

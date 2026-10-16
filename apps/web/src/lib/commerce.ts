@@ -444,7 +444,8 @@ export interface LifecycleStep {
  */
 export function lifecycleOf(c: Case): LifecycleStep[] {
   const entered = (s: string) => c.audit.some((e) => e.type === "STATE_TRANSITION" && e.to === s);
-  const executed = c.action?.status === "ACCEPTED";
+  // A replayed refund was executed by another case; this case executed nothing.
+  const executed = c.action?.status === "ACCEPTED" && c.action.replayed !== true;
   const verified = !!c.verification?.verified;
   return [
     {
@@ -464,7 +465,7 @@ export function lifecycleOf(c: Case): LifecycleStep[] {
     {
       key: "EXECUTED",
       reached: executed,
-      detail: executed ? `Simulated gateway accepted ${c.action?.providerRefundId ?? "the refund"}` : c.action ? `Gateway: ${c.action.status}${c.action.error ? ` · ${c.action.error}` : ""}` : "Nothing sent to the gateway",
+      detail: executed ? `Simulated gateway accepted ${c.action?.providerRefundId ?? "the refund"}` : c.action?.replayed ? `Gateway returned existing refund ${c.action.providerRefundId ?? ""}; nothing new executed` : c.action ? `Gateway: ${c.action.status}${c.action.error ? ` · ${c.action.error}` : ""}` : "Nothing sent to the gateway",
     },
     {
       key: "VERIFIED",
