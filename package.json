@@ -20,6 +20,7 @@
     "api:bench": "node apps/api/eval/run-benchmark.ts",
     "api:bench:ci": "node apps/api/eval/run-benchmark.ts --ci",
     "api:bench:vllm": "node apps/api/eval/run-benchmark.ts --mode vllm",
+    "api:baseline": "node apps/api/eval/baseline-no-policy.ts",
     "demo:verify": "node scripts/verify-demo.mjs",
     "test:pwsh": "node --test apps/api/test/tokenfactory-smoke.test.ts",
     "web:dev": "npm run dev --prefix apps/web",
