@@ -6,9 +6,7 @@
 - [x] Slides: `docs/submission/deck/jarvis-deck.pdf`, 10 pages, current UI
 - [x] Form text and links: `docs/submission/SUBMISSION_DESCRIPTION.md`
 - [x] AMD evidence committed: `docs/AMD_EVIDENCE.md`, `evals/results/`
-- [ ] **Owner:** make the GitHub repo public
-- [ ] **Owner:** set the default branch to `claude/kickoff-day1-jkg6ry`, or use the branch link in the form
-- [ ] **Owner:** check the repo in a private window
-- [ ] **Owner:** watch the film once end to end
+- [x] **Owner:** make the GitHub repo public (anonymous API check, 16 Oct)
+- [x] **Owner:** default branch set to `claude/kickoff-day1-jkg6ry`
+- [x] **Owner:** submitted on lablab.ai, Reinvent Commerce: https://lablab.ai/submissions/lp1nzpneomsafp3lv6rjp220 (judging in progress). The uploaded slides are Work's original PDF; its slide 5 still calls anonymous access a blocker, while the repo copy is corrected
 - [ ] **Owner:** rotate the AMD key when possible
-- [ ] **Owner:** final approval, then submit on lablab.ai (Reinvent Commerce), by 17 Oct
