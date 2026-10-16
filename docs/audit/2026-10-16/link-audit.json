@@ -1,0 +1,412 @@
+{
+  "capturedAt": "2026-10-16T09:57:19.247Z",
+  "scope": [
+    "README.md",
+    "docs/SUBMISSION.md",
+    "docs/DEMO_SCRIPT.md",
+    "docs/TOKEN_FACTORY_SETUP.md",
+    "docs/VERCEL_PREVIEW_SETUP.md"
+  ],
+  "references": [
+    {
+      "file": "README.md",
+      "path": "docs/POST_SUBMISSION_AUDIT.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "apps/web/src/lib/analytics.ts",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/TOKEN_FACTORY_SETUP.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/AMD_DEPLOYMENT_RUNBOOK.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "apps/api/src/fixtures.ts",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "apps/web/src/fixtures/demo-scenarios.ts",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "apps/api/src/ingress.ts",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "scripts/live-gate.ps1",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/submission/recording/start-live-api.ps1",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "apps/api/src/serverless.ts",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/ACTIII_ENGINEERING_HANDOVER.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/IMPLEMENTATION_STATUS.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/SUBMISSION.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/DEMO_SCRIPT.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/STORYBOARD.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/OWNER_RUNBOOK.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/SUBMISSION_PREFLIGHT.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/BUSINESS_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/AMD_DEPLOYMENT_RUNBOOK.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/TOKEN_FACTORY_SETUP.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "scripts/tokenfactory-smoke.ps1",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/VERCEL_PREVIEW_SETUP.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/EVOLUS_INTEGRATION.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/KICKOFF_IMPLEMENTATION_PACKAGE.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "docs/JARVIS_ACT_III_BUILD_CONTRACT.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "path": "evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/submission/SUBMISSION_DESCRIPTION.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/TOKEN_FACTORY_SETUP.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "scripts/tokenfactory-smoke.ps1",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/AMD_DEPLOYMENT_RUNBOOK.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "apps/api/test/vllm-adapters.test.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "apps/api/test/ingress.test.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/submission/recording/start-live-api.ps1",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/AMD_DEPLOYMENT_RUNBOOK.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/VERCEL_PREVIEW_SETUP.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/AMD_DEPLOYMENT_RUNBOOK.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/EVOLUS_INTEGRATION.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/BUSINESS_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/DEMO_SCRIPT.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/STORYBOARD.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/SUBMISSION_PREFLIGHT.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/SUBMISSION_PREFLIGHT.md",
+      "exists": true
+    },
+    {
+      "file": "docs/SUBMISSION.md",
+      "path": "docs/DEMO_SCRIPT.md",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/api/src/ingress.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/api/src/case-engine.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/api/src/request-understanding.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/api/src/policy-engine.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/api/src/gateway.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/web/src/lib/demo-store.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/web/src/lib/analytics.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/web/test/analytics.test.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/web/src/lib/commerce.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/web/test/workspace.test.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "apps/api/src/provider/openai-compatible-client.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "docs/EVOLUS_INTEGRATION.md",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "docs/STORYBOARD.md",
+      "exists": true
+    },
+    {
+      "file": "docs/DEMO_SCRIPT.md",
+      "path": "docs/BUSINESS_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/TOKEN_FACTORY_SETUP.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/TOKEN_FACTORY_SETUP.md",
+      "path": "scripts/tokenfactory-smoke.ps1",
+      "exists": true
+    },
+    {
+      "file": "docs/TOKEN_FACTORY_SETUP.md",
+      "path": "apps/api/test/scripts.test.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/TOKEN_FACTORY_SETUP.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/TOKEN_FACTORY_SETUP.md",
+      "path": "docs/AMD_EVIDENCE.md",
+      "exists": true
+    },
+    {
+      "file": "docs/VERCEL_PREVIEW_SETUP.md",
+      "path": "apps/api/src/fixtures.ts",
+      "exists": true
+    },
+    {
+      "file": "docs/VERCEL_PREVIEW_SETUP.md",
+      "path": "docs/TOKEN_FACTORY_SETUP.md",
+      "exists": true
+    }
+  ],
+  "links": [
+    {
+      "url": "https://jarvis-actiii-preview.vercel.app/",
+      "status": 200,
+      "finalUrl": "https://jarvis-actiii-preview.vercel.app/",
+      "contentType": "text/html; charset=utf-8",
+      "sha256": "3a3aa1bfbe98f5b3bfe9d1caa56b4ff1efa4bf92dfe3d69bad3ca2520fd6370e"
+    },
+    {
+      "url": "https://jarvis-actiii-preview.vercel.app/assets/index-7BdgQPz1.js",
+      "status": 200,
+      "sha256": "a288ba378553441701fccead7a76b0be2948f0c44d93574028c4815d7c534f60"
+    },
+    {
+      "url": "https://jarvis-actiii-preview.vercel.app/assets/index-BkRHYPAi.css",
+      "status": 200,
+      "sha256": "16d8f607b42769679bc47616e75db262214d9f9829713d327172b5f440091428"
+    },
+    {
+      "url": "https://jarvis-actiii-preview.vercel.app/api/health",
+      "status": 200,
+      "finalUrl": "https://jarvis-actiii-preview.vercel.app/api/health",
+      "contentType": "application/json; charset=utf-8",
+      "sha256": "083658124262dd31291dbd98db88e6842258370ec68b41c5941fed142a376aa5"
+    },
+    {
+      "url": "https://jarvis-actiii-preview.vercel.app/api/demo-store",
+      "status": 200,
+      "finalUrl": "https://jarvis-actiii-preview.vercel.app/api/demo-store",
+      "contentType": "application/json; charset=utf-8",
+      "sha256": "2950de1f43be1e869fb1e5d46f4aec5b9057ba2af711d44b4fdd006bafb0662a"
+    },
+    {
+      "url": "https://github.com/ascendlevelup18-byte/jarvisACTIII",
+      "status": 200,
+      "finalUrl": "https://github.com/ascendlevelup18-byte/jarvisACTIII",
+      "contentType": "text/html; charset=utf-8",
+      "sha256": "7de88a3a92f050c82eb2a2d733575dbe56a2154b1890acb55455a08396ea786f"
+    }
+  ]
+}

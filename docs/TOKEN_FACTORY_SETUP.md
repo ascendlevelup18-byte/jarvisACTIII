@@ -1,6 +1,6 @@
 # AMD Token Factory → JARVIS (setup and verification)
 
-**Status:** the integration is ready, but **no Token Factory call has been made yet**. The key was not available in the build session, and the endpoint details below are **unverified**.
+**Historical setup instructions, updated 16 Oct 2026:** hosted AMD inference was exercised locally on 14 Oct; see [`AMD_EVIDENCE.md`](AMD_EVIDENCE.md) for recorded results and endpoint-identity limitations. These instructions do not prove current provider availability. The public Vercel demo uses fixture AI and simulated payments, with no remote inference. Do not enable live inference on the judging deployment.
 
 JARVIS treats Token Factory as an OpenAI-compatible provider. No Token Factory-specific code exists or is needed:
 - `GET {base}/models` must list the model.

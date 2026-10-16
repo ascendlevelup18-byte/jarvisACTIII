@@ -15,6 +15,8 @@ JARVIS resolves one ecommerce operations exception end to end: a customer report
 
 **Live demo:** https://jarvis-actiii-preview.vercel.app/#/command-center (no login; fixture AI, synthetic store, simulated payments).
 
+**Post-submission work:** see [`docs/POST_SUBMISSION_AUDIT.md`](docs/POST_SUBMISSION_AUDIT.md). The submitted default branch and deployed demo are preserved; improvements are isolated on `post-submission/audit-hardening-2026-10-16`.
+
 **Why it is not a chatbot:** the AI only interprets the request and proposes a structured action. Deterministic code authorizes, a simulated gateway executes, a read-back verifies, every step is audited, and anything unsafe is escalated to a person.
 
 > **Truth labels:**
@@ -127,8 +129,10 @@ Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench
 
 - **Netlify:** `netlify.toml` + `netlify/functions/*`.
 - **Vercel:** `vercel.json` + `api/*`, deployed (fixture mode, no environment variables) at https://jarvis-actiii-preview.vercel.app; verified anonymously with `npm run demo:verify -- <url>` (13/13) on 16 Oct 2026.
-- Both are thin wrappers over `apps/api/src/serverless.ts` and are **fixture-only**. A deployment configured with `JARVIS_AI_MODE=vllm` refuses cases (503) instead of silently serving fixtures.
+- Both are thin wrappers over `apps/api/src/serverless.ts`. The public demo is **fixture AI with simulated payments**. Setting `JARVIS_AI_MODE=vllm` alone refuses cases (503); the implementation also has an explicit `JARVIS_SERVERLESS_REAL_MODEL=enabled` opt-in. That opt-in is not evidence of globally enforced quotas or permission to enable public paid inference.
 - Real-model inference belongs on a **private long-running host** (`npm run api:start` with `JARVIS_AI_MODE=vllm`).
+
+For public-demo verification, use `npm run demo:verify -- --fixture --evidence <output.json> https://jarvis-actiii-preview.vercel.app`. This checks all four scenarios, fixture adapter attribution, synthetic data, simulated payments, authorization refusals and audit evidence. It makes synthetic demo requests; it does not deploy anything.
 
 ## Security limitations (known)
 

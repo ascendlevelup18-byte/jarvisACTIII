@@ -162,7 +162,7 @@ try {
     $sw.Stop()
     Write-Host ("   HTTP {0} in {1} ms" -f [int]$resp.StatusCode, $sw.ElapsedMilliseconds)
     # Rate-limit and quota headers, if the gateway sends any (names and values are not secret).
-    foreach ($h in @($resp.Headers.Keys | Where-Object { $_ -match '(?i)ratelimit|rate-limit|retry-after|quota' })) { Write-Host ("   header {0}: {1}" -f $h, $resp.Headers[$h]) }
+    foreach ($h in @($resp.Headers.Keys | Where-Object { $_ -match '(?i)ratelimit|rate-limit|retry-after|quota' })) { Write-Host ("   header {0}: {1}" -f $h, ($resp.Headers[$h] -join ', ')) }
     $r = $null
     try { $r = $resp.Content | ConvertFrom-Json } catch { $r = $null }
     $content = $null

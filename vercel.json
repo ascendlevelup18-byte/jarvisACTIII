@@ -5,7 +5,8 @@
   "outputDirectory": "apps/web/dist",
   "git": {
     "deploymentEnabled": {
-      "master": false
+      "master": false,
+      "post-submission/audit-hardening-2026-10-16": false
     }
   },
   "functions": {
