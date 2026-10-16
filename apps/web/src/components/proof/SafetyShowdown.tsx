@@ -57,7 +57,7 @@ function Side({ label, side, onOpen }: { label: string; side?: ShowdownSide; onO
             onClick={() => onOpen({ ...side, result: c })}
             className="mt-auto self-start pt-3 text-xs text-[var(--color-deterministic-accent)] underline-offset-2 hover:underline"
           >
-            Open full investigation →
+            View investigation →
           </button>
         </>
       )}
@@ -81,17 +81,16 @@ export function SafetyShowdown({
   return (
     <section
       aria-labelledby="showdown-title"
-      className="rounded-md border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] px-5 py-5 sm:px-6"
+      className="showdown-panel rounded-md border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] px-5 py-5 sm:px-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-2xl">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-jarvis-faint)]">Safety showdown</p>
           <h3 id="showdown-title" className="mt-1 text-xl font-semibold tracking-tight text-[var(--color-jarvis-ink)]">
-            Same AI. Same policy. Different evidence.
+            Compare a safe and a risky request
           </h3>
           <p className="mt-1 text-sm text-[var(--color-jarvis-muted)]">
-            Sends two real requests to the running backend: a genuine duplicate charge, and a case JARVIS must refuse.
-            Outcomes are whatever the engine returns.
+            Run both requests to compare the decisions and evidence. Payments are simulated.
           </p>
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Run safety showdown against">
@@ -139,7 +138,7 @@ export function SafetyShowdown({
                 </tbody>
               </table>
               <p className="mt-2 text-[10px] text-[var(--color-jarvis-faint)]">
-                Fixture AI and simulated payments unless the runtime status above says otherwise.
+                AI mode is shown in the runtime status above. Payments are simulated.
               </p>
             </div>
           )}

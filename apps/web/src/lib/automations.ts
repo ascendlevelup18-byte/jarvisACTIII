@@ -20,7 +20,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     title: "Refunds and returns",
     status: "operational",
     summary: "Resolve duplicate-charge refunds end to end.",
-    reality: "Runs today: AI reads the request, deterministic policy decides, simulated refund, read-back verification, audit trail.",
+    reality: "AI proposes a refund; policy checks it; simulated refunds are verified and logged.",
     requirements: ["Demo store order records (seeded)", "AI provider: fixture by default, or an OpenAI-compatible endpoint on the server", "Simulated payment gateway (no real money)"],
   },
   {
@@ -36,7 +36,7 @@ export const AUTOMATION_MODULES: AutomationModule[] = [
     title: "Customer support",
     status: "preview",
     summary: "Turn support conversations into operational cases.",
-    reality: "The demo store's support chat feeds the Refunds automation with fixed requests; open-ended support answers are not automated.",
+    reality: "Demo support uses preset refund requests. Open-ended support is not automated.",
     requirements: ["Open-ended answer generation with its own safety policy", "Operator-token gated free text in production"],
   },
   {

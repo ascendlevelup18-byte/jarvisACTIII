@@ -127,7 +127,7 @@ export function BenchmarksPage({
     <div className="motion-fade-in space-y-5">
       <PageHeader
         title="Analytics"
-        description="Operational analytics for the refund automation. Every figure is a count or sum over case records; store data is synthetic and payments are simulated, so no revenue or sales figures are shown."
+        description="Refund activity from recorded cases. Store data is synthetic; payments are simulated."
       />
 
       {/* One filter row scopes everything below it. */}

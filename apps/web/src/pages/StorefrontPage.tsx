@@ -135,7 +135,7 @@ export function StorefrontPage({
               <h2 id="catalog-title" className="text-sm font-semibold text-[var(--color-jarvis-ink)]">
                 Shop
               </h2>
-              <span className="text-[10px] text-[var(--color-jarvis-faint)]">Illustrative products · checkout is not part of this demo</span>
+              <span className="text-[10px] text-[var(--color-jarvis-faint)]">Sample catalog · no checkout</span>
             </div>
             <ul className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-4">
               {CATALOG.map((p) => (
@@ -231,7 +231,7 @@ export function StorefrontPage({
             <h2 id="support-title" className="text-sm font-semibold text-[var(--color-jarvis-ink)]">
               Support
             </h2>
-            <p className="text-[11px] text-[var(--color-jarvis-faint)]">Replies come from the real JARVIS case outcome</p>
+            <p className="text-[11px] text-[var(--color-jarvis-faint)]">Replies reflect the recorded case outcome</p>
             <RequestProgress stage={!chatOrder ? 0 : busy ? 2 : outcome ? 3 : 1} outcome={outcome} />
           </div>
           <ol className="flex-1 space-y-2 overflow-y-auto px-4 py-3" aria-live="polite" aria-label="Support conversation">
@@ -258,7 +258,7 @@ export function StorefrontPage({
                         onClick={() => onOpenCase(m.caseData, chatOrder)}
                         className="mt-1 text-xs text-[var(--color-deterministic-accent)] underline-offset-2 hover:underline"
                       >
-                        See how JARVIS decided (merchant view) →
+                        View decision →
                       </button>
                     )}
                   </div>
@@ -290,7 +290,7 @@ export function StorefrontPage({
               id="free-text"
               disabled
               rows={2}
-              placeholder="Writing your own message needs an operator token in this public demo"
+              placeholder="Custom messages require an operator token"
               className="w-full cursor-not-allowed resize-none rounded-md border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface-2)] px-3 py-2 text-xs text-[var(--color-jarvis-faint)]"
             />
           </div>

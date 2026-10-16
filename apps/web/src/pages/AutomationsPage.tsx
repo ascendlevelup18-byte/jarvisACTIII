@@ -35,11 +35,11 @@ export function AutomationsPage({
     <div className="motion-fade-in space-y-5">
       <PageHeader
         title="Automation catalog"
-        description="Live modules run on the JARVIS backend against simulated payments. Previews describe planned work and run nothing."
+        description="Active automations use simulated payments. Preview modules are planned and cannot run."
       />
 
       {live.map((m) => (
-        <Card key={m.id} title={m.title} aside={<Pill tone="success">Live · simulated payments</Pill>}>
+        <Card key={m.id} title={m.title} aside={<Pill tone="success">Active · simulated payments</Pill>}>
           <p className="text-sm text-[var(--color-jarvis-ink)]">{m.summary}</p>
           <p className="mt-1 text-xs text-[var(--color-jarvis-muted)]">{m.reality}</p>
           <ol aria-label="Refund workflow" className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-7">

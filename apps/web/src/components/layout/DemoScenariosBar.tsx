@@ -21,7 +21,7 @@ export function DemoScenariosBar({
         <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-jarvis-faint)]">
           Demo scenarios
         </span>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Canonical demo scenarios">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Demo scenarios">
           {DEMO_SCENARIOS.map((s) => {
             const active = activeId === s.id;
             return (
@@ -38,7 +38,7 @@ export function DemoScenariosBar({
                 }`}
               >
                 {shortLabel(s.id)}
-                <span className="ml-1.5 text-[10px] opacity-60">{s.expectedState}</span>
+                <span className="sr-only">Expected: {s.expectedLabel}</span>
               </button>
             );
           })}
@@ -62,7 +62,7 @@ function shortLabel(id: string): string {
     case "already-refunded":
       return "Already refunded";
     case "prompt-injection":
-      return "Adversarial";
+      return "Prompt injection";
     default:
       return id;
   }

@@ -12,7 +12,7 @@ export function StateBadge({ state }: { state: CaseState | string }) {
   const cls = styles[state] ?? styles.default;
   return (
     <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${cls}`}>
-      {state.replaceAll("_", " ")}
+      {({ RESOLVED: "Refund verified", ESCALATED: "Needs review", FAILED: "Could not complete", CLOSED_NO_ACTION: "Nothing to change", RECEIVED: "Received", EXTRACTING: "Reading request", EVIDENCE_GATHERING: "Checking records", ANALYZING: "Reviewing", DECISION_PROPOSED: "Action suggested", POLICY_VALIDATION: "Checking permissions", APPROVED: "Authorized", EXECUTING: "Running", VERIFYING: "Verifying" } as Record<string, string>)[state] ?? state.replaceAll("_", " ")}
     </span>
   );
 }

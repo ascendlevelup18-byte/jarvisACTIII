@@ -46,8 +46,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
             What do you want to automate?
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--color-jarvis-muted)]">
-            Pick the work you want JARVIS to take on. Operational modules run today; previews show what is planned and
-            exactly what is not built yet.
+            Choose an automation. Active modules can run; preview modules are planned.
           </p>
           <fieldset className="mt-6">
             <legend className="sr-only">Automation modules</legend>
@@ -113,7 +112,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
               Your store domain
             </label>
             <p className="mt-0.5 text-xs text-[var(--color-jarvis-muted)]">
-              Store-platform integrations are coming later. Entering a domain does not connect or read anything.
+              Store integrations are not available yet. Entering a domain does not connect a store.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <input
@@ -129,7 +128,7 @@ export function OnboardingPage({ onComplete }: { onComplete: (r: OnboardingResul
                 disabled
                 className={`${btn.secondary} cursor-not-allowed`}
               >
-                Connect (not available yet)
+                Coming soon
               </button>
             </div>
             {domainCheck && (

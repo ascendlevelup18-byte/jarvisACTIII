@@ -19,7 +19,7 @@ export function SettingsPage({
   const [confirming, setConfirming] = useState(false);
   return (
     <div className="motion-fade-in space-y-4">
-      <PageHeader title="Settings" description="Workspace preferences stored in this browser. Server configuration (AI provider, tokens, limits) lives on the backend and is never editable from the browser." />
+      <PageHeader title="Settings" description="Preferences are saved in this browser. AI provider, tokens, and limits are managed on the server." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Automations selected in setup" aside={<button type="button" className={btn.ghost} onClick={onChangeSetup}>Change setup</button>}>
           <ul className="space-y-1.5 text-sm">

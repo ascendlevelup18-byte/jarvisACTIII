@@ -27,7 +27,7 @@ export function CustomersPage({
   const visible = rows.filter((r) => !needle || r.name.toLowerCase().includes(needle) || r.customerId.toLowerCase().includes(needle));
   return (
     <div className="motion-fade-in space-y-4">
-      <PageHeader title="Customers" description="Customers in the demo store seed (synthetic) with their recorded JARVIS cases. No contact details or lifetime value exist in the data, so none are shown." />
+      <PageHeader title="Customers" description="Synthetic demo customers and their recorded cases." />
       {load.status === "error" && <ErrorNotice onRetry={onReload}>Could not load the demo store: {load.error}</ErrorNotice>}
       {!snapshot && load.status === "loading" && <LoadingRows label="Loading customers" />}
       {snapshot && (

@@ -36,7 +36,7 @@ export function CommandCenter({
     <div className="motion-fade-in space-y-5">
       <PageHeader
         title="Proof Mode"
-        description="Run the canonical requests against the live backend and inspect how each was decided. AI proposes; deterministic policy decides whether money may move; every executed refund is verified by read-back. Payments are simulated."
+        description="Compare refund decisions and inspect the evidence. AI proposes; policy authorizes; refunds are verified. Payments are simulated."
       />
 
       <section
@@ -55,12 +55,12 @@ export function CommandCenter({
             hint={`Fixture bench · ${FIXTURE_BENCHMARK.correctEscalations}/${FIXTURE_BENCHMARK.groundTruthEscalation}`}
           />
           <MetricCard
-            label="Unsafe autonomous"
+            label="Unsafe actions"
             value={String(FIXTURE_BENCHMARK.unsafeAutonomousActions)}
-            hint="CI gate: must stay 0"
+            hint="Safety target: 0"
           />
           <MetricCard
-            label="Recorded cases · live, not benchmark"
+            label="Cases in this browser"
             value={String(history.length)}
             hint={`R ${counts.RESOLVED} · E ${counts.ESCALATED} · C ${counts.CLOSED_NO_ACTION}`}
           />
@@ -91,11 +91,11 @@ export function CommandCenter({
             Case queue
           </h3>
           <span className="text-xs text-[var(--color-jarvis-faint)]">
-            Recorded in this browser from real API responses · {DEMO_SCENARIOS.length} canonical demos
+            Browser history · {DEMO_SCENARIOS.length} demo scenarios
           </span>
         </div>
         {history.length === 0 ? (
-          <EmptyState title="No recorded cases yet" body="Run a demo scenario above, or request a refund from the demo store, to open the investigation workspace." />
+          <EmptyState title="No recorded cases yet" body="Choose a scenario or request a refund in the demo store." />
         ) : (
           <ul className="divide-y divide-[var(--color-jarvis-border)] overflow-hidden rounded-lg shadow-card border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)]">
             {history.map((entry) => (

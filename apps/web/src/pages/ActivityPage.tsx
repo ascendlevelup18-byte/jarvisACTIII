@@ -33,7 +33,7 @@ export function ActivityPage({ history, onOpenCase }: { history: SessionCaseEntr
     <div className="motion-fade-in space-y-4">
       <PageHeader
         title="Audit trail"
-        description={`Every event the engine recorded for the ${history.length} case${history.length === 1 ? "" : "s"} in this browser (${totalEvents} events). Shown after completion; nothing is animated or invented.`}
+        description={`Recorded events for the ${history.length} case${history.length === 1 ? "" : "s"} in this browser (${totalEvents} events). Available after each case completes.`}
       />
       {history.length === 0 ? (
         <EmptyState title="No audit events yet" body="Run a case from the demo store or Proof Mode; its full engine audit appears here." />

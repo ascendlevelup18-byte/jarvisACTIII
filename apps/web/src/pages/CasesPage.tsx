@@ -23,7 +23,7 @@ export function CasesPage({
     <div className="motion-fade-in space-y-4">
       <PageHeader
         title="Cases"
-        description="Every case recorded in this browser, newest first, from real /cases responses. Open one for its evidence, policy decision, verification and audit trail."
+        description="Cases saved in this browser, newest first. Open a case to review its decision and evidence."
       />
       <DemoScenariosBar loading={loading} activeId={activeDemoId} onRunDemo={onRunDemo} />
       <ul aria-label="Case counts" className="flex flex-wrap gap-2">

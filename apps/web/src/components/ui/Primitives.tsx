@@ -5,7 +5,7 @@ import { btn } from "./styles.ts";
 
 export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-3">
+    <header className="page-heading flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         <h2 className="text-xl font-semibold tracking-tight text-[var(--color-jarvis-ink)]">{title}</h2>
         {description && <p className="mt-1 max-w-3xl text-sm text-[var(--color-jarvis-muted)]">{description}</p>}
@@ -31,7 +31,7 @@ export function Card({ title, aside, children, className = "", id }: { title?: s
 
 export function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] px-4 py-3 shadow-card">
+    <div className="kpi-card rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] px-4 py-3 shadow-card">
       <dt className="text-xs font-medium text-[var(--color-jarvis-muted)]">{label}</dt>
       <dd className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-[var(--color-jarvis-ink)]">{value}</dd>
       {hint && <dd className="mt-0.5 text-[11px] text-[var(--color-jarvis-faint)]">{hint}</dd>}

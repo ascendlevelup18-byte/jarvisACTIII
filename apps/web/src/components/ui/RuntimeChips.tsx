@@ -1,39 +1,15 @@
-import { deriveRuntimeTruth, type TruthTone } from "../../lib/runtime-truth.ts";
-import { useRuntimeHealth } from "../../lib/use-runtime-health.ts";
+import { deriveRuntimeTruth, type TruthTone } from '../../lib/runtime-truth.ts';
+import { useRuntimeHealth } from '../../lib/use-runtime-health.ts';
 
-const TONE: Record<TruthTone, string> = {
-  ok: "border-[var(--color-policy-border)] text-[var(--color-policy-accent)]",
-  info: "border-[var(--color-ai-border)] text-[var(--color-ai-accent)]",
-  warn: "border-[var(--color-warning)]/40 text-[var(--color-warning)]",
-  unknown: "border-[var(--color-jarvis-border)] text-[var(--color-jarvis-muted)]",
-};
-
-/** Status chips from the backend's own /api/health answer. Never claims AMD hardware or Evolus. */
+const TONE:Record<TruthTone,string>={ok:'text-[var(--color-policy-accent)]',info:'text-[var(--color-ai-accent)]',warn:'text-[var(--color-warning)]',unknown:'text-[var(--color-jarvis-muted)]'};
 export function RuntimeChips() {
-  const health = useRuntimeHealth();
-  const t = deriveRuntimeTruth(health ?? null);
-  const api =
-    health === undefined
-      ? { text: "API · CHECKING", tone: "unknown" as const }
-      : health === null
-        ? { text: "API HEALTH UNAVAILABLE", tone: "unknown" as const }
-        : health.ok === false
-          ? { text: "API DEGRADED", tone: "warn" as const }
-          : { text: "API ONLINE", tone: "ok" as const };
-  const chips = [
-    { text: api.text, tone: api.tone, title: "From GET /api/health" },
-    { text: t.ai.value, tone: t.ai.tone, title: t.ai.detail },
-    { text: `PAYMENTS ${t.gateway.value}`, tone: t.gateway.tone, title: t.gateway.detail },
-    { text: `AMD HW ${t.amdHardware.value}`, tone: t.amdHardware.tone, title: t.amdHardware.detail },
-    { text: `EVOLUS ${t.evolus.value}`, tone: t.evolus.tone, title: t.evolus.detail },
-  ];
-  return (
-    <ul className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide" aria-label="Runtime status">
-      {chips.map((c) => (
-        <li key={c.text} title={c.title} className={`rounded-full border bg-[var(--color-jarvis-surface)] px-2 py-0.5 ${TONE[c.tone]}`}>
-          {c.text}
-        </li>
-      ))}
-    </ul>
-  );
+ const health=useRuntimeHealth();const t=deriveRuntimeTruth(health??null);
+ const api=health===undefined?'Connecting…':health===null?'Connection unavailable':health.ok===false?'Connection needs attention':'Connected';
+ const ai=health?.aiMode==='fixture'?'Demo AI (fixture)':health?.aiMode==='vllm'?'Live AI model':'AI mode unconfirmed';
+ return <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]" aria-label="Runtime status">
+  <span className={health?.ok===false?'text-[var(--color-warning)]':'text-[var(--color-jarvis-muted)]'}>{api}</span>
+  <span title={t.ai.detail} className={TONE[t.ai.tone]}>{ai}</span>
+  <span className="text-[var(--color-warning)]">Payments simulated</span>
+  <details className="relative"><summary className="text-[var(--color-jarvis-muted)]">Connection details</summary><div className="absolute right-0 top-6 z-40 w-64 rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] p-3 text-xs shadow-raised"><p>{t.ai.value}</p><p className="mt-1">{t.ai.detail}</p><p className="mt-2">AMD hardware: {t.amdHardware.value}</p><p>Evolus: {t.evolus.value}</p><p className="mt-2">Synthetic store data. {t.gateway.detail}</p></div></details>
+ </div>;
 }

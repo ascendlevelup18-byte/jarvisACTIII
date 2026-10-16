@@ -65,7 +65,7 @@ export function InboxPage({
         <InboxHeader />
         <EmptyState
           title="No conversations yet"
-          body="A conversation appears when a customer request reaches JARVIS: request a refund from the demo store, or run a scenario from Overview. The inbox never shows invented messages."
+          body="Request a refund in the demo store or run a Proof Mode scenario to start a conversation."
           action={
             <button type="button" className={btn.primary} onClick={onOpenStore}>
               Open demo store

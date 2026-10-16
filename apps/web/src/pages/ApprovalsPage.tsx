@@ -13,7 +13,7 @@ export function ApprovalsPage({ history, onOpenCase }: { history: SessionCaseEnt
     <div className="motion-fade-in space-y-4">
       <PageHeader
         title="Approvals"
-        description="Cases JARVIS refused to act on alone. No money moved on any of them. This queue is review-only: approving a refund from here is not built, so a person resolves these outside JARVIS."
+        description="Cases that need a person. Review only; refunds cannot be approved here. Resolve these cases outside JARVIS."
         actions={<Pill tone="warning">Review-only</Pill>}
       />
       {queue.length === 0 ? (

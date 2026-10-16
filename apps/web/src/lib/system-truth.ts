@@ -2,6 +2,8 @@
 // /api/health (see runtime-truth.ts).
 
 export type NavId =
+  | "command-center"
+  | "assistant"
   | "dashboard"
   | "operations"
   | "orders"
@@ -26,16 +28,18 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", section: "Overview", slug: "dashboard" },
+  { id: "command-center", label: "Command Center", section: "Overview", slug: "command-center" },
+  { id: "assistant", label: "AI Assistant", section: "Overview", slug: "assistant" },
+  { id: "dashboard", label: "Home", section: "Overview", slug: "dashboard" },
   { id: "operations", label: "Proof Mode", section: "Overview", slug: "proof" },
   { id: "orders", label: "Orders", section: "Commerce", slug: "orders" },
   { id: "customers", label: "Customers", section: "Commerce", slug: "customers" },
-  { id: "inbox", label: "Support inbox", section: "Commerce", slug: "inbox" },
+  { id: "inbox", label: "Inbox", section: "Commerce", slug: "inbox" },
   { id: "automations", label: "Automation catalog", section: "Automations", slug: "automations" },
   { id: "cases", label: "Cases", section: "Automations", slug: "cases" },
   { id: "approvals", label: "Approvals", section: "Automations", slug: "approvals" },
   { id: "benchmarks", label: "Analytics", section: "Insights", slug: "analytics" },
-  { id: "activity", label: "Audit trail", section: "System", slug: "audit" },
+  { id: "activity", label: "Activity", section: "System", slug: "audit" },
   { id: "system", label: "AI provider", section: "System", slug: "ai-provider" },
   { id: "settings", label: "Settings", section: "System", slug: "settings" },
 ];

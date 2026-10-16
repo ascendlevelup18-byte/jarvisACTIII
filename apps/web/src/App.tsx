@@ -11,6 +11,7 @@ import { OnboardingPage } from "./pages/OnboardingPage.tsx";
 import { StorefrontPage } from "./pages/StorefrontPage.tsx";
 import { OrdersPage, type StoreLoad } from "./pages/OrdersPage.tsx";
 import { InboxPage } from "./pages/InboxPage.tsx";
+import { AssistantPanel } from "./components/assistant/AssistantPanel.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { CustomersPage } from "./pages/CustomersPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
@@ -55,11 +56,13 @@ type MerchantRoute = Extract<Route, { surface: "merchant" }>;
 // The analytics workspace (charts, sample dataset) loads on first visit.
 const BenchmarksPage = lazy(() => import("./pages/BenchmarksPage.tsx").then((m) => ({ default: m.BenchmarksPage })));
 
+const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage.tsx").then(m => ({ default: m.CommandCenterPage })));
+
 const DEFAULT_ROUTE: MerchantRoute = { surface: "merchant", nav: "dashboard" };
 function initialRoute(): Route {
   const parsed = typeof window === "undefined" ? null : parseRoute(window.location.hash);
   if (parsed) return parsed;
-  return loadSetup() ? DEFAULT_ROUTE : { surface: "setup" };
+  return DEFAULT_ROUTE;
 }
 
 const errorText = (e: unknown) => (e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed");
@@ -198,6 +201,7 @@ export default function App() {
       try {
         const result = await submitCase(refundRequestFor(o));
         record(result, { scenarioTitle: `Order #${o.orderId}`, scenarioId: o.supportRequest.scenario });
+        return result;
       } catch (e) {
         throw new Error(errorText(e));
       }
@@ -214,7 +218,7 @@ export default function App() {
           saveSetup(r.modules);
           setModules(r.modules);
           setStoreSnapshot(r.store);
-          navigate({ surface: "merchant", nav: "automations" });
+          navigate({ surface: "merchant", nav: "dashboard" });
         }}
       />
     );
@@ -289,12 +293,21 @@ export default function App() {
             <DashboardPage
               history={history}
               snapshot={storeSnapshot}
-              modules={modules}
+              load={storeLoad}
+              onReload={loadStore}
               onNavigate={go}
-              onOpenCase={onOpenCase}
-              onOpenStore={openStore}
+              onRunOrder={runOrder}
+              onOpenCase={openCase}
             />
           )}
+          {route.nav === "command-center" && (
+            <Suspense fallback={<LoadingRows label="Opening Command Center…" />}>
+              <CommandCenterPage history={history} snapshot={storeSnapshot} load={storeLoad}
+                selectedId={route.params?.case} onSelect={id => go("command-center", { params: { case: id } })}
+                onRunOrder={runOrder} onOpenCase={openCase} onReview={() => go("approvals")} onReload={loadStore} />
+            </Suspense>
+          )}
+          {route.nav === "assistant" && <AssistantPanel snapshot={storeSnapshot} history={history} onNavigate={go} onRunOrder={runOrder} onOpenCase={openCase} />}
           {route.nav === "operations" && (
             <CommandCenter
               history={history}
@@ -337,7 +350,7 @@ export default function App() {
               onReload={loadStore}
               history={history}
               onOpenCase={onOpenCase}
-              onRunOrder={runOrder}
+              onRunOrder={async (o) => { await runOrder(o); }}
               selectedId={route.orderId ?? null}
               onSelect={(id) => go("orders", { ...(id ? { orderId: id } : {}), ...(route.params ? { params: route.params } : {}) })}
               initialStatus={route.params?.status}
@@ -348,7 +361,7 @@ export default function App() {
             <CustomersPage snapshot={storeSnapshot} load={storeLoad} onReload={loadStore} history={history} onViewOrders={(q) => go("orders", { params: { q } })} />
           )}
           {route.nav === "inbox" && (
-            <InboxPage history={history} snapshot={storeSnapshot} onOpenCase={onOpenCase} onOpenStore={openStore} onRerun={runOrder} />
+            <InboxPage history={history} snapshot={storeSnapshot} onOpenCase={onOpenCase} onOpenStore={openStore} onRerun={async (o) => { await runOrder(o); }} />
           )}
           {route.nav === "automations" && (
             <AutomationsPage enabled={modules} history={history} onOpenStore={openStore} onOpenProof={() => go("operations")} onOpenCases={() => go("cases")} />
