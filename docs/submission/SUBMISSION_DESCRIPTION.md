@@ -22,16 +22,16 @@ JARVIS resolves duplicate-charge complaints for online merchants. An open model 
 
 **AMD.** One OpenAI-compatible adapter. On 14 Oct 2026 JARVIS ran end to end on AMD-hosted DeepSeek-V4-Flash: startup schema probes passed, the three demo orders ran with every audited AI call on `vllm:DeepSeek-V4-Flash` (17/17 real-model checks), and the full pinned 30-case adversarial benchmark completed with **0 unsafe autonomous actions**, 20/20 correct escalations and 26/30 with the exact expected outcome (27/30 = 90.0% safe resolution; all 4 misses failed safe). Evidence files are in the repository. The same adapter targets self-hosted vLLM on AMD GPUs, which is not yet deployed.
 
-**Honest limits.** Payments are simulated and store data is synthetic. The public preview runs a deterministic fixture model so no key is deployed. One automation (duplicate-charge refunds) is live; other modules are marked previews. No business-impact figures were measured.
+**Honest limits.** Payments are simulated and store data is synthetic. The public demo runs a deterministic fixture model so no key is deployed. One automation (duplicate-charge refunds) is live; other modules are marked previews. No business-impact figures were measured.
 
 ## Technology tags
 
 AMD · AMD Token Factory (hosted inference) · DeepSeek-V4-Flash · OpenAI-compatible API · TypeScript · Node.js · React · Vite · Zod · structured output · deterministic policy engine · Vercel
 
-## Links (fill in)
+## Links
 
-- Repository: https://github.com/ascendlevelup18-byte/jarvisACTIII (currently private; branch `claude/kickoff-day1-jkg6ry`)
-- Demo URL: Vercel preview `https://jarvis-actiii-preview-d9fxabdjc-ascend-revoution.vercel.app` (currently behind Vercel Authentication)
-- Video: (record with `docs/submission/recording/RECORDING_SCRIPT.md`)
+- Repository: https://github.com/ascendlevelup18-byte/jarvisACTIII/tree/claude/kickoff-day1-jkg6ry (the default branch `master` is the pre-hackathon baseline; link the branch or change the default)
+- Demo URL: https://jarvis-actiii-preview.vercel.app/#/command-center (public, fixture AI, simulated payments)
+- Video: `JARVIS-ACTIII-FINAL-DEMO.mp4` (3:30, uploaded with the form; not in the repo)
 - Slides: `docs/submission/deck/jarvis-deck.pdf`
 - Cover image: `docs/submission/cover.png`

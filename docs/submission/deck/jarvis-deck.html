@@ -108,8 +108,8 @@
       </div>
     </div>
     <div class="col" style="flex: 1.1;">
-      <div class="shot"><img src="../../screenshots/c05-overview.png" alt="JARVIS dashboard"></div>
-      <div class="caption">Merchant dashboard (fixture-mode screenshot, earlier UI). Recorded cases only; payments simulated.</div>
+      <div class="shot"><img src="assets/command-center-48291.png" alt="JARVIS Command Center: verified fixture outcome"></div>
+      <div class="caption">Command Center, captured 16 Oct 2026. Recorded fixture decision. Payments simulated.</div>
     </div>
   </div>
   <div class="foot"><span>JARVIS Automations</span><span>3 / 10</span></div>
@@ -172,9 +172,9 @@
         <h3>Owner's PC, 14 Oct 2026</h3>
         <p>JARVIS API in real-model mode against the AMD inference API (base URL from AMD's Token Factory API documentation). Startup probes, the three demo orders and the 30-case benchmark all ran on the live model.</p>
         <div style="height: 28px"></div>
-        <span class="tag t-fix">Public preview: fixture AI</span>
+        <span class="tag t-fix">Public demo: fixture AI</span>
         <h3>What judges can click</h3>
-        <p>The hosted preview runs fixture AI so no key is deployed. The live run is documented with evidence files in the repo.</p>
+        <p>The public demo at jarvis-actiii-preview.vercel.app runs fixture AI with simulated payments; no key is deployed. The 14 Oct live run has evidence files in the repo.</p>
         <div class="note">No self-hosted GPU or vLLM server is claimed. Inference is AMD's hosted API.</div>
       </div>
     </div>
@@ -184,7 +184,7 @@
 
 <!-- 6. Demo scenarios -->
 <section id="s6" class="slide">
-  <div class="kicker">Live demonstration scenarios</div>
+  <div class="kicker">Verified demonstration scenarios</div>
   <h2>Same AI and policy, different evidence, different outcomes</h2>
   <table>
     <tr><th>Order</th><th>Customer says</th><th>Policy decision</th><th>Result</th><th>Money moved</th></tr>
@@ -193,8 +193,8 @@
     <tr><td class="num">#48293</td><td>Charged twice, but already refunded</td><td>NO_ACTION</td><td><b>CLOSED_NO_ACTION</b>, no second refund</td><td class="num">$0.00</td></tr>
   </table>
   <div class="row" style="margin-top: 28px; flex: 0; max-height: 290px;">
-    <div class="col" style="flex: 1.2;"><div class="shot"><img src="../../screenshots/02-safety-showdown.png" alt="Proof Mode safety showdown" style="height: 270px; object-fit: cover; object-position: top;"></div></div>
-    <div class="col"><div class="card" style="flex: 1;"><p>All three outcomes were reproduced on the live AMD model (14 Oct) and on the public fixture preview (14 Oct): 48291 resolved and verified; 48294 and 48293 never reached execution. Free text without an operator token is refused with 403.</p></div></div>
+    <div class="col" style="flex: 1.2;"><div class="shot"><img src="assets/command-center-48294.png" alt="Command Center: denied fixture refund" style="height: 270px; object-fit: cover; object-position: 50% 48%;"></div></div>
+    <div class="col"><div class="card" style="flex: 1;"><p>Command Center fixture capture, 16 Oct: #48291 resolved with read-back confirmation, #48294 escalated with policy DENY, #48293 closed without another refund. Separate AMD live evidence dates to 14 Oct.</p></div></div>
   </div>
   <div class="foot"><span>Payments are simulated · store data is synthetic</span><span>6 / 10</span></div>
 </section>
@@ -226,7 +226,7 @@
     <tr><th>Live run tf-1 (DeepSeek-V4-Flash)</th><th>Result</th><th>Why it matters</th></tr>
     <tr><td>4 misses</td><td>all failed safe: 3 conservative escalations; 1 invalid model output ended FAILED with no action</td><td>errors go to a person, never to the gateway</td></tr>
     <tr><td>Latency, median</td><td class="num">understanding 2.0 s · decision 8.9 s</td><td>one understanding call hit the 30 s timeout and escalated</td></tr>
-    <tr><td>Regression suites</td><td class="num">256 API · 70 web · 58 legacy tests pass</td><td>adapter, policy, ingress and UI guards</td></tr>
+    <tr><td>Regression suites</td><td class="num">291 API · 81 web · 58 legacy tests pass</td><td>adapter, policy, ingress and UI guards</td></tr>
   </table>
   <div class="foot"><span>Sources: evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json · npm run api:bench:ci</span><span>8 / 10</span></div>
 </section>
