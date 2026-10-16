@@ -301,7 +301,7 @@ describe("AI startup (fake OpenAI-compatible server; not real inference)", () =>
     assert.ok(!evidence.includes(SECRET), "API key leaked into the evidence file");
     const parsed = JSON.parse(evidence) as { health: { aiMode: string }; cases: { orderId: string; aiCalls: { adapter: string }[] }[] };
     assert.equal(parsed.health.aiMode, "vllm");
-    assert.deepEqual(parsed.cases.map((c) => c.orderId), ["48291", "48294", "48293"]);
+    assert.deepEqual(parsed.cases.map((c) => c.orderId), ["48291", "48294", "48293", "48292"]);
     assert.ok(parsed.cases.every((c) => c.aiCalls.length > 0 && c.aiCalls.every((a) => a.adapter === "vllm:fake-model")));
   });
 

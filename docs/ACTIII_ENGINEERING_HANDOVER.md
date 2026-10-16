@@ -1,5 +1,7 @@
 # JARVIS ACT III: engineering handover
 
+> Historical snapshot from 12 Oct 2026. Its branch, CI, deployment and live-model statements below are not current status. For the 16 Oct post-submission audit, see [`POST_SUBMISSION_AUDIT.md`](POST_SUBMISSION_AUDIT.md); for recorded AMD runs, see [`AMD_EVIDENCE.md`](AMD_EVIDENCE.md). The published public demo uses fixture AI and simulated payments.
+
 **As of:** 2026-10-12, end of Sprint 4 (deployment procedure, AMD and Evolus readiness, business evidence, CI).
 **Branch:** `claude/kickoff-day1-jkg6ry`. `master` is untouched (`5b5a5fe`, the pre-hackathon baseline).
 

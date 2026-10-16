@@ -2,7 +2,7 @@ import type { Case } from './case-types.ts';
 import type { HealthPayload } from './runtime-truth.ts';
 import { deriveProofChain, type ProofStatus } from './proof.ts';
 
-export const HERO_ORDERS = ['48291', '48294', '48293'] as const;
+export const HERO_ORDERS = ['48291', '48294', '48293', '48292'] as const;
 export type JourneyGroup = 'investigation' | 'decision' | 'execution' | 'proof';
 export type JourneyId = 'input' | 'understand' | 'retrieve' | 'reason' | 'decide' | 'policy' | 'act' | 'verify' | 'escalate' | 'audit';
 export interface JourneyStage {
