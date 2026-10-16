@@ -9,7 +9,7 @@ All commands run in Windows PowerShell from `C:\jarvis-actiii-preview`. Nothing 
 | CRITICAL | No demo video: R1–R7 footage and narration not recorded; no MP4 | Owner (after UI freeze) |
 | CRITICAL | No anonymous demo URL: preview behind Vercel login; production is the Oct 12 build | Owner approval, then Claude |
 | CRITICAL | Repository private (event page asks for a public GitHub repo) | Owner approval |
-| HIGH | Frontend not frozen or integrated; deck slides 3 and 6 show the old UI | Work, then Claude |
+| HIGH | Deck slides 3 and 6 show the old UI (frontend integrated 16 Oct, commit `682631c`) | Claude |
 | HIGH | AMD key exposed in local history on 14 Oct (line removed) and not rotated | Owner |
 | MEDIUM | Official deadline unconfirmed ("To be announced"); internal target Oct 17 | Owner (ask organizers) |
 | MEDIUM | Gemma no longer served; Google prize blocked; no Gemma claims anywhere | Organizers |
