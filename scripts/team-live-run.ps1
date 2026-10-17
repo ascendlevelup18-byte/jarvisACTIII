@@ -11,7 +11,12 @@
     2. CFO + COO + CEO: 3 model calls.
     3. All six specialists: 6 model calls.
     4. One private CFO question: 1 model call (figures not in the data are withheld).
-  Total at most 11 requests; the server's hard cap (-MaxRequests, default 12) stops anything beyond it.
+    5. Commerce Recovery Mission (needs -WithAmd): the six-specialist plan must contain a refund or
+       support-automation proposal; then the canonical duplicate-charge order #48291 goes through JARVIS on
+       the same server, with the AMD model (DeepSeek-V4-Flash) for understanding and proposal. Policy decides,
+       the SIMULATED gateway executes only if authorized, and read-back must verify it.
+  OpenRouter: at most 11 requests; the server's hard cap (-MaxRequests, default 12) stops anything beyond it.
+  -WithAmd adds a second hidden prompt for the AMD key and about 4 AMD calls (2 startup probes + the case).
   Free-only mode is always on: a ':free' model id is required and any reported cost stops the provider.
   There are no retries. HTTP 429 or 402 (quota or spend limit) stops the run and is reported as is.
 
@@ -32,6 +37,10 @@ param(
   [int]$Port = 3220,
   [ValidateRange(5000, 120000)][int]$TimeoutMs = 60000,
   [string]$KeyPattern = '^sk-or-v1-[0-9a-fA-F]{64}$',
+  # Also run the core JARVIS engine on the AMD model and finish with the Commerce Recovery Mission.
+  [switch]$WithAmd,
+  [string]$AmdBaseUrl = "https://developer.amd.com.cn/radeon/api/v1",
+  [string]$AmdModel = "DeepSeek-V4-Flash",
   # Tests only: a loopback mock of the OpenRouter API. Only then may the key come from JARVIS_TEAM_TEST_KEY.
   [string]$BaseUrl = ""
 )
@@ -58,7 +67,9 @@ $apiErr = Join-Path $logDir "api.err.log"
 $prefix = if ($BaseUrl) { "team-mock" } else { "team-live" }
 $evidencePath = "evals/results/$prefix-$stamp.json"
 $names = "JARVIS_AI_MODE", "JARVIS_TEAM_PROVIDER", "JARVIS_TEAM_API_KEY", "JARVIS_TEAM_MODEL", "JARVIS_TEAM_MAX_REQUESTS", "JARVIS_TEAM_MAX_USD",
-  "JARVIS_TEAM_MAX_OUTPUT_TOKENS", "JARVIS_TEAM_TIMEOUT_MS", "JARVIS_TEAM_FREE_ONLY", "JARVIS_TEAM_BASE_URL", "JARVIS_CASES_TOKEN", "JARVIS_HOST", "PORT"
+  "JARVIS_TEAM_MAX_OUTPUT_TOKENS", "JARVIS_TEAM_TIMEOUT_MS", "JARVIS_TEAM_FREE_ONLY", "JARVIS_TEAM_BASE_URL", "JARVIS_CASES_TOKEN", "JARVIS_HOST", "PORT",
+  "JARVIS_MODEL_BASE_URL", "JARVIS_MODEL_NAME", "JARVIS_MODEL_API_KEY", "JARVIS_MODEL_TIMEOUT_MS", "JARVIS_MODEL_MAX_RETRIES",
+  "JARVIS_DAILY_MODEL_CALL_BUDGET", "JARVIS_MODEL_STRUCTURED_OUTPUT", "JARVIS_MODEL_MIN_INTERVAL_MS"
 $request = "Our business is underperforming. I want my AI executive team to investigate the reasons, propose the highest-impact improvements and identify operational actions we can safely automate."
 $evidence = [ordered]@{
   kind = $(if ($BaseUrl) { "TEST MOCK (not a model; not evidence of live inference)" } else { "OPENROUTER LIVE INFERENCE (AI Executive Team, synthetic store data)" })
@@ -73,6 +84,15 @@ $api = $null
 $secure = if ($BaseUrl -and $env:JARVIS_TEAM_TEST_KEY) { ConvertTo-SecureString $env:JARVIS_TEAM_TEST_KEY -AsPlainText -Force } else { Read-Host "OpenRouter key (input hidden; not stored)" -AsSecureString }
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 $script:keyText = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+$script:amdText = $null
+$amdBstr = [IntPtr]::Zero
+if ($WithAmd) {
+  if ($AmdBaseUrl -notmatch '^https://.+/v1$' -and -not ($BaseUrl -and $AmdBaseUrl -match '^http://127\.0\.0\.1:\d+/v1$')) { Write-Host "AmdBaseUrl must be https and end in /v1." -ForegroundColor Red; exit 2 }
+  $amdSecure = if ($BaseUrl -and $env:JARVIS_AMD_TEST_KEY) { ConvertTo-SecureString $env:JARVIS_AMD_TEST_KEY -AsPlainText -Force } else { Read-Host "AMD key (input hidden; not stored)" -AsSecureString }
+  $amdBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($amdSecure)
+  $script:amdText = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($amdBstr)
+}
+$evidence.amd = $(if ($WithAmd) { [ordered]@{ endpoint = $AmdBaseUrl; model = $AmdModel } } else { "not used" })
 $bytes = New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $script:opToken = [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
@@ -110,8 +130,24 @@ try {
     $code = 3
     break
   }
+  if ($WithAmd -and -not $BaseUrl -and $script:amdText -notmatch '^rc-[0-9a-fA-F]{48}$') {
+    Write-Host "AMD key format check FAILED (rc- plus 48 hex characters). Nothing was sent." -ForegroundColor Red
+    $code = 3
+    break
+  }
   Write-Host "Key format check passed."
   $env:JARVIS_AI_MODE = "fixture"
+  if ($WithAmd) {
+    $env:JARVIS_AI_MODE = "vllm"
+    $env:JARVIS_MODEL_BASE_URL = $AmdBaseUrl
+    $env:JARVIS_MODEL_NAME = $AmdModel
+    $env:JARVIS_MODEL_API_KEY = $script:amdText
+    $env:JARVIS_MODEL_TIMEOUT_MS = "60000"
+    $env:JARVIS_MODEL_MAX_RETRIES = "0"
+    $env:JARVIS_DAILY_MODEL_CALL_BUDGET = "12"
+    $env:JARVIS_MODEL_STRUCTURED_OUTPUT = "json_object"
+    $env:JARVIS_MODEL_MIN_INTERVAL_MS = "3100"
+  }
   $env:JARVIS_TEAM_PROVIDER = "openrouter"
   $env:JARVIS_TEAM_API_KEY = $script:keyText
   $env:JARVIS_TEAM_MODEL = $Model
@@ -127,7 +163,7 @@ try {
 
   Write-Host "0) Starting the API (model listed + zero price + key limit; no inference)..."
   $api = Start-Process -FilePath "node" -ArgumentList "apps/api/src/main.ts" -RedirectStandardOutput $apiLog -RedirectStandardError $apiErr -PassThru -WindowStyle Hidden
-  $deadline = (Get-Date).AddSeconds(60)
+  $deadline = (Get-Date).AddSeconds($(if ($WithAmd) { 180 } else { 60 }))
   $listening = $false
   while ((Get-Date) -lt $deadline -and -not $api.HasExited) {
     Start-Sleep -Milliseconds 500
@@ -138,7 +174,7 @@ try {
   $evidence.startupGate = $listening
   if (-not $listening) {
     Write-Host "   Startup gate FAILED. Last log lines:" -ForegroundColor Red
-    Get-Content $apiLog, $apiErr -ErrorAction SilentlyContinue | Select-Object -Last 6 | ForEach-Object { Write-Host ("   " + $_.Replace($script:keyText, "[REDACTED]")) }
+    Get-Content $apiLog, $apiErr -ErrorAction SilentlyContinue | Select-Object -Last 6 | ForEach-Object { $l = $_.Replace($script:keyText, "[REDACTED]"); if ($script:amdText) { $l = $l.Replace($script:amdText, "[REDACTED]") }; Write-Host ("   " + $l) }
     $code = 11
     break
   }
@@ -154,7 +190,32 @@ try {
   Write-Host "4) Private CFO question (1 model call)..."
   $q = Invoke-Team "/team/reply" @{ agent = "cfo"; question = "What is driving the margin decline, and which figures support that?" }
   $evidence.stages["4-cfo-private"] = [ordered]@{ passed = ($null -eq $q.httpError -and $q.provider.model -eq $Model); reply = $q }
-  if ($q.httpError) { Write-Host "   HTTP error: $($q.httpError)" -ForegroundColor Red; $code = 12 } else { Write-Host ("   {0} answered (statements withheld by the figure check: {1})" -f $q.provider.model, $q.withheld) }
+  if ($q.httpError) { Write-Host "   HTTP error: $($q.httpError)" -ForegroundColor Red; $code = 12; break } else { Write-Host ("   {0} answered (statements withheld by the figure check: {1})" -f $q.provider.model, $q.withheld) }
+
+  if (-not $WithAmd) { $evidence.stages["5-mission"] = "skipped (run with -WithAmd)"; break }
+  Write-Host "5) Commerce Recovery Mission: team plan -> JARVIS case #48291 on $AmdModel..."
+  $plan = $evidence.stages["3-six"].result.report.actions
+  $link = @($plan | Where-Object { $_.lever -eq "refunds" -or $_.lever -eq "supportAutomation" }) | Select-Object -First 1
+  $mission = [ordered]@{ linkedProposal = $link; note = "Illustrative link: the synthetic store's refund problem is represented by JARVIS's canonical duplicate-charge order #48291. They are separate synthetic records." }
+  if (-not $link) {
+    $mission.passed = $false
+    $mission.reason = "the live six-specialist plan had no refund or support-automation proposal; no case was run"
+    $evidence.stages["5-mission"] = $mission
+    Write-Host "   no actionable refund/support proposal in the live plan; mission not run (reported, not forced)" -ForegroundColor Yellow
+    $code = 12
+    break
+  }
+  $caseReq = (& node --input-type=module -e "import { SCENARIOS } from './apps/api/src/fixtures.ts'; process.stdout.write(JSON.stringify(SCENARIOS.validDuplicate))")
+  try {
+    $c = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/cases" -Method Post -ContentType "application/json" -Body ([Text.Encoding]::UTF8.GetBytes($caseReq)) -TimeoutSec 400
+  } catch { $c = [pscustomobject]@{ httpError = $_.Exception.Message } }
+  $adapters = @($c.audit | Where-Object { $_.type -eq "UNDERSTANDING_CALL" -or $_.type -eq "MODEL_CALL" } | ForEach-Object { $_.data.adapter }) | Select-Object -Unique
+  $mission.case = $c
+  $mission.adapters = $adapters
+  $mission.passed = ($null -eq $c.httpError) -and $c.state -eq "RESOLVED" -and $c.authorization.outcome -eq "APPROVE" -and $c.verification.verified -eq $true -and $adapters.Count -gt 0 -and -not ($adapters | Where-Object { $_ -ne "vllm:$AmdModel" })
+  $evidence.stages["5-mission"] = $mission
+  Write-Host ("   case {0}: state {1}, policy {2}, read-back verified {3}, AI adapters {4}" -f $c.id, $c.state, $c.authorization.outcome, $c.verification.verified, ($adapters -join ", "))
+  if (-not $mission.passed) { $code = 12 }
  } while ($false)
 }
 finally {
@@ -175,6 +236,12 @@ finally {
     $scan = @($apiLog, $apiErr) + @(Get-ChildItem evals/results -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $startedLocal } | ForEach-Object { $_.FullName })
     foreach ($f in $scan) { if ((Test-Path $f) -and (Select-String -Path $f -SimpleMatch -Pattern $script:keyText -Quiet)) { $hits++ } }
   }
+  if ($script:amdText) {
+    $scan = @($apiLog, $apiErr) + @(Get-ChildItem evals/results -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $startedLocal } | ForEach-Object { $_.FullName })
+    foreach ($f in $scan) { if ((Test-Path $f) -and (Select-String -Path $f -SimpleMatch -Pattern $script:amdText -Quiet)) { $hits++ } }
+  }
+  if ($amdBstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($amdBstr) }
+  $script:amdText = $null
   [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
   $script:keyText = $null
   $script:opToken = $null
