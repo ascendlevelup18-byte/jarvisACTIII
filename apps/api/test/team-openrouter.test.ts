@@ -238,6 +238,39 @@ describe("free-tier request budget and stop conditions", () => {
   });
 });
 
+describe("durable quota hooks (cloud gateway)", () => {
+  test("every dispatch is reserved first and completed once; an exhausted quota sends nothing", async () => {
+    mode = "nocost";
+    seen.length = 0;
+    let capacity = 2;
+    const log: string[] = [];
+    const hooks = {
+      async reserve() {
+        if (capacity === 0) throw new Error("QUOTA_EXHAUSTED");
+        capacity--;
+        log.push("reserve");
+        return `t${capacity}`;
+      },
+      async complete(ticket: string, o: { status: string }) {
+        log.push(`complete:${ticket}:${o.status}`);
+      },
+    };
+    const r = await runBoardroom(DEMO, new OpenRouterTeamProvider(freeCfg(), fetch, hooks));
+    assert.equal(seen.filter((x) => x.body?.messages).length, 2);
+    assert.deepEqual(log, ["reserve", "complete:t1:completed", "reserve", "complete:t0:completed"]);
+    assert.ok(r.analyses.slice(2).every((a) => a.status === "error" && /durable quota exhausted/.test(a.error!)));
+  });
+
+  test("a failed provider call is still completed as failed and keeps its reservation", async () => {
+    mode = "http500";
+    const log: string[] = [];
+    const hooks = { reserve: async () => "x", complete: async (_t: string, o: { status: string; error: string | null }) => void log.push(`${o.status}:${o.error}`) };
+    const p = new OpenRouterTeamProvider(freeCfg({ maxRequests: 1 }), fetch, hooks);
+    await runBoardroom(DEMO, p, { agents: ["cfo"] });
+    assert.deepEqual(log, ["failed:HTTP_ERROR"]);
+  });
+});
+
 describe("operator-only endpoints", () => {
   const provider = () => new OpenRouterTeamProvider(cfg());
   test("disabled, missing token, wrong token, wrong method, bad JSON, oversized body", async () => {

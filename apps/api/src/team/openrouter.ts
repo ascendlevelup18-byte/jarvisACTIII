@@ -97,6 +97,16 @@ function userPrompt(task: string, ctx: ScopedContext): string {
 
 type Fetch = typeof fetch;
 
+/**
+ * Optional durable accounting around every dispatch (the cloud gateway uses a database quota). reserve() runs
+ * before the request is sent and must throw when no capacity is left; complete() runs once per reservation,
+ * whatever the outcome. Process-local limits still apply on top.
+ */
+export interface DispatchHooks {
+  reserve(): Promise<string>;
+  complete(ticket: string, outcome: { status: "completed" | "failed"; tokensIn: number | null; tokensOut: number | null; costUsd: number | null; error: string | null }): Promise<void>;
+}
+
 export class OpenRouterTeamProvider implements TeamProvider {
   readonly info: ProviderInfo;
   spentUsd = 0;
@@ -111,9 +121,11 @@ export class OpenRouterTeamProvider implements TeamProvider {
   private idle: Promise<void> = Promise.resolve();
   private readonly cfg: TeamLiveConfig;
   private readonly fetchImpl: Fetch;
-  constructor(cfg: TeamLiveConfig, fetchImpl: Fetch = fetch) {
+  private readonly hooks: DispatchHooks | null;
+  constructor(cfg: TeamLiveConfig, fetchImpl: Fetch = fetch, hooks: DispatchHooks | null = null) {
     this.cfg = cfg;
     this.fetchImpl = fetchImpl;
+    this.hooks = hooks;
     this.info = { kind: "live", name: "OpenRouter", model: cfg.model };
   }
 
@@ -161,6 +173,17 @@ export class OpenRouterTeamProvider implements TeamProvider {
     if (this.calls >= this.cfg.maxRequests) throw new TeamProviderError("REQUEST_CAP_REACHED", `request cap of ${this.cfg.maxRequests} reached`);
     let release!: () => void;
     this.idle = new Promise<void>((r) => (release = r));
+    let ticket: string | null = null;
+    let outcome: Parameters<DispatchHooks["complete"]>[1] = { status: "failed", tokensIn: null, tokensOut: null, costUsd: null, error: "NOT_SENT" };
+    if (this.hooks) {
+      try {
+        ticket = await this.hooks.reserve();
+      } catch (e) {
+        release();
+        const code = (e as { message?: string })?.message === "QUOTA_EXHAUSTED" ? "QUOTA_EXHAUSTED" : "KEY_CHECK_FAILED";
+        throw new TeamProviderError(code, code === "QUOTA_EXHAUSTED" ? "durable quota exhausted; no request sent" : "quota reservation failed; no request sent");
+      }
+    }
     this.calls++;
     const t0 = Date.now();
     try {
@@ -184,12 +207,18 @@ export class OpenRouterTeamProvider implements TeamProvider {
       if (this.cfg.freeOnly && cost !== null && cost > 0) this.stop("UNEXPECTED_COST", `a free-only request reported a cost of ${cost}; provider stopped`);
       const content = body.choices?.[0]?.message?.content;
       if (typeof content !== "string") throw new TeamProviderError("BAD_RESPONSE", "no message content");
-      return { content, latencyMs: Date.now() - t0, tokensIn: body.usage?.prompt_tokens ?? null, tokensOut: body.usage?.completion_tokens ?? null, costUsd: cost };
+      outcome = { status: "completed", tokensIn: body.usage?.prompt_tokens ?? null, tokensOut: body.usage?.completion_tokens ?? null, costUsd: cost, error: null };
+      return { content, latencyMs: Date.now() - t0, tokensIn: outcome.tokensIn, tokensOut: outcome.tokensOut, costUsd: cost };
     } catch (e) {
       this.failed++;
+      outcome = { ...outcome, status: "failed", error: (e as { code?: string })?.code ?? (signal.aborted ? "CANCELLED" : "PROVIDER_ERROR") };
       throw e;
     } finally {
-      release();
+      try {
+        if (ticket !== null) await this.hooks!.complete(ticket, outcome);
+      } finally {
+        release();
+      }
     }
   }
 
