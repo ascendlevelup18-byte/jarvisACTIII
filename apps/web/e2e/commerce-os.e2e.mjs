@@ -25,7 +25,19 @@ const check = async (name, fn) => {
 };
 const shot = async (page, file, fullPage = true) => OUT && page.screenshot({ path: `${OUT}/${file}`, fullPage });
 const skipSetup = (page) => page.addInitScript(() => localStorage.setItem("jarvis.setup.v1", JSON.stringify({ modules: ["refunds"] })));
-const go = (page, label) => page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: new RegExp(`^${label}`) }).click();
+// Navigation labels renamed in the 16 Oct redesign; some pages moved under the collapsed
+// "Demo & advanced tools", and on phones the sidebar opens from the menu button.
+const NAV_LABEL = { Dashboard: "Home", "Support inbox": "Inbox", "Audit trail": "Activity" };
+const navLabel = (label) => NAV_LABEL[label] ?? label;
+async function go(page, label) {
+  const name = navLabel(label);
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  const button = nav.getByRole("button", { name: new RegExp(`^${name}`) });
+  const menu = page.getByRole("button", { name: "Open navigation" });
+  if (!(await button.isVisible()) && (await menu.isVisible())) await menu.click();
+  if (!(await button.isVisible())) await nav.getByText("Demo & advanced tools").click();
+  await button.click();
+}
 const kpi = (page, label) => page.locator("dt", { hasText: new RegExp(`^${label}$`) }).locator("xpath=following-sibling::dd").first().innerText();
 
 async function requestFromStore(page, id) {
@@ -44,8 +56,8 @@ try {
   await page.goto(BASE);
 
   await check("lands on the dashboard; honest empty states before any case", async () => {
-    await page.getByRole("heading", { name: "Dashboard" }).waitFor();
-    await page.getByText("Nothing recorded yet").waitFor();
+    await page.getByRole("heading", { name: "Welcome back." }).waitFor(); // Home since the redesign
+    await page.getByText("Nothing needs review").first().waitFor();
     await go(page, "Support inbox");
     await page.getByText("No conversations yet").waitFor();
     await go(page, "Analytics");
@@ -65,7 +77,8 @@ try {
     const report = page.getByRole("region", { name: "Case report" });
     await report.getByText(/Clear filter: Escalated to a person/).waitFor();
     const outcomes = await report.locator("tbody tr td:nth-child(5)").allInnerTexts();
-    assert.ok(outcomes.length > 0 && outcomes.every((t) => t.trim() === "ESCALATED"));
+    // ESCALATED is shown as the "Needs review" badge since the redesign.
+    assert.ok(outcomes.length > 0 && outcomes.every((t) => /^(ESCALATED|Needs review)$/.test(t.trim())), outcomes.join(","));
     assert.ok((await report.getByText("Sample record").count()) > 0);
     if (OUT) await page.screenshot({ path: `${OUT}/c07-analytics-sample.png`, fullPage: true });
     await page.getByRole("radiogroup", { name: "Dataset" }).getByRole("radio", { name: "Recorded" }).click();
@@ -85,6 +98,7 @@ try {
   });
 
   await check("storefront: valid refund, unsafe escalation, already refunded, conflicting amount; customer copy matches outcomes", async () => {
+    await page.getByLabel("Merchant profile").click(); // "Open demo store" moved into the profile menu
     await page.getByRole("button", { name: "Open demo store" }).click();
     await requestFromStore(page, "48291");
     await page.getByText("Refund of $89.99 issued").waitFor({ timeout: 10000 });
@@ -106,9 +120,11 @@ try {
     await go(page, "Orders");
     const table = page.getByRole("table", { name: /Demo store orders/ });
     const row = (id) => table.locator("tr", { hasText: `#${id}` });
-    assert.match(await row("48291").innerText(), /Refunded by JARVIS \(simulated\)[\s\S]*RESOLVED[\s\S]*Verified/);
-    assert.match(await row("48294").innerText(), /Refund blocked[\s\S]*ESCALATED[\s\S]*Not executed/);
-    assert.match(await row("48293").innerText(), /Refunded before JARVIS[\s\S]*CLOSED NO ACTION[\s\S]*Not executed/);
+    // State badges use plain words since the redesign: RESOLVED → "Refund verified", ESCALATED → "Needs review",
+    // CLOSED_NO_ACTION → "Nothing to change".
+    assert.match(await row("48291").innerText(), /Refunded by JARVIS \(simulated\)[\s\S]*Refund verified[\s\S]*Verified/);
+    assert.match(await row("48294").innerText(), /Refund blocked[\s\S]*Needs review[\s\S]*Not executed/);
+    assert.match(await row("48293").innerText(), /Refunded before JARVIS[\s\S]*Nothing to change[\s\S]*Not executed/);
     if (OUT) await page.screenshot({ path: `${OUT}/c11-orders.png`, fullPage: false });
     await page.getByLabel("Search orders", { exact: true }).fill("cy sample");
     assert.equal(await table.locator("tbody tr").count(), 1);
@@ -209,7 +225,10 @@ try {
   await shot(page, "c04-analytics.png");
 
   await check("approvals is a review-only queue with reasons; audit trail filters by kind and case", async () => {
-    await page.getByRole("button", { name: /2 pending review/ }).click();
+    // The "N pending review" header button became a count badge on the Approvals nav item.
+    const nav = page.getByRole("navigation", { name: "Primary" });
+    assert.match(await nav.getByRole("button", { name: /^Approvals/ }).innerText(), /Approvals\s*2/);
+    await go(page, "Approvals");
     await page.getByRole("heading", { name: "Approvals" }).waitFor();
     await page.getByText("Review-only", { exact: true }).waitFor();
     const rows = page.getByRole("table", { name: /awaiting human review/ }).locator("tbody tr");
@@ -241,7 +260,7 @@ try {
     await page.goto(`${BASE}/#/case/CASE-does-not-exist`);
     await page.getByText("Case not found in this browser").waitFor();
     await page.goto(`${BASE}/#/no-such-page`);
-    await page.getByRole("heading", { name: "Dashboard" }).waitFor();
+    await page.getByRole("heading", { name: "Welcome back." }).waitFor();
     assert.match(page.url(), /#\/dashboard$/);
     await go(page, "AI provider");
     await page.getByRole("heading", { name: "AI provider", exact: true }).waitFor();
@@ -251,7 +270,7 @@ try {
     for (const label of ["Dashboard", "Proof Mode", "Orders", "Customers", "Support inbox", "Automation catalog", "Cases", "Approvals", "Analytics", "Audit trail", "AI provider", "Settings"]) {
       await go(page, label);
       const current = page.getByRole("navigation", { name: "Primary" }).locator('[aria-current="page"]');
-      assert.match(await current.innerText(), new RegExp(`^${label}`));
+      assert.match(await current.innerText(), new RegExp(`^${navLabel(label)}`));
     }
     assert.deepEqual(errors, []);
   });
@@ -267,7 +286,8 @@ try {
     assert.equal(await kpi(page, "Recorded cases"), "0");
     await go(page, "Support inbox");
     await page.getByText("No conversations yet").waitFor();
-    assert.equal(await page.getByRole("button", { name: /pending review/ }).innerText(), "0 pending review");
+    const approvals = page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: /^Approvals/ });
+    assert.equal((await approvals.innerText()).trim(), "Approvals"); // no review badge left
   });
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, reducedMotion: "reduce" });
