@@ -37,13 +37,26 @@ Exact expected outcomes: JARVIS 29/30, no-policy 12/30.
 
 **What this does not show.** It says nothing about how often a real model proposes something unsafe. Two cases (DC-E02, DC-E03) use scripted hostile proposals by design. DC-E05's injected gateway fault is not simulated for B1, so B1's "resolved" there is a claim without read-back.
 
-## Real-model run (prepared, needs approval)
+## Real-model run plan (prepared; needs owner approval and a new key)
 
-One run of 30 cases makes about 60 model calls through the existing pacer (20 requests/min limit), roughly 8 minutes (the 14 Oct run of the same size took 7.6 minutes). Its cost against the key's $1/day limit was not recorded, so check `/usage` before and after. Command, on the owner's PC with a **new** key at the hidden prompt:
+| Item | Plan |
+|---|---|
+| Credential | A **new** key only. The 14 Oct key is treated as compromised and is not reused. Typed once at a hidden prompt by `scripts/live-gate.ps1`; held in process env; cleared on exit; leak scan of the run's files (exit 14 if found). |
+| Endpoint check | Before the run: `scripts/tokenfactory-smoke.ps1` (unauthenticated `/models` must be 401, authenticated `/models` lists the model, one 64-token completion, rate-limit headers printed). Then the run's own startup gate: model listed and both schema probes pass, or nothing runs. |
+| Model identity | Requested `DeepSeek-V4-Flash`; each reply must report it exactly or as `<prefix>/DeepSeek-V4-Flash`, else that case fails closed and is recorded. |
+| Requests | 2 startup probes + 30 understanding calls + up to 30 decision calls (DC-E02 and DC-E03 are scripted, so ≤ 28 real decision calls): **≤ 62 calls**, plus the 2-call smoke test. |
+| Tokens (estimate) | From the 14 Oct receipts: a decision call used about 990 prompt + 140 completion tokens. Understanding prompts are shorter. Estimate ≤ 60k prompt + ≤ 8k completion tokens in total. |
+| Cost | The per-token price is not published in the evidence. The key's own cap is **$1/day** (`x-ratelimit-limit-user-daily-usd`), which bounds the worst case; read `/usage` before and after and record both. |
+| Rate limits | 20 requests/min: the client paces calls 3.1 s apart (`JARVIS_MODEL_MIN_INTERVAL_MS=3100`); one retry per call. Expected wall time ~8 minutes (14 Oct: 7.6 minutes). |
+| Timeouts | 30 s per call (`-TimeoutMs`); a timeout fails that case closed and is counted, not retried indefinitely. |
+| Reproducibility | Pinned dataset SHA checked before the run; prompt hashes, git SHA and dirty flag recorded in the result; results never overwrite an earlier run id. |
+| Evidence | `evals/results/baseline-no-policy.vllm-deepseek-v4-flash-<run>.json` (both arms, every case and proposal) and `live-gate-<stamp>.json` (startup, exit code, leak scan). Unsuccessful runs are kept and reported. |
+
+Command, on the owner's PC:
 
 ```powershell
-# after the same env setup that scripts/live-gate.ps1 performs
-node apps/api/eval/baseline-no-policy.ts --mode vllm --run b1-1
+& .\scripts\tokenfactory-smoke.ps1 -BaseUrl https://developer.amd.com.cn/radeon/api/v1 -Model DeepSeek-V4-Flash
+& .\scripts\live-gate.ps1 -BaseUrl https://developer.amd.com.cn/radeon/api/v1 -RunId b1-1 -BaselineOnly
 ```
 
-It writes `evals/results/baseline-no-policy.vllm-<model>-b1-1.json`, refuses to overwrite an existing run, and never changes the fixture result. Publish the comparison only if the run completes. Report it next to the fixture numbers, never instead of them.
+Publish the comparison only if the run completes, next to the fixture numbers and never instead of them, with the model's real unsafe-proposal count whatever it turns out to be.

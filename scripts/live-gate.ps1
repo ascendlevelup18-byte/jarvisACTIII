@@ -16,7 +16,8 @@
   Writes a non-secret gate summary JSON next to the other results. Windows PowerShell 5.1 and 7+.
 
   Exit codes: 0 all gates passed; 2 bad arguments; 3 key format; 11 API startup gate failed;
-  12 demo:verify failed; 13 benchmark failed or unsafe actions > 0; 14 key found in logs or results.
+  12 demo:verify failed; 13 benchmark failed or unsafe actions > 0; 14 key found in logs or results;
+  15 -BaselineOnly run failed.
 #>
 param(
   [Parameter(Mandatory = $true)][string]$BaseUrl,
@@ -31,7 +32,10 @@ param(
   [ValidateRange(5000, 120000)][int]$TimeoutMs = 30000,
   # 3100 ms keeps one process under the 20 requests/min account cap.
   [int]$MinIntervalMs = 3100,
-  [string]$KeyPattern = '^rc-[0-9a-fA-F]{48}$'
+  [string]$KeyPattern = '^rc-[0-9a-fA-F]{48}$',
+  # Run only the B1 baseline (apps/api/eval/baseline-no-policy.ts): the 30 cases through JARVIS plus the
+  # no-policy counterfactual from the same proposals. About 60 paid model calls plus 2 startup probes.
+  [switch]$BaselineOnly
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -81,6 +85,14 @@ try {
   $env:JARVIS_MODEL_MIN_INTERVAL_MS = "$MinIntervalMs"
   if ($UnderstandingModel) { $env:JARVIS_UNDERSTANDING_MODEL_NAME = $UnderstandingModel }
   $env:PORT = "$Port"
+
+  if ($BaselineOnly) {
+    Write-Host "1) B1 baseline, run $RunId (startup probes, then 30 cases: JARVIS and the no-policy counterfactual)..."
+    & node apps/api/eval/baseline-no-policy.ts --mode vllm --run $RunId
+    $summary.baselineExit = $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) { Write-Host "   baseline FAILED (exit $LASTEXITCODE)" -ForegroundColor Red; $code = 15 }
+    break
+  }
 
   Write-Host "1) Starting the API (startup gate: model list + probes)..."
   $api = Start-Process -FilePath "node" -ArgumentList "apps/api/src/main.ts" -RedirectStandardOutput $apiLog -RedirectStandardError $apiErr -PassThru -WindowStyle Hidden

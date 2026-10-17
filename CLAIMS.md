@@ -14,6 +14,8 @@ Every claim JARVIS makes in its README, deck, video and Judge Mode, with the fil
 | The model never sets the refund amount; it comes from payment records | Design + Tested | `apps/api/src/policy-engine.ts`; `engine-hardening.test.ts` | `npm run api:test` |
 | Nothing is RESOLVED without a matching read-back | Tested | `safety-invariants.test.ts`, `financial-action-safety.test.ts` | `npm run api:test` |
 | Retries and concurrent cases cannot refund twice | Tested | `financial-action-safety.test.ts`, `review-remediation.test.ts`, `engine-hardening.test.ts` | `npm run api:test` |
+| Racing or repeated identical requests count as one refund and one resolution; replays close as "refund already executed" | Tested | `financial-action-safety.test.ts`, `state-machine.test.ts`, `apps/web/test/replay-accounting.test.ts` | `npm test` |
+| Serverless functions never buffer more than 64 KiB of a request body | Tested | `serverless-body.test.ts` | `npm run api:test` |
 | Unsafe requests make zero gateway calls | Tested | `financial-action-safety.test.ts` | `npm run api:test` |
 | A provider that swaps the model fails closed | Tested | `engine-hardening.test.ts` | `npm run api:test` |
 | The public demo uses fixture AI, synthetic data and simulated payments, and refuses free text | Observed | `GET https://jarvis-actiii-preview.vercel.app/api/health`; `evals/results/hero-evidence-vercel-prod-20261016.json` | `npm run demo:verify -- https://jarvis-actiii-preview.vercel.app` |

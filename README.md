@@ -9,7 +9,7 @@
 Investigate payment exceptions, authorize a simulated refund from transaction evidence,
 and verify the result—or hand the case to a person with a complete audit trail.
 
-[**Explore the public demo →**](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_mth4q7sf53kfdjj6qlg30myk.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
+[**Verify it in Judge Mode →**](https://jarvis-actiii-preview.vercel.app/#/judge) · [Command Center](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Every claim and its evidence](CLAIMS.md) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_mth4q7sf53kfdjj6qlg30myk.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
 
 **Public demo: fixture AI · synthetic data · simulated payments · no real money moves**
 
@@ -29,9 +29,21 @@ Historical hosted-model evaluation: **14 Oct 2026 · DeepSeek-V4-Flash · run `t
 
 Sources: [raw benchmark](evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json) · [demo checks](evals/results/demo-evidence-live-20261014T201902Z.json) · [definitions and provenance](docs/AMD_EVIDENCE.md).
 
-These are bounded synthetic evaluations, not production results or a safety guarantee. Two cases (`DC-E02`, `DC-E03`) use scripted decision outputs. The four exact-outcome misses include a timeout, two conservative escalations and invalid decision output. The escalation metric counts a safe `FAILED` case as correct; it does not mean every case ended in `ESCALATED`. Only **7/10** ground-truth autonomous cases resolved autonomously. No ROI, business impact or plain-LLM comparison has been measured.
+These are bounded synthetic evaluations, not production results or a safety guarantee. Two cases (`DC-E02`, `DC-E03`) use scripted decision outputs. The four exact-outcome misses include a timeout, two conservative escalations and invalid decision output. The escalation metric counts a safe `FAILED` case as correct; it does not mean every case ended in `ESCALATED`. Only **7/10** ground-truth autonomous cases resolved autonomously. No ROI or business impact has been measured, and no live-model run without the policy layer has been made.
 
 The separate [fixture benchmark](evals/results/duplicate-charge-eval.v1.json) records **29/30 exact outcomes and zero unsafe actions**. Fixture figures shown in the app are distinct from the hosted-model results above.
+
+## What the policy layer prevents
+
+On the same 30 pinned cases, one run scores JARVIS and a counterfactual agent that executes each schema-valid proposal directly, with the policy layer removed.
+
+| | JARVIS | Same proposals, no policy layer |
+|---|:---:|:---:|
+| Unsafe outcomes (benchmark definition) | **0** | 18 |
+| Refunds the case evidence does not authorize | **0** | 11 |
+| Exact expected outcomes | 29 / 30 | 12 / 30 |
+
+**Scope:** offline, with the deliberately naive deterministic fixture proposer, not the AMD model; two cases use scripted hostile proposals; no-policy refunds are computed from evidence and never sent to a gateway. It shows what the policy layer blocks for a proposer that over-approves. It does not measure how often a real model proposes something unsafe. [Method and limits](docs/improvement/BASELINE_EXPERIMENT.md) · [result file](evals/results/baseline-no-policy.fixture.json) · reproduce with `npm run api:baseline`.
 
 ## Three cases. Three accountable outcomes.
 
@@ -68,7 +80,7 @@ flowchart TD
     N -.-> L
 ```
 
-The model cannot choose refund amounts, authorize payments, execute actions or mark them verified. Deterministic TypeScript handles money arithmetic, permissions, policy, idempotency and state transitions. Proposals are schema-validated and rechecked against records before execution.
+The model cannot choose refund amounts, authorize payments, execute actions or mark them verified. Deterministic TypeScript handles money arithmetic, permissions, policy, idempotency and state transitions. Proposals are schema-validated and rechecked against records before execution. Under concurrent or repeated requests one refund is executed; a case whose refund call replays an existing refund closes as "refund already executed" instead of counting as a second resolution ([money-path tests](apps/api/test/financial-action-safety.test.ts)).
 
 [Architecture and source map](docs/submission/ARCHITECTURE_SUMMARY.md) · [case engine](apps/api/src/case-engine.ts) · [policy engine](apps/api/src/policy-engine.ts) · [safety invariant tests](apps/api/test/safety-invariants.test.ts)
 
@@ -121,6 +133,11 @@ These are reproduction commands, not a claim about current CI status. For hosted
 
 | Start here | What you can inspect |
 |---|---|
+| [Judge Mode](https://jarvis-actiii-preview.vercel.app/#/judge) · [walkthrough](docs/improvement/JUDGE_WALKTHROUGH.md) | Run the outcomes, see who decides each step, inspect the recorded AMD run |
+| [CLAIMS.md](CLAIMS.md) | Every claim with its evidence file and reproduce command |
+| [AMD provenance](docs/improvement/AMD_PROVENANCE.md) | What ran on AMD, what ran locally, measured latencies, open questions |
+| [Security review](docs/improvement/SECURITY_REVIEW.md) · [technical reference](docs/TECHNICAL_REFERENCE.md) | Findings and fixes; ingress, AI modes, deployment and known limits |
+| [Business case](docs/improvement/BUSINESS_CASE.md) | Buyer, workflow, assumption-labelled value model, pilot plan |
 | [Evidence summary](docs/submission/EVIDENCE_SUMMARY.md) | Historical checks, dates, verified and unverified claims |
 | [Pinned dataset](data/cases/duplicate-charge-eval.v1.json) · [evaluator](apps/api/eval/run-benchmark.ts) | Ground truth and metric definitions, including safe failures |
 | [Hero evidence map](docs/submission/HERO_EVIDENCE_MAP.md) | Three outcomes linked to raw audit artifacts |
@@ -136,7 +153,8 @@ The workspace includes orders, customers, inbox, approvals, audit and analytics.
 - **Synthetic data and simulated gateway:** no real payments, external store connection or production customer deployment demonstrated.
 - **Human review is review-only:** escalation does not implement a complete approval-to-payment workflow.
 - **Finite evaluation:** one historical hosted-model benchmark, with conservative misses and two scripted cases; zero observed unsafe actions does not prove general safety.
-- **In-memory controls:** limits apply per process; serverless limits are per instance and budgets reset on restart. Serverless deployments refuse live-model cases.
+- **In-memory controls:** limits apply per process; serverless limits are per instance and budgets reset on restart. Serverless live-model mode exists only behind an explicit opt-in (`JARVIS_SERVERLESS_REAL_MODEL=enabled`); with per-instance quotas and per-instance startup probes, unrestricted public paid inference would be unsafe, so the public demo stays fixture-only.
+- **Idempotency is per world:** each public demo request gets a fresh synthetic world; a real deployment needs durable idempotency keys shared across workers.
 - **Shared operator token:** no per-user identity or token-use audit. Run the Node server behind a trusted TLS proxy; see the runbook.
 - **Provider availability changes:** historical receipts do not promise present availability. Gemma cases, self-hosted GPUs, Evolus integration and measured commercial impact remain unproven.
 
@@ -146,6 +164,6 @@ The workspace includes orders, customers, inbox, approvals, audit and analytics.
 
 **Inspect the evidence. Follow the decision. Verify the action.**
 
-[Open JARVIS →](https://jarvis-actiii-preview.vercel.app/#/command-center)
+[Open Judge Mode →](https://jarvis-actiii-preview.vercel.app/#/judge)
 
 </div>
