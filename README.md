@@ -9,7 +9,7 @@
 Investigate payment exceptions, authorize a simulated refund from transaction evidence,
 and verify the result—or hand the case to a person with a complete audit trail.
 
-[**Verify it in Judge Mode →**](https://jarvis-actiii-preview.vercel.app/#/judge) · [Command Center](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Every claim and its evidence](CLAIMS.md) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_mth4q7sf53kfdjj6qlg30myk.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
+[**Verify it in Judge Mode →**](https://jarvis-actiii-preview.vercel.app/#/judge) · [Command Center](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Every claim and its evidence](CLAIMS.md) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_e5igdcqqj2mfap7a5xsama37.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
 
 **Public demo: fixture AI · synthetic data · simulated payments · no real money moves**
 
@@ -145,7 +145,7 @@ These are reproduction commands, not a claim about current CI status. For hosted
 | [Implementation status](docs/IMPLEMENTATION_STATUS.md) | Implemented capabilities and outstanding work |
 | [Business evidence](docs/BUSINESS_EVIDENCE.md) | Measured technical results versus assumption-labelled estimates |
 | [Demo script](docs/DEMO_SCRIPT.md) · [screenshot gallery](docs/screenshots/) | Merchant workflow and earlier fixture UI captures |
-| [Submission and film](https://lablab.ai/submissions/lp1nzpneomsafp3lv6rjp220) · [corrected deck](docs/submission/deck/jarvis-deck.pdf) | Public submission and repository presentation materials |
+| [Submission and film](https://lablab.ai/submissions/lp1nzpneomsafp3lv6rjp220) · [final deck](docs/submission/deck/jarvis-deck.pdf) | Public submission and repository presentation materials |
 
 The workspace includes orders, customers, inbox, approvals, audit and analytics. Recorded cases are stored in this browser (newest 50); sample analytics are separately labelled. Duplicate-charge refunds are the working automation. Other catalog entries are previews. See the [build contract](docs/JARVIS_ACT_III_BUILD_CONTRACT.md) and owner runbook for operational boundaries.
 
