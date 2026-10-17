@@ -52,3 +52,19 @@ describe("merchant impact studio: unmeasured model cost", () => {
     assert.match(src, /JARVIS model cost per case has not been measured/);
   });
 });
+
+describe("merchant impact studio: input limits", async () => {
+  const { LIMITS, clampNote } = await import("../src/lib/merchant-impact.ts");
+  test("values inside the limits are used as entered; outside, the studio states the value it used", () => {
+    assert.equal(clampNote("autoResolvedPct", 30), null);
+    assert.equal(clampNote("autoResolvedPct", 250), "Above 100; using 100.");
+    assert.equal(clampNote("minutesPerCase", -3), "Below 0; using 0.");
+    assert.equal(clampNote("casesPerMonth", Number.NaN), "Not a number; using 0.");
+  });
+  test("the limits are the ones the calculation clamps to", () => {
+    const at = (pct: number) => computeImpact({ ...DEFAULT_ASSUMPTIONS, autoResolvedPct: pct });
+    assert.deepEqual(at(LIMITS.autoResolvedPct[1] + 50), at(LIMITS.autoResolvedPct[1]));
+    const huge = computeImpact({ ...DEFAULT_ASSUMPTIONS, casesPerMonth: 1e12 });
+    assert.deepEqual(huge, computeImpact({ ...DEFAULT_ASSUMPTIONS, casesPerMonth: LIMITS.casesPerMonth[1] }));
+  });
+});

@@ -66,3 +66,13 @@ describe("policy stress lab", () => {
     assert.doesNotMatch(src, /submitCase|fetch\(/);
   });
 });
+
+describe("policy stress lab selection", () => {
+  test("the detail follows the filter: kept if visible, else the first visible case, else none", async () => {
+    const { pickSelected } = await import("../src/lib/stress-lab.ts");
+    const unsafe = filterRows(STRESS_LAB_ROWS, { category: ALL, jarvis: ALL, unsafeOnly: true });
+    assert.equal(pickSelected(unsafe, "DC-A05")?.id, "DC-A05");
+    assert.equal(pickSelected(unsafe, "DC-S01")?.id, unsafe[0].id, "DC-S01 is not unsafe without policy, so the first visible case is shown");
+    assert.equal(pickSelected([], "DC-S01"), null);
+  });
+});

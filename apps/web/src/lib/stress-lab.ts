@@ -54,3 +54,8 @@ export function explainJarvis(r: StressLabRow): string {
   if (s === "FAILED") return "The case stopped before any verified money movement and failed closed for a person to review.";
   return s;
 }
+
+/** The case the detail panel shows: the chosen one if it survives the filter, otherwise the first visible case, otherwise none. */
+export function pickSelected(rows: StressLabRow[], selectedId: string): StressLabRow | null {
+  return rows.find((r) => r.id === selectedId) ?? rows[0] ?? null;
+}

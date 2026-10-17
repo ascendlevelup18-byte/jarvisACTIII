@@ -3,6 +3,7 @@ import { submitCase, ApiError } from "../lib/api.ts";
 import type { Case } from "../lib/case-types.ts";
 import { canRunFixture, missionOutcome } from "../lib/command-center.ts";
 import type { HealthPayload } from "../lib/runtime-truth.ts";
+import { loadHealth } from "../lib/use-runtime-health.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "../fixtures/demo-scenarios.ts";
 import { EVIDENCE_FILES, RECORDED_RUN, evidenceUrl, replayTimeline } from "../lib/recorded-amd-run.ts";
 import { BASELINE_FILE, NO_POLICY_BASELINE } from "../lib/baseline-result.ts";
@@ -60,32 +61,45 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
   const [health, setHealth] = useState<HealthPayload | null | undefined>();
   const [slots, setSlots] = useState<Slot[]>(VERDICTS.map(() => ({ status: "idle" })));
   const [selected, setSelected] = useState(0);
-  const running = slots.some((s) => s.status === "running");
+  const [starting, setStarting] = useState(false);
+  const inFlight = useRef(false);
+  const running = starting || slots.some((s) => s.status === "running");
 
+  // The runtime labels reuse the page's single /api/health response (already requested for the header chips),
+  // so the button is ready as soon as that answer arrives. Running still re-reads health fresh first.
   useEffect(() => {
     let cancelled = false;
-    readHealth().then((h) => !cancelled && setHealth(h));
+    loadHealth().then((h) => !cancelled && setHealth(h));
     return () => {
       cancelled = true;
     };
   }, []);
 
   const runAll = useCallback(async () => {
-    const h = await readHealth();
-    setHealth(h);
-    if (!canRunFixture(h)) return;
-    setSlots(VERDICTS.map(() => ({ status: "idle" })));
-    for (let i = 0; i < VERDICTS.length; i++) {
-      const scenario = DEMO_SCENARIOS.find((d) => d.id === VERDICTS[i].scenarioId)!;
-      setSlots((prev) => prev.map((s, j) => (j === i ? { status: "running" } : s)));
-      try {
-        const result = await submitCase(scenario.request);
-        onRecord(result, scenario);
-        setSlots((prev) => prev.map((s, j) => (j === i ? { status: "done", result } : s)));
-      } catch (e) {
-        const error = e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed";
-        setSlots((prev) => prev.map((s, j) => (j === i ? { status: "error", error } : s)));
+    // One run at a time: a second click during the fresh health check must not start a parallel run.
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setStarting(true);
+    try {
+      const h = await readHealth();
+      setHealth(h);
+      if (!canRunFixture(h)) return;
+      setSlots(VERDICTS.map(() => ({ status: "idle" })));
+      for (let i = 0; i < VERDICTS.length; i++) {
+        const scenario = DEMO_SCENARIOS.find((d) => d.id === VERDICTS[i].scenarioId)!;
+        setSlots((prev) => prev.map((s, j) => (j === i ? { status: "running" } : s)));
+        try {
+          const result = await submitCase(scenario.request);
+          onRecord(result, scenario);
+          setSlots((prev) => prev.map((s, j) => (j === i ? { status: "done", result } : s)));
+        } catch (e) {
+          const error = e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed";
+          setSlots((prev) => prev.map((s, j) => (j === i ? { status: "error", error } : s)));
+        }
       }
+    } finally {
+      inFlight.current = false;
+      setStarting(false);
     }
   }, [onRecord]);
 
