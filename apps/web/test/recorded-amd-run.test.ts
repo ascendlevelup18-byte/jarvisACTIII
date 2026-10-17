@@ -61,6 +61,22 @@ describe("recorded AMD run matches committed evidence", () => {
     assert.deepEqual(bench.telemetry.latencyMs, b.latencyMs);
   });
 
+  test("the displayed misses are exactly the benchmark's non-passing cases, and none moved money", () => {
+    const b = RECORDED_RUN.bench;
+    const misses = bench.cases.filter((c: { pass: boolean }) => !c.pass);
+    assert.deepEqual(
+      b.missedCases,
+      misses.map((c: { id: string; expected: { finalState: string }; actual: { finalState: string; reasons: string[] } }) => ({
+        id: c.id,
+        expected: c.expected.finalState,
+        actual: c.actual.finalState,
+        reasons: c.actual.reasons,
+      })),
+    );
+    assert.equal(b.missedCases.length, b.totalCases - b.passed);
+    for (const c of misses) assert.deepEqual(c.actual.moneyMoved, [], c.id);
+  });
+
   test("replay timeline follows the recorded call order", () => {
     const t = replayTimeline();
     assert.equal(t.length, 6);

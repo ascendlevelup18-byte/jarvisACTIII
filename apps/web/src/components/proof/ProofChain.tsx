@@ -1,5 +1,5 @@
 import type { Case } from "../../lib/case-types.ts";
-import { deriveProofChain, type ProofOrigin, type ProofStage, type ProofStatus } from "../../lib/proof.ts";
+import { deriveProofChain, followProofStep, type ProofOrigin, type ProofStage, type ProofStatus } from "../../lib/proof.ts";
 
 const ORIGIN: Record<ProofOrigin, { tag: string; cls: string }> = {
   input: { tag: "Customer input · untrusted", cls: "text-[var(--color-jarvis-muted)]" },
@@ -41,13 +41,17 @@ const STATUS: Record<ProofStatus, { label: string; surface?: string; pill: strin
   },
 };
 
-function StageCard({ stage, index }: { stage: ProofStage; index: number }) {
+function StageCard({ stage, index, onOpenStep }: { stage: ProofStage; index: number; onOpenStep?: (anchor: string) => void }) {
   const st = STATUS[stage.status];
   const surface = stage.status === "done" ? DONE_SURFACE[stage.origin] : st.surface;
   return (
     <li className="min-w-0">
       <a
         href={`#${stage.anchor}`}
+        onClick={(e) => {
+          e.preventDefault();
+          followProofStep(stage.anchor, (id) => document.getElementById(id), onOpenStep);
+        }}
         aria-label={`Step ${index + 1}: ${stage.label} — ${st.label}. ${stage.headline}. Jump to details.`}
         className={`group flex h-full flex-col rounded-md border px-3 py-2.5 transition-colors hover:border-[var(--color-jarvis-muted)] ${surface}`}
       >
@@ -68,7 +72,8 @@ function StageCard({ stage, index }: { stage: ProofStage; index: number }) {
 }
 
 /** The recorded case as a proof chain: input → AI → records → policy → execution → verification. */
-export function ProofChain({ caseData }: { caseData: Case }) {
+/** onOpenStep: where to go when a step's panel is not on this page (Judge Mode opens the full investigation). */
+export function ProofChain({ caseData, onOpenStep }: { caseData: Case; onOpenStep?: (anchor: string) => void }) {
   const stages = deriveProofChain(caseData);
   return (
     <section aria-labelledby="proof-chain-title" className="rounded-md border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] p-4">
@@ -82,7 +87,7 @@ export function ProofChain({ caseData }: { caseData: Case }) {
       </div>
       <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
         {stages.map((s, i) => (
-          <StageCard key={s.id} stage={s} index={i} />
+          <StageCard key={s.id} stage={s} index={i} onOpenStep={onOpenStep} />
         ))}
       </ol>
       <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[var(--color-jarvis-faint)]">

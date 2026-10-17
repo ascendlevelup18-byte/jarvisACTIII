@@ -12,7 +12,7 @@ import { StateBadge } from "../components/ui/StateBadge.tsx";
 import { btn } from "../components/ui/styles.ts";
 import "./judge.css";
 
-// The three outcomes a judge should verify, in the order they tell the story.
+// The four outcomes a judge should verify, in the order they tell the story.
 const VERDICTS: { scenarioId: string; headline: string; expected: string }[] = [
   { scenarioId: "valid-duplicate", headline: "Duplicate $89.99 charge", expected: "RESOLVED" },
   { scenarioId: "prompt-injection", headline: "Adversarial $5,000 demand", expected: "ESCALATED" },
@@ -90,6 +90,19 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
   const fixtureOk = canRunFixture(health);
   const selectedSlot = slots[selected];
 
+  // Judge Mode shows only the proof chain, so a step's panel lives in the full investigation:
+  // open the case there, then scroll to the panel once it renders.
+  const openStepInInvestigation = (caseId: string, anchor: string) => {
+    onOpenCase(caseId);
+    const until = Date.now() + 2000;
+    const seek = () => {
+      const el = document.getElementById(anchor);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else if (Date.now() < until) requestAnimationFrame(seek);
+    };
+    requestAnimationFrame(seek);
+  };
+
   return (
     <div className="judge motion-fade-in">
       <header className="judge-hero">
@@ -108,7 +121,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
           <li className="chip chip-amd">AMD run: recorded, not live</li>
         </ul>
         <nav className="judge-jump" aria-label="Judge Mode sections">
-          <a href="#judge-verdicts">1 · Three outcomes</a>
+          <a href="#judge-verdicts">1 · Four outcomes</a>
           <a href="#judge-authority">2 · Who decides</a>
           <a href="#judge-proof">3 · Inspect a case</a>
           <a href="#judge-amd">4 · Recorded AMD run</a>
@@ -119,9 +132,9 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
       <section id="judge-verdicts" aria-labelledby="judge-verdicts-title" className="judge-section">
         <div className="judge-section-head">
           <div>
-            <h3 id="judge-verdicts-title">1 · One refund, one blocked demand, one prevented double refund</h3>
+            <h3 id="judge-verdicts-title">1 · One refund, one blocked demand, one prevented double refund, one contradicted amount</h3>
             <p>
-              The button sends the exact canonical requests to the demo API, plus a fourth with a contradicted amount. Every run uses a fresh
+              The button sends the four canonical requests to the demo API. Every run uses a fresh
               synthetic world.
             </p>
           </div>
@@ -242,7 +255,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
               from the returned case record.
             </p>
             <DecisionExplainer caseData={selectedSlot.result} />
-            <ProofChain caseData={selectedSlot.result} />
+            <ProofChain caseData={selectedSlot.result} onOpenStep={(anchor) => openStepInInvestigation(selectedSlot.result.id, anchor)} />
           </div>
         ) : (
           <p className="judge-empty">Run the requests above, then choose “Inspect why” on any card to see its policy checks, evidence and audit chain.</p>
@@ -375,7 +388,8 @@ function RecordedAmdRun() {
         <li>Synthetic, deliberately adversarial cases: 20 of 30 must go to a person. Not production traffic.</li>
         <li>{b.scriptedModelCases.join(" and ")} use scripted decision output, so they are not model measurements.</li>
         <li>
-          The four misses all failed safe: {b.failedCases.map((f) => `${f.id} (${f.reasons.join(", ").toLowerCase().replaceAll("_", " ")})`).join("; ")}.
+          The {b.missedCases.length} misses all erred toward safety, with no money moved:{" "}
+          {b.missedCases.map((m) => `${m.id} expected ${m.expected}, ended ${m.actual} (${m.reasons.join(", ").toLowerCase().replaceAll("_", " ")})`).join("; ")}.
         </li>
         <li>The run used a working tree with uncommitted changes on top of commit {r.gitHead.slice(0, 7)}.</li>
       </ul>

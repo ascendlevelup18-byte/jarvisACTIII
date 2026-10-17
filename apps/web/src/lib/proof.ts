@@ -331,3 +331,25 @@ export function showdownRows(a: Case, b: Case): ShowdownRow[] {
     { label: "Final state", a: a.state, b: b.state },
   ];
 }
+
+/**
+ * Follows a proof-chain step to its record without touching the URL hash: the app's hash router
+ * treats "#evidence-panel" as an unknown route and redirects to the dashboard. Scrolls to the panel
+ * when it is on the page; otherwise asks the host (Judge Mode) to open the case where it is.
+ */
+export function followProofStep(
+  anchor: string,
+  find: (id: string) => { scrollIntoView(opts?: ScrollIntoViewOptions): void } | null,
+  openElsewhere?: (anchor: string) => void,
+): "scrolled" | "opened" | "none" {
+  const target = find(anchor);
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    return "scrolled";
+  }
+  if (openElsewhere) {
+    openElsewhere(anchor);
+    return "opened";
+  }
+  return "none";
+}
