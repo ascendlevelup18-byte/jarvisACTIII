@@ -1,9 +1,5 @@
 project_id = "jarvis-actiii-cloud"
 
-# Supabase CLI project config for JARVIS cloud functions. JWT verification stays ON for every function:
-# the gateway also verifies the user itself and checks org membership under RLS.
-[functions.team-gateway]
-verify_jwt = true
-
-[functions.admin-health]
+# JWT verification stays ON: the gateway also verifies the user itself and checks org membership under RLS.
+[functions.jarvis-gateway]
 verify_jwt = true

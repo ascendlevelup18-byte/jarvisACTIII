@@ -1,6 +1,6 @@
 # JARVIS cloud backend: audit, design, access control and risks
 
-Branch: `feature/actiii-grand-championship`. Status: **built and unit-tested locally; not applied to any Supabase project and not deployed.** The published competition site is unchanged.
+Branch: `feature/actiii-grand-championship`. Status: **schema, RLS and SQL functions applied to Supabase project `jarvis-actiii-cloud` (`bxjveqmdcnhvlzuotode`, Free, Mumbai) and verified there (39/39 security checks, run inside a rolled-back block). Gateway function built and tested locally; deployment pending the owner-run CLI step.** The published competition site is unchanged.
 
 ## 1. Current storage audit (what exists today)
 
@@ -30,7 +30,7 @@ Branch: `feature/actiii-grand-championship`. Status: **built and unit-tested loc
 Browser (Vercel, public Judge Mode: fixtures only, no keys, no database writes)
    │  Supabase Auth session (JWT)                    ▲ results, provenance labels
    ▼                                                 │
-Edge Function team-gateway ── CORS allowlist, JWT verify, strict body, role check under RLS
+Edge Function jarvis-gateway (/team) ── CORS allowlist, JWT verify, strict body, role check under RLS
    │   ├─ reserve_model_request()  (SQL, as the caller: atomic daily quota)
    │   ├─ OpenRouter (free model only, key from function secrets, no retries, ≤6 calls per operation)
    │   ├─ figure check + schema validation (same code as the local server)
@@ -121,7 +121,7 @@ This happens only after a project exists, the migration and tests have passed th
 
    The AMD key (`JARVIS_MODEL_API_KEY`) is **not needed**: no cloud route uses it.
 3. Save. Do not send any key to Claude or put it anywhere else.
-4. A platform admin calls `admin-health`. It answers configured yes/no and whether the model is listed at zero price; it never returns a value.
+4. A platform admin calls `jarvis-gateway/admin-health`. It answers configured yes/no and whether the model is listed at zero price; it never returns a value.
 5. Live calls stay off until the owner separately adds `JARVIS_TEAM_LIVE_ENABLED=1` and sets the org's daily OpenRouter quota above 0.
 
 Supabase **Vault** is not used for these keys: Vault is for secrets the database itself needs, and these keys are only needed by the functions.
@@ -152,7 +152,7 @@ No compliance certification or absence of vulnerabilities is claimed.
 | `apps/api/test/cloud-gateway.test.ts` (8) | Origin, JWT, body, role, disabled-live, misconfiguration, quota-before-dispatch, withheld figures, no key in responses, admin health booleans, edge copies in sync | Node, against fakes and a loopback mock |
 | `apps/api/test/team-openrouter.test.ts` (23) | Free-only, request cap, cost stop, 429/402 stop, cancellation, staged runs, dispatch hooks | Node |
 | `apps/web/test/figure-check.test.ts` (19) | Number formats and withholding | Node |
-| `supabase/tests/security_test.sql` | Cross-user and cross-org reads, anon, role escalation, AI/viewer approval, forged and replayed approvals, execution before approval, duplicate execution, quota exhaustion, model-history privacy, audit tampering, export and deletion | **Needs a Postgres with the migration applied; not yet run** |
+| `supabase/tests/security_test.sql` (39 checks) | Cross-user and cross-org reads, anon, role escalation, AI/viewer approval, forged and replayed approvals, execution before approval, duplicate execution, quota exhaustion, model-history privacy, audit tampering, export and deletion | **Passed 39/39 on jarvis-actiii-cloud, 2026-10-17; it first caught a policy-recursion bug, fixed in migration 20261017203000** |
 
 Not covered yet:
 - true concurrent sessions against Postgres (the single-statement reservation and the unique constraints are the controls);
@@ -163,7 +163,7 @@ Not covered yet:
 
 1. Create or choose the Supabase project. This needs the owner's approval.
 2. Apply the migration, then run `supabase/tests/security_test.sql`. It must end with `JARVIS_DB_TESTS_PASSED`.
-3. Run `node scripts/sync-edge-shared.mjs`, then deploy `team-gateway` and `admin-health` with JWT verification on.
+3. Run `node scripts/sync-edge-shared.mjs`, then deploy `jarvis-gateway` (routes `/team` and `/admin-health`) with JWT verification on.
 4. Do the one-time secret setup (Section 7) and the health check.
 5. To enable live use, set the quota and `JARVIS_TEAM_LIVE_ENABLED=1`. This is a separate owner decision.
 

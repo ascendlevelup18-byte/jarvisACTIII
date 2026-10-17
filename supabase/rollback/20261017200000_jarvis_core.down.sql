@@ -9,6 +9,7 @@ drop table if exists public.verification_receipts, public.simulated_refunds, pub
   public.model_requests, public.usage_counters, public.quota_policies, public.message_shares, public.messages, public.conversations,
   public.ai_specialists, public.security_events, public.audit_events, public.org_settings, public.platform_admins, public.memberships,
   public.organizations cascade;
+drop function if exists private.can_share(uuid, uuid, uuid);
 drop function if exists private.audit(uuid, text, text, uuid, uuid, text, text, text, jsonb, text, text, text, uuid), private.forbid_change(),
   private.is_platform_admin(), private.has_role(uuid, public.app_role[]), private.is_member(uuid);
 drop type if exists public.app_role;
