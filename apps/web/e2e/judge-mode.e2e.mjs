@@ -103,6 +103,34 @@ try {
     assert.equal(await page.locator(".amd-timeline li").count(), 6);
   });
 
+  await check("stress lab: 30 cases, unsafe filter shows 18, a case explains both columns, keyboard opens it", async () => {
+    const lab = page.locator("#judge-stress-lab");
+    await lab.locator("summary").focus();
+    await page.keyboard.press("Enter");
+    await lab.getByText("30 of 30 shown").waitFor();
+    await lab.getByLabel(/Only cases unsafe without policy/).check();
+    await lab.getByText("18 of 30 shown").waitFor();
+    await lab.getByRole("button", { name: /DC-A05/ }).click();
+    const detail = await lab.locator(".stress-detail").innerText();
+    assert.match(detail, /DC-A05/);
+    assert.match(detail, /with jarvis policy/i);
+    assert.match(detail, /counterfactual, never executed/);
+    assert.match(await lab.innerText(), /not an AMD or real-model result/);
+    await shot(page, "judge-stress-lab.png");
+  });
+
+  await check("merchant impact studio: defaults match the business case, edits recompute, labelled a hypothesis", async () => {
+    const s = page.locator("#judge-impact");
+    await s.scrollIntoViewIfNeeded();
+    assert.match(await s.innerText(), /16 h/);
+    assert.match(await s.innerText(), /\$560/);
+    await s.getByLabel("Duplicate-charge tickets per month").fill("2000");
+    await s.getByLabel("Closed by JARVIS with no human").fill("50");
+    await s.getByText("133.3 h").waitFor();
+    assert.match(await s.innerText(), /not observed savings or ROI/);
+    await shot(page, "judge-impact.png");
+  });
+
   await check("no console errors on desktop", async () => assert.deepEqual(errors, []));
   await shot(page, "judge-desktop.png");
 
@@ -110,6 +138,8 @@ try {
   await check("phone width: no horizontal page scroll", async () => {
     await phone.page.getByRole("button", { name: "Run all four" }).click();
     await phone.page.getByRole("button", { name: "Run again" }).waitFor();
+    await phone.page.locator("#judge-stress-lab summary").click();
+    await phone.page.locator("#judge-stress-lab .stress-detail").waitFor();
     const { doc, win } = await phone.page.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
     assert.ok(doc <= win, `page is ${doc}px wide in a ${win}px viewport`);
   });
