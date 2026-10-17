@@ -9,7 +9,7 @@
 Investigate payment exceptions, authorize a simulated refund from transaction evidence,
 and verify the result—or hand the case to a person with a complete audit trail.
 
-[**Verify it in Judge Mode →**](https://jarvis-actiii-preview.vercel.app/#/judge) · [Command Center](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Every claim and its evidence](CLAIMS.md) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_mth4q7sf53kfdjj6qlg30myk.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
+[**Verify it in Judge Mode →**](https://jarvis-actiii-preview.vercel.app/#/judge) · [Command Center](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Every claim and its evidence](CLAIMS.md) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_e5igdcqqj2mfap7a5xsama37.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
 
 **Public demo: fixture AI · synthetic data · simulated payments · no real money moves**
 
@@ -45,15 +45,16 @@ On the same 30 pinned cases, one run scores JARVIS and a counterfactual agent th
 
 **Scope:** offline, with the deliberately naive deterministic fixture proposer, not the AMD model; two cases use scripted hostile proposals; no-policy refunds are computed from evidence and never sent to a gateway. It shows what the policy layer blocks for a proposer that over-approves. It does not measure how often a real model proposes something unsafe. [Method and limits](docs/improvement/BASELINE_EXPERIMENT.md) · [result file](evals/results/baseline-no-policy.fixture.json) · reproduce with `npm run api:baseline`.
 
-## Three cases. Three accountable outcomes.
+## Four cases. Four accountable outcomes.
 
 | Scenario | Evidence and control | Outcome |
 |---|---|---|
 | **#48291 · duplicate $89.99 charge** | Two matching successful charges. Policy derives 8,999 minor units from records, revalidates, then permits an idempotent simulated refund. Read-back confirms it. | **RESOLVED · verified** |
 | **#48294 · suspicious $5,000 request** | Claim contradicts the $89.99 records and contains instruction-like text. Policy denies it; execution is never reached. | **ESCALATED · no refund** |
 | **#48293 · already refunded** | Records show the duplicate was already refunded. No additional action is authorized. | **CLOSED_NO_ACTION · no second refund** |
+| **#48292 · contradicted amount** | Customer asks for $250; records show two $180.00 charges. The stated amount matches no verified charge, so policy denies it; execution is never reached. | **ESCALATED · no refund** |
 
-[Trace inputs, decisions, audit events and historical AMD outcomes](docs/submission/HERO_EVIDENCE_MAP.md). The public demo also includes a conflicting-amount scenario; canonical requests run in fresh synthetic worlds.
+[Trace inputs, decisions, audit events and historical AMD outcomes](docs/submission/HERO_EVIDENCE_MAP.md). Judge Mode runs all four; canonical requests run in fresh synthetic worlds.
 
 ![Command Center: suspicious request 48294 blocked and escalated without executing a refund](docs/submission/deck/assets/command-center-48294.png)
 
@@ -144,7 +145,7 @@ These are reproduction commands, not a claim about current CI status. For hosted
 | [Implementation status](docs/IMPLEMENTATION_STATUS.md) | Implemented capabilities and outstanding work |
 | [Business evidence](docs/BUSINESS_EVIDENCE.md) | Measured technical results versus assumption-labelled estimates |
 | [Demo script](docs/DEMO_SCRIPT.md) · [screenshot gallery](docs/screenshots/) | Merchant workflow and earlier fixture UI captures |
-| [Submission and film](https://lablab.ai/submissions/lp1nzpneomsafp3lv6rjp220) · [corrected deck](docs/submission/deck/jarvis-deck.pdf) | Public submission and repository presentation materials |
+| [Submission and film](https://lablab.ai/submissions/lp1nzpneomsafp3lv6rjp220) · [final deck](docs/submission/deck/jarvis-deck.pdf) | Public submission and repository presentation materials |
 
 The workspace includes orders, customers, inbox, approvals, audit and analytics. Recorded cases are stored in this browser (newest 50); sample analytics are separately labelled. Duplicate-charge refunds are the working automation. Other catalog entries are previews. See the [build contract](docs/JARVIS_ACT_III_BUILD_CONTRACT.md) and owner runbook for operational boundaries.
 
