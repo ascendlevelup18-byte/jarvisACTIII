@@ -232,6 +232,43 @@ begin
   if n < 6 then raise exception 'JARVIS_DB_TEST_FAILED: 18c expected audit trail, found % rows', n; end if;
   ok := ok + 1;
 
+
+  -- model registry: only owners select, only registry models for the right purpose; members resolve, others get null
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', uo, 'role', 'authenticated')::text, true);
+  begin
+    perform public.select_model(org_a, 'team', 'or-nemotron-3-super-free');
+    raise exception 'JARVIS_DB_TEST_FAILED: operator selected a model';
+  exception when insufficient_privilege then ok := ok + 1; end;
+  begin
+    perform public.set_quota(org_a, 'openrouter', 50);
+    raise exception 'JARVIS_DB_TEST_FAILED: operator changed quota';
+  exception when insufficient_privilege then ok := ok + 1; end;
+  perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
+  begin
+    perform public.select_model(org_a, 'team', 'amd-deepseek-v4-flash');
+    raise exception 'JARVIS_DB_TEST_FAILED: case model selected for the team';
+  exception when raise_exception then if sqlerrm <> 'MODEL_NOT_ALLOWED' then raise; end if; ok := ok + 1; end;
+  begin
+    perform public.select_model(org_a, 'team', 'evil-model');
+    raise exception 'JARVIS_DB_TEST_FAILED: unregistered model selected';
+  exception when raise_exception then if sqlerrm <> 'MODEL_NOT_ALLOWED' then raise; end if; ok := ok + 1; end;
+  perform public.select_model(org_a, 'team', 'or-nemotron-3-super-free');
+  r := public.resolve_model(org_a, 'team');
+  if r ->> 'model_id' <> 'nvidia/nemotron-3-super-120b-a12b:free' then raise exception 'JARVIS_DB_TEST_FAILED: resolve_model %', r; end if;
+  ok := ok + 1;
+  perform set_config('request.jwt.claims', json_build_object('sub', ub, 'role', 'authenticated')::text, true);
+  if public.resolve_model(org_a, 'team') is not null then raise exception 'JARVIS_DB_TEST_FAILED: non-member resolved a model'; end if;
+  ok := ok + 1;
+
+  -- a case the deterministic policy executed and read-back verified is stored with its receipt
+  perform set_config('role', 'postgres', true);
+  case_a := public.record_case(org_a, ua, case_json || '{"id":"case-test-3","request":{"orderId":"48291"},"action":{"status":"ACCEPTED"},"verification":{"verified":true,"detail":"read-back matches","observedRefund":{"amountMinor":8999}},"authorization":{"outcome":"APPROVE","action":{"transactionId":"PAY-48291-B","amountMinor":8999,"currency":"USD","idempotencyKey":"refund:48291:case3"}}}'::jsonb, 'refund-policy@1');
+  select count(*) into n from public.action_proposals p join public.simulated_refunds s on s.proposal_id = p.id join public.verification_receipts v on v.proposal_id = p.id
+    where p.case_id = case_a and p.status = 'verified' and p.executed_by = 'policy' and s.amount_minor = 8999 and v.verified;
+  if n <> 1 then raise exception 'JARVIS_DB_TEST_FAILED: policy-executed case not recorded with receipt'; end if;
+  ok := ok + 1;
+
   -- data rights: the owner deletes their private chat; its message and share go with it
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
