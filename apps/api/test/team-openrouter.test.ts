@@ -75,6 +75,8 @@ describe("live boardroom through the provider", () => {
     assert.equal(p.usage().calls, r.calls);
     assert.ok(Math.abs(p.usage().spentUsd - r.calls * costPerCall) < 1e-9);
     const calls = seen.filter((s) => s.body?.messages);
+    // The key travels only in the Authorization header, never in any prompt the model sees.
+    assert.ok(calls.every((s) => !JSON.stringify(s.body).includes(KEY)));
     assert.ok(calls.every((s) => s.auth === `Bearer ${KEY}` && s.body.model === MODEL && s.body.max_tokens === 900));
     // Each specialist got only its scoped metrics.
     const hr = calls.find((s) => s.body.messages[0].content.includes("hr@1.0.0"))!;

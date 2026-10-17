@@ -70,7 +70,7 @@ export const SpecialistOutput = z.object({
   agent: z.enum(["ceo", "cfo", "sales", "cmo", "coo", "hr"]),
   roleVersion: z.string(),
   findings: z
-    .array(z.object({ text: z.string().min(1).max(400), kind: z.enum(["measured", "hypothesis"]), evidence: z.array(z.string()).min(1) }))
+    .array(z.object({ text: z.string().min(1).max(400), kind: z.enum(["measured", "hypothesis"]), evidence: z.array(z.string()).min(1) }).strict())
     .min(1)
     .max(6),
   recommendations: z
@@ -84,7 +84,7 @@ export const SpecialistOutput = z.object({
         owner: z.enum(["ceo", "cfo", "sales", "cmo", "coo", "hr"]),
         requiresApproval: z.literal(true),
         tool: z.string().optional(),
-      }),
+      }).strict(), // unknown keys such as "status": "approved" are rejected, not ignored
     )
     .max(4),
   missingInformation: z.array(z.string()).max(5),
