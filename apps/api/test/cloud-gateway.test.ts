@@ -157,7 +157,7 @@ describe("gateway access control", () => {
     assert.deepEqual(await (await call("/team", q)).json(), { error: "team_model_not_selected" });
     assert.deepEqual(await (await call("/cases", { orgId: ORG, request: DUP })).json(), { error: "case_model_not_selected" });
     // A registry row that is not free, or not OpenRouter, is never used for the team.
-    w.selected = { team: { ...REGISTRY.team, free_only: false } };
+    w.selected = { team: { ...REGISTRY.team!, free_only: false } };
     assert.deepEqual(await (await call("/team", q)).json(), { error: "team_model_not_selected" });
     assert.equal(completions + amd.requestCount, 0);
   });
