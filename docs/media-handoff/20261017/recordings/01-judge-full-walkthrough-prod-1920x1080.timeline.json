@@ -1,0 +1,74 @@
+{
+  "url": "https://jarvis-actiii-preview.vercel.app/#/judge",
+  "viewport": "1920x1080 page viewport only (no browser chrome or desktop)",
+  "method": "CDP screencast frames re-timed into WebM VP9 at 30 fps canvas; no frames edited",
+  "recordedAt": "2026-10-17T09:53:39.427Z",
+  "frames": 364,
+  "consoleErrors": [],
+  "marks": [
+    {
+      "t": 0,
+      "m": "hero: truth chips and section navigation"
+    },
+    {
+      "t": 6.6,
+      "m": "section 1: Run all four control"
+    },
+    {
+      "t": 8.7,
+      "m": "Run all four clicked (real fixture API calls)"
+    },
+    {
+      "t": 10.5,
+      "m": "four outcomes returned"
+    },
+    {
+      "t": 14.6,
+      "m": "card #48291"
+    },
+    {
+      "t": 16.8,
+      "m": "card #48294"
+    },
+    {
+      "t": 19,
+      "m": "card #48293"
+    },
+    {
+      "t": 21.3,
+      "m": "card #48292"
+    },
+    {
+      "t": 23.5,
+      "m": "Inspect why #48294"
+    },
+    {
+      "t": 33.7,
+      "m": "section 2: authority map"
+    },
+    {
+      "t": 41.4,
+      "m": "offline no-policy baseline"
+    },
+    {
+      "t": 49.2,
+      "m": "section 4: recorded AMD run, labelled not live"
+    },
+    {
+      "t": 52.7,
+      "m": "replay recorded calls"
+    },
+    {
+      "t": 69.7,
+      "m": "section 5: evidence files"
+    },
+    {
+      "t": 73.8,
+      "m": "Inspect why #48291"
+    },
+    {
+      "t": 82.2,
+      "m": "end"
+    }
+  ]
+}

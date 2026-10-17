@@ -1,0 +1,180 @@
+{
+  "capturedWith": "Playwright 1.62.1 + Chrome, headless",
+  "consoleErrors": [],
+  "items": [
+    {
+      "file": "01-judge-hero-1920x1080.png",
+      "desc": "Judge Mode hero, runtime truth chips, section navigation (before running)",
+      "at": "2026-10-17T09:48:21.016Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "02-four-scenario-controls-1920x1080.png",
+      "desc": "Section 1 with the 'Run all four' control, before running",
+      "at": "2026-10-17T09:48:22.071Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "02b-four-outcomes-1920x1080.png",
+      "desc": "All four outcomes after 'Run all four' (live fixture API calls)",
+      "at": "2026-10-17T09:48:24.988Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "03-card-48291-1920x1080.png",
+      "desc": "#48291 duplicate $89.99: APPROVE, simulated refund, read-back verified",
+      "at": "2026-10-17T09:48:25.554Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "03-card-48291-crop.png",
+      "desc": "#48291 duplicate $89.99: APPROVE, simulated refund, read-back verified (element crop of the card only)",
+      "at": "2026-10-17T09:48:25.621Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "04-card-48294-1920x1080.png",
+      "desc": "#48294 $5,000 prompt-injected demand: DENY, ESCALATED, $0 moved",
+      "at": "2026-10-17T09:48:26.182Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "04-card-48294-crop.png",
+      "desc": "#48294 $5,000 prompt-injected demand: DENY, ESCALATED, $0 moved (element crop of the card only)",
+      "at": "2026-10-17T09:48:26.245Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "05-card-48293-1920x1080.png",
+      "desc": "#48293 already refunded: NO_ACTION, CLOSED_NO_ACTION, no second refund",
+      "at": "2026-10-17T09:48:26.829Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "05-card-48293-crop.png",
+      "desc": "#48293 already refunded: NO_ACTION, CLOSED_NO_ACTION, no second refund (element crop of the card only)",
+      "at": "2026-10-17T09:48:26.884Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "06-card-48292-1920x1080.png",
+      "desc": "#48292 $250 claimed vs $180 recorded: DENY, ESCALATED, nothing executed",
+      "at": "2026-10-17T09:48:27.463Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "06-card-48292-crop.png",
+      "desc": "#48292 $250 claimed vs $180 recorded: DENY, ESCALATED, nothing executed (element crop of the card only)",
+      "at": "2026-10-17T09:48:27.523Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "07-authority-map-1920x1080.png",
+      "desc": "Section 2: who decides at each step (AI proposes, deterministic code decides)",
+      "at": "2026-10-17T09:48:28.538Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "08-no-policy-baseline-1920x1080.png",
+      "desc": "Offline no-policy baseline with its 'not an AMD or real-model result' label",
+      "at": "2026-10-17T09:48:29.067Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "09-recorded-amd-run-1920x1080.png",
+      "desc": "Section 4: recorded AMD-hosted run, 14 Oct 2026, labelled 'not a live model call'",
+      "at": "2026-10-17T09:48:30.066Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "09b-recorded-amd-replay-1920x1080.png",
+      "desc": "Recorded AMD call replay after it finishes (recorded latencies, not live)",
+      "at": "2026-10-17T09:48:37.110Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "10-inspect-why-48291-1920x1080.png",
+      "desc": "Section 3: Inspect why for #48291: policy checks, evidence, proof chain",
+      "at": "2026-10-17T09:48:38.791Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "10b-inspect-why-48294-1920x1080.png",
+      "desc": "Section 3: Inspect why for #48294: policy checks, evidence, proof chain",
+      "at": "2026-10-17T09:48:40.452Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "11-evidence-files-1920x1080.png",
+      "desc": "Section 5: evidence file links",
+      "at": "2026-10-17T09:48:41.478Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "12-judge-full-page-after-run-1920w.png",
+      "desc": "Full-page Judge Mode after running all four (tall image)",
+      "at": "2026-10-17T09:48:42.339Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "20-phone-390-hero.png",
+      "desc": "Phone width 390px (2x): hero and truth chips",
+      "at": "2026-10-17T09:48:44.809Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "21-phone-390-outcome-48291.png",
+      "desc": "Phone width 390px: #48291 verified refund card",
+      "at": "2026-10-17T09:48:47.214Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "22-phone-390-outcome-48294.png",
+      "desc": "Phone width 390px: #48294 blocked demand card",
+      "at": "2026-10-17T09:48:47.712Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "23-phone-390-amd.png",
+      "desc": "Phone width 390px: recorded AMD section",
+      "at": "2026-10-17T09:48:48.708Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "check": "phone 390: scrollWidth 390"
+    },
+    {
+      "file": "20-phone-375-hero.png",
+      "desc": "Phone width 375px (2x): hero and truth chips",
+      "at": "2026-10-17T09:48:50.643Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "21-phone-375-outcome-48291.png",
+      "desc": "Phone width 375px: #48291 verified refund card",
+      "at": "2026-10-17T09:48:53.046Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "22-phone-375-outcome-48294.png",
+      "desc": "Phone width 375px: #48294 blocked demand card",
+      "at": "2026-10-17T09:48:53.548Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "file": "23-phone-375-amd.png",
+      "desc": "Phone width 375px: recorded AMD section",
+      "at": "2026-10-17T09:48:54.547Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/judge"
+    },
+    {
+      "check": "phone 375: scrollWidth 375"
+    },
+    {
+      "file": "30-command-center-1920x1080.png",
+      "desc": "Command Center (#/command-center) as deployed",
+      "at": "2026-10-17T09:48:58.975Z",
+      "url": "https://jarvis-actiii-preview.vercel.app/#/command-center"
+    }
+  ]
+}
