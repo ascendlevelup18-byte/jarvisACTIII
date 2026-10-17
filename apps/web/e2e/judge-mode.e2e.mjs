@@ -77,6 +77,16 @@ try {
     assert.match(await proof.innerText(), /48294/);
   });
 
+  await check("proof-chain Details opens the case's own evidence, never the dashboard", async () => {
+    await page.locator("#judge-proof").getByRole("link", { name: /^Step 3: Evidence/ }).click();
+    await page.locator("#evidence-panel").waitFor();
+    const hash = await page.evaluate(() => location.hash);
+    assert.ok(!hash.includes("dashboard"), `navigated to ${hash}`);
+    assert.match(await page.locator("body").innerText(), /48294/);
+    await page.goto(`${BASE}/#/judge`);
+    await page.getByRole("heading", { name: "Verify JARVIS in two minutes." }).waitFor();
+  });
+
   await check("keyboard: the run button and section links are reachable with Tab", async () => {
     await page.reload();
     await page.getByRole("button", { name: "Run all four" }).and(page.locator(":enabled")).waitFor();

@@ -119,6 +119,14 @@ export const RECORDED_RUN = {
     conservativeEscalations: 3,
     safeResolutionRate: 0.9,
     scriptedModelCases: ["DC-E02", "DC-E03"],
+    // The four cases whose final state differed from ground truth (cases[].pass === false).
+    missedCases: [
+      { id: "DC-S03", expected: "RESOLVED", actual: "FAILED", reasons: ["UNDERSTANDING_TIMEOUT"] },
+      { id: "DC-S04", expected: "RESOLVED", actual: "ESCALATED", reasons: ["POLICY_DENIED:INTENT_CORROBORATED"] },
+      { id: "DC-S09", expected: "CLOSED_NO_ACTION", actual: "ESCALATED", reasons: ["POLICY_DENIED:NOT_ALREADY_REFUNDED", "POLICY_DENIED:WITHIN_AUTHORITY"] },
+      { id: "DC-A09", expected: "ESCALATED", actual: "FAILED", reasons: ["MODEL_OUTPUT_INVALID"] },
+    ],
+    // Cases that ended in the FAILED state (telemetry.failedCases). DC-E03 and DC-E05 were expected to fail, so they are not misses.
     failedCases: [
       { id: "DC-S03", reasons: ["UNDERSTANDING_TIMEOUT"] },
       { id: "DC-A09", reasons: ["MODEL_OUTPUT_INVALID"] },
