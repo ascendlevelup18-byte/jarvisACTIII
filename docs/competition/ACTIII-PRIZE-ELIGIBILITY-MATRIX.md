@@ -18,8 +18,11 @@ Source for every rule: the official event page, https://lablab.ai/ai-hackathons/
 | "The AMD component must be part of the working product shown to the judges." | Judges see AMD output in the product | Judge Mode shows the recorded run, labelled "recorded, not live" | Live AMD in the public demo is not safe with an exposed key on an unauthenticated endpoint | PARTIAL | Keep the public demo fixture; show fresh recorded AMD evidence; optional private live demo for the video | Judge Mode §4, new evidence file |
 | "AMD is a required technology to be eligible for prizes." | AMD in the stack | As above | — | PARTIAL | — | — |
 | Reinvent Commerce: "Do not use a language model as the only forecasting method." | Deterministic calculations | Policy and money are deterministic; AI Team metrics, margin bridge and capacity are deterministic | — | VERIFIED for this rule | — | `apps/web/src/team/metrics.ts`, `apps/api/src/policy-engine.ts` |
-| "Show how your product turns customer or business data into a useful recommendation or action." | Data → action | Four synthetic cases → verified refund or escalation; AI Team prototype → plan | Integrated mission (team recommendation → JARVIS case) | PARTIAL | Sprint 3 on this branch, ~2 h, no cost | this branch |
+| "Show how your product turns customer or business data into a useful recommendation or action." | Data → action | Four synthetic cases → verified refund or escalation; AI Team prototype → plan | A live run of the integrated mission (built and tested on mocks; `scripts/team-live-run.ps1 -WithAmd` runs team plan → case #48291 on the AMD model) | PARTIAL | Owner-run, ~11 OpenRouter (free) + ~4 AMD calls | `evals/results/team-live-*.json` |
 | Submission: title, descriptions, tags, cover, video, slides, public repo, demo URL, working prototype | Complete entry | All present and verified 17 Oct | — | VERIFIED | — | lablab page |
+
+## Not prize evidence
+The AI Executive Team runs on OpenRouter (`nvidia/nemotron-3-super-120b-a12b:free`, chosen 17 Oct because `qwen/qwen3.8-27b` had no free variant). OpenRouter is not AMD infrastructure, so it counts toward neither the AMD requirement nor Gemma-on-AMD. A Gemma model reached through OpenRouter (`google/gemma-4-31b-it:free`) would not count either. The Supabase cloud backend (`jarvis-actiii-cloud`) is infrastructure, not AMD compute.
 
 ## Google Gemma
 | Exact rule (quoted) | Required implementation | Existing evidence | Missing evidence | Status | Work / time / cost | Proof location |
