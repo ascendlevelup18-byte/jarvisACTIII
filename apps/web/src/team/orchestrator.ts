@@ -106,7 +106,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, controller: AbortController):
 export async function runBoardroom(
   request: string,
   provider: TeamProvider,
-  opts: { budgets?: Partial<Budgets>; signal?: AbortSignal; shared?: SharedNote[]; now?: () => Date; onProgress?: (a: Analysis) => void } = {},
+  opts: { budgets?: Partial<Budgets>; signal?: AbortSignal; shared?: SharedNote[]; now?: () => Date; onProgress?: (a: Analysis) => void; agents?: AgentId[] } = {},
 ): Promise<BoardroomResult> {
   const b = { ...DEFAULT_BUDGETS, ...opts.budgets };
   const now = opts.now ?? (() => new Date());
@@ -116,8 +116,11 @@ export async function runBoardroom(
   log("REQUEST", text);
 
   const topics = classifyTopics(text);
-  const selected = selectAgents(topics, b.maxSpecialists);
-  log("ROUTED", `topics ${topics.join(", ")} → ${selected.join(", ")}`);
+  // The owner may name the specialists (staged live tests: CFO alone, then CFO + COO + CEO). Order stays fixed
+  // and the CEO, when present, always runs last; the call budget still applies.
+  const chosen = opts.agents?.length ? AGENTS.map((a) => a.id).filter((id) => id !== "ceo" && opts.agents!.includes(id)).slice(0, b.maxSpecialists) : null;
+  const selected = chosen ? [...chosen, ...(opts.agents!.includes("ceo") ? (["ceo"] as AgentId[]) : [])] : selectAgents(topics, b.maxSpecialists);
+  log("ROUTED", `topics ${topics.join(", ")} → ${selected.join(", ")}${chosen ? " (owner-chosen)" : ""}`);
 
   const analyses: Analysis[] = [];
   let calls = 0;
@@ -154,14 +157,21 @@ export async function runBoardroom(
         // Tool allowlist: a recommendation that asks for a tool outside the role's read-only tools is dropped.
         const role = agentById(agent);
         const rejectedTools: string[] = [];
-        const recommendations = parsed.data.recommendations.filter((r) => {
-          if (!r.tool) return true;
-          const ok = (TEAM_TOOLS as readonly string[]).includes(r.tool) && role.tools.includes(r.tool as never);
-          if (!ok) rejectedTools.push(r.tool);
-          return ok;
-        });
-        // Figure check: findings may only state numbers the deterministic calculations support.
+        // Figure check (same rule as private replies): no finding, proposal or note may state a number the
+        // deterministic calculations do not support. Offending items are withheld, never shown with a warning.
         const unsupported: string[] = [];
+        const recommendations = parsed.data.recommendations.filter((r) => {
+          const toolOk = !r.tool || ((TEAM_TOOLS as readonly string[]).includes(r.tool) && role.tools.includes(r.tool as never));
+          if (!toolOk) rejectedTools.push(r.tool!);
+          const bad = unsupportedFigures(`${r.action} ${r.successMetric}`, ctx);
+          if (bad.length) unsupported.push(`${bad.join(", ")} in proposal "${r.action.slice(0, 80)}"`);
+          return toolOk && bad.length === 0;
+        });
+        const missingInformation = parsed.data.missingInformation.filter((m) => {
+          const bad = unsupportedFigures(m, ctx);
+          if (bad.length) unsupported.push(`${bad.join(", ")} in note "${m.slice(0, 80)}"`);
+          return bad.length === 0;
+        });
         const findings = parsed.data.findings.filter((f) => {
           const bad = unsupportedFigures(f.text, ctx);
           if (bad.length) unsupported.push(`${bad.join(", ")} in "${f.text.slice(0, 80)}"`);
@@ -171,7 +181,7 @@ export async function runBoardroom(
         a =
           findings.length === 0
             ? { agent, status: "invalid", error: "every finding stated figures the data does not support", provider: res.provider, latencyMs: res.latencyMs, rejectedTools }
-            : { agent, status: "ok", output: { ...parsed.data, findings, recommendations }, provider: res.provider, latencyMs: res.latencyMs, rejectedTools };
+            : { agent, status: "ok", output: { ...parsed.data, findings, recommendations, missingInformation }, provider: res.provider, latencyMs: res.latencyMs, rejectedTools };
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

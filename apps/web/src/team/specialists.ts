@@ -33,8 +33,8 @@ export function fixtureAnalysis(agent: AgentId, _task: string, ctx: ScopedContex
           { text: "Whether higher acquisition cost reflects channel saturation or weaker conversion after poor experiences cannot be separated from these records.", kind: "hypothesis", evidence: ["cacUsd", "marketingSpendUsd"] },
         ]),
         recommendations: [
-          { id: "cfo-1", action: "Hold total marketing spend at the September level until an experiment shows which channels still return their cost.", lever: "marketingSpend", direction: "decrease", successMetric: "Marketing cost per new customer back below $25 within 60 days", owner: "cfo", requiresApproval: true },
-          { id: "cfo-2", action: "Treat refund reduction as the first margin lever: track refunds as a share of gross sales weekly.", lever: "refunds", direction: "decrease", successMetric: "Refunds under 5% of gross sales within 60 days", owner: "coo", requiresApproval: true },
+          { id: "cfo-1", action: "Hold total marketing spend at the September level until an experiment shows which channels still return their cost.", lever: "marketingSpend", direction: "decrease", successMetric: "Marketing cost per new customer back toward its April level, measured monthly", owner: "cfo", requiresApproval: true },
+          { id: "cfo-2", action: "Treat refund reduction as the first margin lever: track refunds as a share of gross sales weekly.", lever: "refunds", direction: "decrease", successMetric: "Refunds as a share of gross sales back toward the April level, measured weekly", owner: "coo", requiresApproval: true },
         ],
         missingInformation: ["Margin by product line", "Refund cost by reason code", "Channel-level marketing spend"],
       };
@@ -48,7 +48,7 @@ export function fixtureAnalysis(agent: AgentId, _task: string, ctx: ScopedContex
           { text: "Falling repeat orders suggest returning customers had worse experiences; refunds alone do not establish why first-time conversion fell.", kind: "hypothesis", evidence: ["repeatOrderSharePct", "conversionPct"] },
         ]),
         recommendations: [
-          { id: "sales-1", action: "Instrument the checkout funnel to find the step where conversion dropped before changing offers.", lever: "checkoutFunnel", direction: "investigate", successMetric: "Step-level drop-off known for the last 30 days", owner: "sales", requiresApproval: true },
+          { id: "sales-1", action: "Instrument the checkout funnel to find the step where conversion dropped before changing offers.", lever: "checkoutFunnel", direction: "investigate", successMetric: "Step-level drop-off known for the most recent month", owner: "sales", requiresApproval: true },
           { id: "sales-2", action: "Win back customers whose last order was refunded or late, after fulfilment fixes are in place.", lever: "retention", direction: "increase", successMetric: "Orders from returning customers back above 45%", owner: "sales", requiresApproval: true },
         ],
         missingInformation: ["Funnel step data", "Reviews and ratings over time", "Price changes in the period"],
@@ -63,7 +63,7 @@ export function fixtureAnalysis(agent: AgentId, _task: string, ctx: ScopedContex
           { text: "Paid acquisition is buying traffic that converts worse; dissatisfied customers may be depressing reviews and word of mouth.", kind: "hypothesis", evidence: ["cacUsd", "csatPct", "conversionPct"] },
         ]),
         recommendations: [
-          { id: "cmo-1", action: "Add a retention budget (loyalty email and service-recovery offers) to rebuild repeat purchase.", lever: "marketingSpend", direction: "increase", successMetric: "Repeat order share up 4 points in 60 days versus a holdout group", owner: "cmo", requiresApproval: true },
+          { id: "cmo-1", action: "Add a retention budget (loyalty email and service-recovery offers) to rebuild repeat purchase.", lever: "marketingSpend", direction: "increase", successMetric: "Repeat order share above a holdout group after two months", owner: "cmo", requiresApproval: true },
           { id: "cmo-2", action: "Run a two-week holdout on the most expensive acquisition channel to measure its real lift.", lever: "acquisitionChannels", direction: "investigate", successMetric: "Measured incremental orders per channel", owner: "cmo", requiresApproval: true },
         ],
         missingInformation: ["Spend and new customers by channel", "Review volume and rating trend"],
@@ -80,8 +80,8 @@ export function fixtureAnalysis(agent: AgentId, _task: string, ctx: ScopedContex
           { text: "Late shipments and defective items are the likeliest drivers of refunds and tickets; carrier or supplier changes in May–June would confirm it.", kind: "hypothesis", evidence: ["lateShipmentPct", "defectReturnSharePct"] },
         ]).slice(0, 6),
         recommendations: [
-          { id: "coo-1", action: "Audit carrier and warehouse performance for orders shipped since May and fix the worst lane first.", lever: "fulfilment", direction: "investigate", successMetric: "Late shipments under 6% of orders within 45 days", owner: "coo", requiresApproval: true },
-          { id: "coo-2", action: "Inspect the products behind defect returns with the supplier before reordering.", lever: "productQuality", direction: "investigate", successMetric: "Defect returns under 30% of refunds", owner: "coo", requiresApproval: true },
+          { id: "coo-1", action: "Audit carrier and warehouse performance for orders shipped since May and fix the worst lane first.", lever: "fulfilment", direction: "investigate", successMetric: "Late shipments back toward the April rate, measured weekly", owner: "coo", requiresApproval: true },
+          { id: "coo-2", action: "Inspect the products behind defect returns with the supplier before reordering.", lever: "productQuality", direction: "investigate", successMetric: "Defect returns a smaller share of refunds than in September", owner: "coo", requiresApproval: true },
           { id: "coo-3", action: "Automate routine refund tickets with the JARVIS pattern (AI proposes, policy decides, read-back verifies) to free agent time.", lever: "supportAutomation", direction: "increase", successMetric: "Median first response under 6 hours", owner: "coo", requiresApproval: true },
         ],
         missingInformation: ["Carrier and warehouse by order", "Defect returns by product", "Ticket reasons"],
@@ -96,8 +96,8 @@ export function fixtureAnalysis(agent: AgentId, _task: string, ctx: ScopedContex
           { text: "Sustained overload risks errors and attrition; the assumption about handling time should be measured before hiring.", kind: "hypothesis", evidence: ["ticketsPerAgent", "support_capacity"] },
         ]),
         recommendations: [
-          { id: "hr-1", action: "Option for the owner: add temporary support capacity for 8 weeks while the ticket backlog clears.", lever: "supportCapacity", direction: "increase", successMetric: "Tickets per agent under 280 a month", owner: "hr", requiresApproval: true },
-          { id: "hr-2", action: "Train agents on a shared triage guide for late-delivery and defect tickets.", lever: "training", direction: "increase", successMetric: "Repeat contacts per ticket down 20%", owner: "hr", requiresApproval: true },
+          { id: "hr-1", action: "Option for the owner: add temporary support capacity for 8 weeks while the ticket backlog clears.", lever: "supportCapacity", direction: "increase", successMetric: "Tickets per agent back toward the April level", owner: "hr", requiresApproval: true },
+          { id: "hr-2", action: "Train agents on a shared triage guide for late-delivery and defect tickets.", lever: "training", direction: "increase", successMetric: "Fewer repeat contacts per ticket than before training, on the same ticket types", owner: "hr", requiresApproval: true },
         ],
         missingInformation: ["Measured handling time per ticket", "Overtime and absence (aggregate only)"],
       };

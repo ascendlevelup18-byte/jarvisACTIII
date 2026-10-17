@@ -2,10 +2,16 @@
 // it is never returned, logged or sent anywhere except the configured OpenRouter base URL.
 //
 // Enabled only with JARVIS_TEAM_PROVIDER=openrouter. One allowlisted model serves all six specialists, each
-// with its own versioned instructions and scoped data. Spend is capped per process (not a global control).
+// with its own versioned instructions and scoped data.
+//
+// Limits (all per server process, not a global or distributed control):
+//   - hard request cap (JARVIS_TEAM_MAX_REQUESTS), counted when a request is dispatched, whether it succeeds or not;
+//   - spend cap in USD, and with JARVIS_TEAM_FREE_ONLY (default on) any reported cost above zero stops the provider;
+//   - one request in flight at a time, no automatic retries, output-token and timeout limits.
+// Missing cost metadata is never read as "free": the request still counts against the request cap.
 import { agentById, type AgentId } from "../../../web/src/team/agents.ts";
 import type { ScopedContext } from "../../../web/src/team/context.ts";
-import { unsupportedFigures } from "../../../web/src/team/figures.ts";
+import { withholdUnsupported } from "../../../web/src/team/figures.ts";
 import type { ProviderInfo, ProviderResult, TeamProvider } from "../../../web/src/team/provider.ts";
 
 export const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
@@ -17,6 +23,10 @@ export interface TeamLiveConfig {
   maxUsd: number;
   maxOutputTokens: number;
   timeoutMs: number;
+  /** Hard cap on provider requests for this process (each dispatched request counts once). */
+  maxRequests: number;
+  /** Only models whose listed prompt and completion prices are 0, ending in ":free". Any billed call stops the provider. */
+  freeOnly: boolean;
 }
 
 export class TeamConfigError extends Error {}
@@ -32,6 +42,10 @@ export function loadTeamConfig(env: Record<string, string | undefined>): TeamLiv
   if (!apiKey) throw new TeamConfigError("JARVIS_TEAM_API_KEY is required");
   const model = (env.JARVIS_TEAM_MODEL ?? "").trim();
   if (!/^[a-z0-9][a-z0-9-]*\/[A-Za-z0-9._:-]+$/.test(model)) throw new TeamConfigError("JARVIS_TEAM_MODEL must be one explicit OpenRouter model id (vendor/model)");
+  // Routers pick a model per request, so the answering model cannot be fixed in advance: never allowed.
+  if (model.startsWith("openrouter/")) throw new TeamConfigError("JARVIS_TEAM_MODEL must name one model, not an OpenRouter router");
+  const freeOnly = (env.JARVIS_TEAM_FREE_ONLY ?? "1") !== "0";
+  if (freeOnly && !model.endsWith(":free")) throw new TeamConfigError("JARVIS_TEAM_FREE_ONLY is on: JARVIS_TEAM_MODEL must be a ':free' model id");
   const num = (name: string, def: number, lo: number, hi: number) => {
     const raw = env[name];
     if (raw === undefined || raw === "") return def;
@@ -46,11 +60,13 @@ export function loadTeamConfig(env: Record<string, string | undefined>): TeamLiv
     maxUsd: num("JARVIS_TEAM_MAX_USD", 1, 0.01, 20),
     maxOutputTokens: num("JARVIS_TEAM_MAX_OUTPUT_TOKENS", 900, 100, 4000),
     timeoutMs: num("JARVIS_TEAM_TIMEOUT_MS", 30000, 2000, 120000),
+    maxRequests: num("JARVIS_TEAM_MAX_REQUESTS", 15, 1, 200),
+    freeOnly,
   };
 }
 
 export class TeamProviderError extends Error {
-  readonly code: "MODEL_NOT_LISTED" | "MODEL_MISMATCH" | "BUDGET_EXHAUSTED" | "HTTP_ERROR" | "BAD_RESPONSE" | "NOT_JSON";
+  readonly code: "MODEL_NOT_LISTED" | "MODEL_NOT_FREE" | "MODEL_MISMATCH" | "BUDGET_EXHAUSTED" | "REQUEST_CAP_REACHED" | "UNEXPECTED_COST" | "QUOTA_EXHAUSTED" | "PROVIDER_BUSY" | "KEY_CHECK_FAILED" | "HTTP_ERROR" | "BAD_RESPONSE" | "NOT_JSON";
   constructor(code: TeamProviderError["code"], message: string) {
     super(message);
     this.code = code;
@@ -85,7 +101,14 @@ export class OpenRouterTeamProvider implements TeamProvider {
   readonly info: ProviderInfo;
   spentUsd = 0;
   calls = 0;
+  failed = 0;
+  costUnreported = 0;
   tokens = { prompt: 0, completion: 0 };
+  /** Set once a stop condition is hit (billing, quota). Every later request is refused until restart. */
+  stopped: TeamProviderError["code"] | null = null;
+  keyInfo: { limit: number | null; limitRemaining: number | null; usage: number | null; isFreeTier: boolean | null } | null = null;
+  /** Settles when the request in flight (if any) has fully finished; requests are strictly serialized. */
+  private idle: Promise<void> = Promise.resolve();
   private readonly cfg: TeamLiveConfig;
   private readonly fetchImpl: Fetch;
   constructor(cfg: TeamLiveConfig, fetchImpl: Fetch = fetch) {
@@ -98,35 +121,76 @@ export class OpenRouterTeamProvider implements TeamProvider {
     return { authorization: `Bearer ${this.cfg.apiKey}`, "content-type": "application/json", "x-title": "JARVIS AI Team" };
   }
 
-  /** Startup gate: the configured model must be listed by the provider. */
+  /**
+   * Startup gate (no inference, no cost): the model must be listed, and in free-only mode its listed prompt and
+   * completion prices must both be 0. The key's own limit and usage are read from the provider's key endpoint.
+   */
   async verifyModel(signal?: AbortSignal): Promise<void> {
-    const res = await this.fetchImpl(`${this.cfg.baseUrl}/models`, { headers: this.headers(), signal: signal ?? AbortSignal.timeout(this.cfg.timeoutMs) });
+    const sig = () => signal ?? AbortSignal.timeout(this.cfg.timeoutMs);
+    const res = await this.fetchImpl(`${this.cfg.baseUrl}/models`, { headers: this.headers(), signal: sig() });
     if (!res.ok) throw new TeamProviderError("HTTP_ERROR", `model list returned HTTP ${res.status}`);
-    const body = (await res.json()) as { data?: { id?: string }[] };
-    if (!body.data?.some((m) => m.id === this.cfg.model)) throw new TeamProviderError("MODEL_NOT_LISTED", `${this.cfg.model} is not listed by the provider`);
+    const body = (await res.json()) as { data?: { id?: string; pricing?: Record<string, unknown> }[] };
+    const listed = body.data?.find((m) => m.id === this.cfg.model);
+    if (!listed) throw new TeamProviderError("MODEL_NOT_LISTED", `${this.cfg.model} is not listed by the provider`);
+    if (this.cfg.freeOnly) {
+      const price = (k: string) => Number(listed.pricing?.[k] ?? NaN);
+      if (!(price("prompt") === 0 && price("completion") === 0)) throw new TeamProviderError("MODEL_NOT_FREE", `${this.cfg.model} is not listed with zero prompt and completion prices`);
+    }
+    const key = await this.fetchImpl(`${this.cfg.baseUrl}/key`, { headers: this.headers(), signal: sig() });
+    if (!key.ok) throw new TeamProviderError("KEY_CHECK_FAILED", `key check returned HTTP ${key.status}`);
+    const k = ((await key.json()) as { data?: Record<string, unknown> }).data ?? {};
+    const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    this.keyInfo = { limit: n(k.limit), limitRemaining: n(k.limit_remaining), usage: n(k.usage), isFreeTier: typeof k.is_free_tier === "boolean" ? k.is_free_tier : null };
+    if (this.keyInfo.limitRemaining !== null && this.keyInfo.limitRemaining < 0) throw new TeamProviderError("QUOTA_EXHAUSTED", "the key has no remaining credit");
   }
 
+  private stop(code: TeamProviderError["code"], message: string): never {
+    this.stopped = code;
+    throw new TeamProviderError(code, message);
+  }
+
+  /** One provider request. Never retried here; every dispatch counts against the request cap. */
   private async complete(messages: { role: string; content: string }[], json: boolean, signal: AbortSignal) {
-    if (this.spentUsd >= this.cfg.maxUsd) throw new TeamProviderError("BUDGET_EXHAUSTED", `spend cap of $${this.cfg.maxUsd} reached`);
+    if (this.stopped) throw new TeamProviderError(this.stopped, `provider stopped after ${this.stopped}; restart the server to reset`);
+    if (this.calls >= this.cfg.maxRequests) throw new TeamProviderError("REQUEST_CAP_REACHED", `request cap of ${this.cfg.maxRequests} reached`);
+    if (this.spentUsd >= this.cfg.maxUsd) throw new TeamProviderError("BUDGET_EXHAUSTED", `spend cap of ${this.cfg.maxUsd} reached`);
+    // One request at a time: wait for the previous one (bounded by its own timeout) to finish completely.
+    await this.idle;
+    if (signal.aborted) throw signal.reason ?? new Error("aborted"); // a cancelled or timed-out run never dispatches
+    if (this.stopped) throw new TeamProviderError(this.stopped, `provider stopped after ${this.stopped}; restart the server to reset`);
+    if (this.calls >= this.cfg.maxRequests) throw new TeamProviderError("REQUEST_CAP_REACHED", `request cap of ${this.cfg.maxRequests} reached`);
+    let release!: () => void;
+    this.idle = new Promise<void>((r) => (release = r));
     this.calls++;
     const t0 = Date.now();
-    const res = await this.fetchImpl(`${this.cfg.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: this.headers(),
-      signal: AbortSignal.any([signal, AbortSignal.timeout(this.cfg.timeoutMs)]),
-      body: JSON.stringify({ model: this.cfg.model, messages, max_tokens: this.cfg.maxOutputTokens, temperature: 0.2, usage: { include: true }, ...(json ? { response_format: { type: "json_object" } } : {}) }),
-    });
-    if (!res.ok) throw new TeamProviderError("HTTP_ERROR", `provider returned HTTP ${res.status}`);
-    const body = (await res.json()) as { model?: string; choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number } };
-    // No silent substitution: the answering model must be the one requested.
-    if (body.model !== this.cfg.model) throw new TeamProviderError("MODEL_MISMATCH", `requested ${this.cfg.model}, provider answered with ${String(body.model).slice(0, 80)}`);
-    const content = body.choices?.[0]?.message?.content;
-    if (typeof content !== "string") throw new TeamProviderError("BAD_RESPONSE", "no message content");
-    const cost = typeof body.usage?.cost === "number" ? body.usage.cost : null;
-    if (cost !== null) this.spentUsd += cost;
-    this.tokens.prompt += body.usage?.prompt_tokens ?? 0;
-    this.tokens.completion += body.usage?.completion_tokens ?? 0;
-    return { content, latencyMs: Date.now() - t0, tokensIn: body.usage?.prompt_tokens ?? null, tokensOut: body.usage?.completion_tokens ?? null, costUsd: cost };
+    try {
+      const res = await this.fetchImpl(`${this.cfg.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: this.headers(),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(this.cfg.timeoutMs)]),
+        body: JSON.stringify({ model: this.cfg.model, messages, max_tokens: this.cfg.maxOutputTokens, temperature: 0.2, usage: { include: true }, ...(json ? { response_format: { type: "json_object" } } : {}) }),
+      });
+      if (res.status === 429) this.stop("QUOTA_EXHAUSTED", "provider rate limit or daily free quota reached (HTTP 429); no retry");
+      if (res.status === 402) this.stop("QUOTA_EXHAUSTED", "provider refused the request for credit or spend limit (HTTP 402)");
+      if (!res.ok) throw new TeamProviderError("HTTP_ERROR", `provider returned HTTP ${res.status}`);
+      const body = (await res.json()) as { model?: string; choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number } };
+      // No silent substitution: the answering model must be the one requested.
+      if (body.model !== this.cfg.model) throw new TeamProviderError("MODEL_MISMATCH", `requested ${this.cfg.model}, provider answered with ${String(body.model).slice(0, 80)}`);
+      const cost = typeof body.usage?.cost === "number" ? body.usage.cost : null;
+      if (cost === null) this.costUnreported++;
+      else this.spentUsd += cost;
+      this.tokens.prompt += body.usage?.prompt_tokens ?? 0;
+      this.tokens.completion += body.usage?.completion_tokens ?? 0;
+      if (this.cfg.freeOnly && cost !== null && cost > 0) this.stop("UNEXPECTED_COST", `a free-only request reported a cost of ${cost}; provider stopped`);
+      const content = body.choices?.[0]?.message?.content;
+      if (typeof content !== "string") throw new TeamProviderError("BAD_RESPONSE", "no message content");
+      return { content, latencyMs: Date.now() - t0, tokensIn: body.usage?.prompt_tokens ?? null, tokensOut: body.usage?.completion_tokens ?? null, costUsd: cost };
+    } catch (e) {
+      this.failed++;
+      throw e;
+    } finally {
+      release();
+    }
   }
 
   async analyze(agent: AgentId, task: string, context: ScopedContext, signal: AbortSignal): Promise<ProviderResult> {
@@ -156,16 +220,31 @@ export class OpenRouterTeamProvider implements TeamProvider {
       false,
       signal,
     );
-    const text = r.content.slice(0, 1200);
-    const bad = unsupportedFigures(text, context);
+    // Same figure rule as the boardroom: sentences with unsupported numbers are withheld, not annotated.
+    const checked = withholdUnsupported(r.content.slice(0, 1200), context);
     return {
-      text: bad.length ? `${text}\n\n[JARVIS check: these figures are not in the data and were not verified: ${bad.join(", ")}]` : text,
-      evidence: [...new Set([...text.matchAll(/\[([a-zA-Z]+)\]/g)].map((m) => m[1]!).filter((k) => k in context.metrics))],
+      text: checked.text,
+      evidence: [...new Set([...checked.text.matchAll(/\[([a-zA-Z]+)\]/g)].map((m) => m[1]!).filter((k) => k in context.metrics))],
+      withheld: checked.withheld,
       provider: this.info,
     };
   }
 
   usage() {
-    return { calls: this.calls, spentUsd: Math.round(this.spentUsd * 1e6) / 1e6, capUsd: this.cfg.maxUsd, tokens: { ...this.tokens }, scope: "this server process only" };
+    return {
+      calls: this.calls,
+      maxRequests: this.cfg.maxRequests,
+      remainingRequests: Math.max(0, this.cfg.maxRequests - this.calls),
+      failed: this.failed,
+      spentUsd: Math.round(this.spentUsd * 1e6) / 1e6,
+      capUsd: this.cfg.maxUsd,
+      costUnreported: this.costUnreported,
+      freeOnly: this.cfg.freeOnly,
+      maxOutputTokens: this.cfg.maxOutputTokens,
+      stopped: this.stopped,
+      key: this.keyInfo,
+      tokens: { ...this.tokens },
+      scope: "this server process only",
+    };
   }
 }

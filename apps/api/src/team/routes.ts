@@ -22,6 +22,8 @@ const agentId = z.enum(["ceo", "cfo", "sales", "cmo", "coo", "hr"]);
 const BoardroomBody = z.object({
   request: z.string().trim().min(1).max(2000),
   shared: z.array(z.object({ from: agentId, messageId: z.string().max(40), text: z.string().max(1200) })).max(10).default([]),
+  /** Optional staged run: only these specialists are called (at most six calls in any case). */
+  agents: z.array(agentId).min(1).max(6).optional(),
 }).strict();
 const ReplyBody = z.object({ agent: agentId, question: z.string().trim().min(1).max(1200) }).strict();
 
@@ -64,7 +66,7 @@ export async function handleTeamRequest(path: string, method: string, authorizat
     if (path === "/team/boardroom") {
       const p = BoardroomBody.safeParse(json);
       if (!p.success) return { status: 400, body: { error: "invalid_request" } };
-      const result = await runBoardroom(p.data.request, deps.provider, { shared: p.data.shared, budgets: { perCallTimeoutMs: 60000 } });
+      const result = await runBoardroom(p.data.request, deps.provider, { shared: p.data.shared, agents: p.data.agents, budgets: { perCallTimeoutMs: 60000, maxCalls: 6 } });
       return { status: 200, body: { ...result, usage: deps.provider.usage() } };
     }
     const p = ReplyBody.safeParse(json);

@@ -10,6 +10,7 @@
 // No key is ever placed in this browser bundle, and the historical AMD key must not be reused.
 import type { AgentId } from "./agents.ts";
 import type { ScopedContext } from "./context.ts";
+import { withholdUnsupported } from "./figures.ts";
 import { fixtureAnalysis, fixtureReply } from "./specialists.ts";
 
 export interface ProviderInfo {
@@ -63,6 +64,8 @@ export class FixtureTeamProvider implements TeamProvider {
 
   async reply(agent: AgentId, question: string, context: ScopedContext, signal: AbortSignal) {
     await this.wait(signal);
-    return { ...fixtureReply(agent, question, context), provider: this.info };
+    const r = fixtureReply(agent, question, context);
+    // Same figure rule as live replies and the boardroom.
+    return { ...r, text: withholdUnsupported(r.text, context).text, provider: this.info };
   }
 }

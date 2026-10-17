@@ -41,6 +41,8 @@ try {
 }
 
 // Optional live AI Team (OpenRouter). Needs the operator token and a listed model; any problem exits 1.
+// Loopback only unless JARVIS_HOST says otherwise: live keys must not be reachable from the local network.
+const host = process.env.JARVIS_HOST?.trim() || "127.0.0.1";
 let team: OpenRouterTeamProvider | null = null;
 try {
   const teamCfg = loadTeamConfig(process.env);
@@ -48,7 +50,7 @@ try {
     if (!security.accessToken) throw new Error("the live AI Team requires an operator access token");
     team = new OpenRouterTeamProvider(teamCfg);
     await team.verifyModel();
-    console.log("[jarvis] team startup:", JSON.stringify({ provider: "openrouter", model: teamCfg.model, capUsd: teamCfg.maxUsd, scope: "this process" }));
+    console.log("[jarvis] team startup:", JSON.stringify({ provider: "openrouter", model: teamCfg.model, freeOnly: teamCfg.freeOnly, maxRequests: teamCfg.maxRequests, maxOutputTokens: teamCfg.maxOutputTokens, capUsd: teamCfg.maxUsd, key: team.keyInfo, scope: "this process" }));
   }
 } catch (e) {
   console.error(`[jarvis] team startup failed, not serving: ${e instanceof Error ? e.message : String(e)}`);
@@ -104,6 +106,6 @@ createApp(
           : null,
     }),
   },
-).listen(port, () => {
-  console.log(`[jarvis] listening: POST http://localhost:${port}/cases  (${runtime.mode} model, simulated payments, synthetic data)`);
+).listen(port, host, () => {
+  console.log(`[jarvis] listening on ${host}: POST http://${host}:${port}/cases  (${runtime.mode} model, simulated payments, synthetic data)`);
 });
