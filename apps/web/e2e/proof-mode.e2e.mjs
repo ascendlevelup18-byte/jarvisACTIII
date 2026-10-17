@@ -113,7 +113,9 @@ try {
     await openNav(page, "AI provider");
     const truth = page.locator("#system-truth");
     await truth.getByText("FIXTURE AI").waitFor({ timeout: 5000 });
-    await truth.getByText("NODE-SERVER").waitFor();
+    // Whatever /api/health reports for this target: NODE-SERVER locally, VERCEL in production.
+    const deployment = (await (await page.request.get(`${BASE}/api/health`)).json()).deployment;
+    await truth.getByText(String(deployment).toUpperCase(), { exact: true }).waitFor();
     assert.equal(await truth.getByText("NOT VERIFIED", { exact: true }).count(), 1);
     assert.equal(await truth.getByText("NOT CONNECTED", { exact: true }).count(), 1);
   });
