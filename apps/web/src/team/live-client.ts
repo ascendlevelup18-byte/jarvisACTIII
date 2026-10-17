@@ -7,6 +7,11 @@ import type { ProviderInfo } from "./provider.ts";
 
 export interface LiveUsage {
   calls: number;
+  maxRequests?: number;
+  remainingRequests?: number;
+  costUnreported?: number;
+  freeOnly?: boolean;
+  stopped?: string | null;
   spentUsd: number;
   capUsd: number;
   tokens: { prompt: number; completion: number };

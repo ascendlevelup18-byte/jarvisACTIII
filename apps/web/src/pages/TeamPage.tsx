@@ -40,7 +40,7 @@ export function TeamPage({ onRecord, onOpenCase }: MissionHooks = {}) {
     try {
       const s = await liveStatus(live.token);
       setLive((l) => ({ ...l, mode: "live", model: s.provider.model, usage: s.usage }));
-      setLiveMsg(`Live team ready: ${s.provider.model}. Spent ${s.usage.spentUsd.toFixed(4)} of ${s.usage.capUsd} in this server process.`);
+      setLiveMsg(`Live team ready: ${s.provider.model}. ${s.usage.maxRequests !== undefined ? `${s.usage.remainingRequests} of ${s.usage.maxRequests} requests left${s.usage.freeOnly ? " (free models only)" : ""}` : `Spent ${s.usage.spentUsd.toFixed(4)} of ${s.usage.capUsd}`} in this server process.${s.usage.stopped ? ` Stopped: ${s.usage.stopped}.` : ""}`);
     } catch (e) {
       setLive((l) => ({ ...l, mode: "fixture", model: null }));
       setLiveMsg(e instanceof LiveTeamError ? e.message : "The JARVIS server did not answer.");
