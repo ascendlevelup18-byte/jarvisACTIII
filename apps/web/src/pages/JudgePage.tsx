@@ -17,6 +17,7 @@ const VERDICTS: { scenarioId: string; headline: string; expected: string }[] = [
   { scenarioId: "valid-duplicate", headline: "Duplicate $89.99 charge", expected: "RESOLVED" },
   { scenarioId: "prompt-injection", headline: "Adversarial $5,000 demand", expected: "ESCALATED" },
   { scenarioId: "already-refunded", headline: "Already refunded", expected: "CLOSED_NO_ACTION" },
+  { scenarioId: "conflicting-amount", headline: "Contradicted amount: $250 claimed, $180 charged", expected: "ESCALATED" },
 ];
 
 type Slot = { status: "idle" } | { status: "running" } | { status: "done"; result: Case } | { status: "error"; error: string };
@@ -95,7 +96,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
         <p className="judge-eyebrow">Judge Mode</p>
         <h2 className="judge-title">Verify JARVIS in two minutes.</h2>
         <p className="judge-lede">
-          AI proposes. Policy decides. Every refund is verified. Run the three outcomes below against this demo's API, see which steps
+          AI proposes. Policy decides. Every refund is verified. Run the core outcomes below against this demo's API, see which steps
           the model touched, then inspect the recorded AMD-hosted run from 14 Oct 2026.
         </p>
         <ul className="judge-chips" aria-label="Runtime labels">
@@ -118,11 +119,14 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
       <section id="judge-verdicts" aria-labelledby="judge-verdicts-title" className="judge-section">
         <div className="judge-section-head">
           <div>
-            <h3 id="judge-verdicts-title">1 · Three requests, three accountable outcomes</h3>
-            <p>Each button press sends the exact canonical requests to the demo API. Every run uses a fresh synthetic world.</p>
+            <h3 id="judge-verdicts-title">1 · One refund, one blocked demand, one prevented double refund</h3>
+            <p>
+              The button sends the exact canonical requests to the demo API, plus a fourth with a contradicted amount. Every run uses a fresh
+              synthetic world.
+            </p>
           </div>
           <button type="button" className={btn.primary} onClick={runAll} disabled={running || health === undefined || !fixtureOk}>
-            {running ? "Running…" : slots.every((s) => s.status === "done") ? "Run again" : "Run all three"}
+            {running ? "Running…" : slots.every((s) => s.status === "done") ? "Run again" : "Run all four"}
           </button>
         </div>
         {health !== undefined && !fixtureOk && (
@@ -241,7 +245,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
             <ProofChain caseData={selectedSlot.result} />
           </div>
         ) : (
-          <p className="judge-empty">Run the three outcomes above, then choose “Inspect why” on any card to see its policy checks, evidence and audit chain.</p>
+          <p className="judge-empty">Run the requests above, then choose “Inspect why” on any card to see its policy checks, evidence and audit chain.</p>
         )}
       </section>
 
@@ -294,6 +298,8 @@ function RecordedAmdRun() {
         Copied from committed evidence files. A test keeps these values identical to the files, and nothing on this page calls a model.
       </p>
       <dl className="amd-meta">
+        <div><dt>Run</dt><dd>startup gate, three demo orders, then the 30-case benchmark (run {r.bench.runId})</dd></div>
+        <div><dt>Configuration</dt><dd>structured output <code>{r.structuredOutput}</code> · calls paced under the key's {r.smoke.rpmLimit} requests/min limit</dd></div>
         <div><dt>Model requested</dt><dd><code>{r.model}</code></dd></div>
         <div><dt>Model served</dt><dd><code>{r.servedModel}</code></dd></div>
         <div><dt>Endpoint</dt><dd><code>{r.endpointHost}</code></dd></div>
@@ -324,6 +330,20 @@ function RecordedAmdRun() {
           </tbody>
         </table>
       </div>
+
+      <details className="amd-checks">
+        <summary>All {r.demo.checksTotal} recorded checks, including audit and gateway evidence</summary>
+        <ol>
+          {r.demo.checks.map(([name, detail]) => (
+            <li key={name}>
+              <span aria-hidden className="amd-check-mark">✓</span>
+              <span>{name.replace(/^\d+ /, "")}</span>
+              <span className="mono">{detail}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="amd-note">The run did not store full model outputs or audit records; these checks are what the verifier recorded about them.</p>
+      </details>
 
       <div className="amd-replay">
         <button type="button" className={btn.secondary} onClick={replay}>

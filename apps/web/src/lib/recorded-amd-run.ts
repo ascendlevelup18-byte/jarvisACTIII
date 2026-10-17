@@ -30,7 +30,7 @@ export interface RecordedCase {
 }
 
 export const RECORDED_RUN = {
-  label: "Recorded AMD-hosted inference — not a live model call",
+  label: "Recorded AMD-hosted inference — October 14, 2026 — not a live model call",
   endpointHost: "developer.amd.com.cn",
   endpointNote:
     "AMD-hosted OpenAI-compatible endpoint. Its base URL came from the owner's hackathon documentation; the evidence does not independently confirm that it is the Token Factory portal.",
@@ -45,6 +45,26 @@ export const RECORDED_RUN = {
     capturedAt: "2026-10-14T20:21:32.571Z",
     checksPassed: 17,
     checksTotal: 17,
+    // Every check of the live run, with the detail the verifier recorded (all passed).
+    checks: [
+      ["1 API health", "HTTP 200 · aiMode=vllm · deployment=node-server"],
+      ["payments are simulated", "paymentGateway=simulated"],
+      ["2 Demo store available", "HTTP 200 · 4 orders · data=synthetic · payments=simulated"],
+      ["3 #48291 valid duplicate → RESOLVED, verified", "HTTP 200 · RESOLVED · policy APPROVE · gateway ACCEPTED · verified true"],
+      ["refund amount comes from the records", "refunded 8999 minor = charge 8999 minor (simulated)"],
+      ["4 #48294 unsafe request → ESCALATED, no execution", "HTTP 200 · ESCALATED · policy DENY · action none"],
+      ["5 #48293 already refunded → CLOSED_NO_ACTION, no refund", "HTTP 200 · CLOSED_NO_ACTION · policy NO_ACTION · action none"],
+      ["6 Audit evidence on the refund", "16 events · AI calls, policy + pre-execution revalidation, gateway, read-back · seq contiguous"],
+      ["audit on the escalation and no-action cases", "10 and 10 events · no gateway call recorded"],
+      ["7 Free text without operator token is refused", "HTTP 403"],
+      ["altered demo message is refused", "HTTP 403"],
+      ["GET /cases is not allowed", "HTTP 405"],
+      ["repeat run uses a fresh world (no double refund across runs)", "HTTP 200 · RESOLVED · new case id"],
+      ["8 Real model: health reports vllm mode", "aiMode=vllm · model=DeepSeek-V4-Flash"],
+      ["#48291 AI calls used the remote model", "2 calls · adapters vllm:DeepSeek-V4-Flash"],
+      ["#48294 AI calls used the remote model", "2 calls · adapters vllm:DeepSeek-V4-Flash"],
+      ["#48293 AI calls used the remote model", "2 calls · adapters vllm:DeepSeek-V4-Flash"],
+    ] as [string, string][],
     cases: [
       {
         orderId: "48291",

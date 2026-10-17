@@ -43,13 +43,15 @@ try {
   });
 
   await check("the recorded AMD run is labelled recorded and shows the evidence values", async () => {
-    await page.getByText("Recorded AMD-hosted inference — not a live model call").waitFor();
+    await page.getByText("Recorded AMD-hosted inference — October 14, 2026 — not a live model call").waitFor();
     const amd = page.locator("#judge-amd");
     for (const text of ["self-dploy/DeepSeek-V4-Flash", "17/17 passed", "20/20", "26/30"]) assert.ok((await amd.innerText()).includes(text), text);
+    await amd.getByText(/All 17 recorded checks/).click();
+    assert.match(await amd.innerText(), /16 events · AI calls, policy \+ pre-execution revalidation, gateway, read-back/);
   });
 
-  await check("Run all three: verified refund, blocked demand, no second refund", async () => {
-    await page.getByRole("button", { name: "Run all three" }).click();
+  await check("Run all four: verified refund, blocked demand, no second refund, contradicted amount", async () => {
+    await page.getByRole("button", { name: "Run all four" }).click();
     await page.getByRole("button", { name: "Run again" }).waitFor();
     const r1 = await card(page, "48291").innerText();
     assert.match(r1, /\$89\.99 simulated/);
@@ -62,6 +64,10 @@ try {
     const r3 = await card(page, "48293").innerText();
     assert.match(r3, /NO_ACTION/);
     assert.match(r3, /\$0\.00/);
+    const r4 = await card(page, "48292").innerText();
+    assert.match(r4, /ESCALATED/);
+    assert.match(r4, /DENY/);
+    assert.match(r4, /nothing executed/);
   });
 
   await check("Inspect why shows the policy explanation and proof chain for the blocked case", async () => {
@@ -73,13 +79,13 @@ try {
 
   await check("keyboard: the run button and section links are reachable with Tab", async () => {
     await page.reload();
-    await page.getByRole("button", { name: "Run all three" }).and(page.locator(":enabled")).waitFor();
+    await page.getByRole("button", { name: "Run all four" }).and(page.locator(":enabled")).waitFor();
     const seen = new Set();
     for (let i = 0; i < 120; i++) {
       await page.keyboard.press("Tab");
       seen.add(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ""));
     }
-    for (const label of ["1 · Three outcomes", "4 · Recorded AMD run", "Run all three"]) assert.ok([...seen].some((s) => s.startsWith(label)), label);
+    for (const label of ["1 · Three outcomes", "4 · Recorded AMD run", "Run all four"]) assert.ok([...seen].some((s) => s.startsWith(label)), label);
   });
 
   await check("reduced motion: the replay shows every recorded call at once", async () => {
@@ -92,7 +98,7 @@ try {
 
   const phone = await open({ width: 375, height: 812 });
   await check("phone width: no horizontal page scroll", async () => {
-    await phone.page.getByRole("button", { name: "Run all three" }).click();
+    await phone.page.getByRole("button", { name: "Run all four" }).click();
     await phone.page.getByRole("button", { name: "Run again" }).waitFor();
     const { doc, win } = await phone.page.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
     assert.ok(doc <= win, `page is ${doc}px wide in a ${win}px viewport`);

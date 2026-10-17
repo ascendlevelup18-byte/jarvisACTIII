@@ -44,6 +44,7 @@ describe("recorded AMD run matches committed evidence", () => {
     assert.equal(demo.checks.length, RECORDED_RUN.demo.checksTotal);
     assert.equal(demo.checks.filter((c: { ok: boolean }) => c.ok).length, RECORDED_RUN.demo.checksPassed);
     assert.deepEqual(demo.cases, RECORDED_RUN.demo.cases);
+    assert.deepEqual(demo.checks.map((c: { name: string; detail: string }) => [c.name, c.detail]), RECORDED_RUN.demo.checks);
   });
 
   test("benchmark summary, failures and latency", () => {
