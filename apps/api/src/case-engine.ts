@@ -114,8 +114,8 @@ async function advance(c: Case, deps: EngineDeps): Promise<void> {
 
   move(c, deps, "EXECUTING", { action });
   try {
-    const { refundId } = await deps.gateway.refund(action);
-    c.action = { status: "ACCEPTED", providerRefundId: refundId, error: null, attemptedAt: deps.clock().toISOString() };
+    const { refundId, replayed = false } = await deps.gateway.refund(action);
+    c.action = { status: "ACCEPTED", providerRefundId: refundId, replayed, error: null, attemptedAt: deps.clock().toISOString() };
   } catch (e) {
     // An error does not prove nothing happened; verification decides.
     c.action = { status: "ERROR", providerRefundId: null, error: message(e), attemptedAt: deps.clock().toISOString() };
@@ -135,7 +135,9 @@ async function advance(c: Case, deps: EngineDeps): Promise<void> {
             observed.amountMinor !== action.amountMinor ||
             observed.currency !== action.currency
           ? "provider refund does not match the authorized action"
-          : "provider confirms refund matches the authorized action";
+          : c.action.providerRefundId !== null && observed.id !== c.action.providerRefundId
+            ? `read-back found refund ${observed.id}, not the ${c.action.providerRefundId} the gateway returned`
+            : "provider confirms refund matches the authorized action";
   } catch (e) {
     detail = `read-back failed: ${message(e)}`;
   }
@@ -143,6 +145,13 @@ async function advance(c: Case, deps: EngineDeps): Promise<void> {
   c.verification = { verified, observedRefund: observed, detail };
   audit(c, deps, "VERIFICATION", null, null, c.verification);
   if (!verified) return finish(c, deps, "FAILED", [{ code: "EXECUTION_NOT_VERIFIED", detail }]);
+  // Another case executed this refund first (same idempotency key). The duplicate is refunded and
+  // verified, but this case moved no money, so it must not count as a second resolution.
+  if (c.action.replayed) {
+    return finish(c, deps, "CLOSED_NO_ACTION", [
+      { code: "REFUND_ALREADY_EXECUTED", detail: `refund ${observed!.id} already existed for ${action.idempotencyKey}; this case created no new refund` },
+    ]);
+  }
   move(c, deps, "RESOLVED");
 }
 

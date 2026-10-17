@@ -16,6 +16,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/demo-store"
+  to = "/.netlify/functions/demo-store"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/health"
   to = "/.netlify/functions/health"
   status = 200

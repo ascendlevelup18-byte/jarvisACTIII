@@ -1,0 +1,5 @@
+# Generated or large media; keep out of the repository.
+out/
+slides/
+assets/
+vo/

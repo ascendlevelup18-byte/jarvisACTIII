@@ -5,13 +5,13 @@ import { Panel, TrustBadge } from "../ui/Panel.tsx";
 export function UnderstandingPanel({ understanding }: { understanding: StructuredRequest | null }) {
   if (!understanding) {
     return (
-      <Panel title="Structured understanding" variant="untrusted" badge={<TrustBadge kind="untrusted" />}>
+      <Panel id="understanding-panel" title="Structured understanding" variant="untrusted" badge={<TrustBadge kind="untrusted" />}>
         <p className="text-[var(--color-jarvis-muted)]">Not available for this case.</p>
       </Panel>
     );
   }
   return (
-    <Panel title="Structured understanding" variant="untrusted" badge={<TrustBadge kind="untrusted" />}>
+    <Panel id="understanding-panel" title="Structured understanding" variant="untrusted" badge={<TrustBadge kind="untrusted" />}>
       <p className="mb-3 text-[11px] text-[var(--color-ai-accent)]">AI-derived · UNTRUSTED · no CoT shown</p>
       <dl className="space-y-2">
         <div>

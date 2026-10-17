@@ -1,0 +1,27 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci && npm ci --prefix apps/web",
+  "buildCommand": "npm run web:build",
+  "outputDirectory": "apps/web/dist",
+  "git": {
+    "deploymentEnabled": {
+      "master": false,
+      "post-submission/audit-hardening-2026-10-16": false
+    }
+  },
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/cases",
+      "destination": "/api/cases"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

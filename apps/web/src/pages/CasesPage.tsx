@@ -1,8 +1,9 @@
-import type { SessionCaseEntry } from "../lib/session-store.ts";
-import { countByState } from "../lib/session-store.ts";
-import { StateBadge } from "../components/ui/StateBadge.tsx";
-import { DEMO_SCENARIOS, type DemoScenario } from "../fixtures/demo-scenarios.ts";
 import { DemoScenariosBar } from "../components/layout/DemoScenariosBar.tsx";
+import { EmptyState, PageHeader, Pill } from "../components/ui/Primitives.tsx";
+import { StateBadge } from "../components/ui/StateBadge.tsx";
+import type { DemoScenario } from "../fixtures/demo-scenarios.ts";
+import { verificationStateOf } from "../lib/commerce.ts";
+import { countByState, type SessionCaseEntry } from "../lib/session-store.ts";
 
 export function CasesPage({
   history,
@@ -20,40 +21,35 @@ export function CasesPage({
   const counts = countByState(history);
   return (
     <div className="motion-fade-in space-y-4">
-      <header>
-        <h2 className="text-xl font-semibold text-[var(--color-jarvis-ink)]">Cases</h2>
-        <p className="mt-1 text-sm text-[var(--color-jarvis-muted)]">
-          Session case queue from real API responses. Run a canonical demo or reopen a prior investigation.
-        </p>
-      </header>
+      <PageHeader
+        title="Cases"
+        description="Cases saved in this browser, newest first. Open a case to review its decision and evidence."
+      />
       <DemoScenariosBar loading={loading} activeId={activeDemoId} onRunDemo={onRunDemo} />
-      <div className="flex flex-wrap gap-3 text-xs text-[var(--color-jarvis-muted)]">
-        <span>RESOLVED {counts.RESOLVED}</span>
-        <span>ESCALATED {counts.ESCALATED}</span>
-        <span>CLOSED_NO_ACTION {counts.CLOSED_NO_ACTION}</span>
-        <span>FAILED {counts.FAILED}</span>
-        <span className="text-[var(--color-jarvis-faint)]">· {DEMO_SCENARIOS.length} demos available</span>
-      </div>
+      <ul aria-label="Case counts" className="flex flex-wrap gap-2">
+        <li><Pill tone="success">Resolved {counts.RESOLVED}</Pill></li>
+        <li><Pill tone="warning">Escalated {counts.ESCALATED}</Pill></li>
+        <li><Pill tone="neutral">Closed, no action {counts.CLOSED_NO_ACTION}</Pill></li>
+        <li><Pill tone="danger">Failed {counts.FAILED}</Pill></li>
+      </ul>
       {history.length === 0 ? (
-        <p className="rounded-md border border-dashed border-[var(--color-jarvis-border)] px-4 py-10 text-center text-sm text-[var(--color-jarvis-muted)]">
-          No cases yet this session.
-        </p>
+        <EmptyState title="No recorded cases yet" body="Run a scenario above, or request a refund from the demo store." />
       ) : (
-        <ul className="divide-y divide-[var(--color-jarvis-border)] overflow-hidden rounded-md border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)]">
+        <ul className="divide-y divide-[var(--color-jarvis-border)] overflow-hidden rounded-lg border border-[var(--color-jarvis-border)] bg-[var(--color-jarvis-surface)] shadow-card">
           {history.map((entry) => (
             <li key={entry.id}>
-              <button
-                type="button"
-                onClick={() => onOpenCase(entry)}
-                className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-jarvis-surface-2)]"
-              >
+              <button type="button" onClick={() => onOpenCase(entry)} className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-jarvis-surface-2)]">
                 <StateBadge state={entry.state} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{entry.scenarioTitle ?? `Order #${entry.orderId}`}</p>
-                  <p className="font-mono text-[11px] text-[var(--color-jarvis-muted)]">
-                    {entry.customerId} · #{entry.orderId}
+                  <p className="truncate font-mono text-[11px] text-[var(--color-jarvis-muted)]">
+                    {entry.customerId} · #{entry.orderId} · {entry.id}
                   </p>
                 </div>
+                <span className="text-xs text-[var(--color-jarvis-muted)]">Verification: {verificationStateOf(entry.caseData)}</span>
+                <span className="text-xs tabular-nums text-[var(--color-jarvis-faint)]">
+                  {new Date(entry.submittedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </span>
               </button>
             </li>
           ))}

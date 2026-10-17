@@ -11,7 +11,8 @@ export const TRANSITIONS: Readonly<Record<CaseState, readonly CaseState[]>> = {
   POLICY_VALIDATION: ["APPROVED", "ESCALATED", "CLOSED_NO_ACTION", "FAILED"],
   APPROVED: ["EXECUTING", "ESCALATED", "FAILED"],
   EXECUTING: ["VERIFYING", "FAILED"],
-  VERIFYING: ["RESOLVED", "FAILED"],
+  // CLOSED_NO_ACTION from VERIFYING: the refund call replayed a refund another case had already executed.
+  VERIFYING: ["RESOLVED", "CLOSED_NO_ACTION", "FAILED"],
   RESOLVED: [],
   ESCALATED: [],
   FAILED: [],
@@ -28,8 +29,16 @@ export function assertTransition(c: Case, to: CaseState): void {
   if ((to === "APPROVED" || to === "EXECUTING") && !approved) {
     throw new Error(`invariant: ${to} requires an APPROVE authorization`);
   }
-  if (to === "CLOSED_NO_ACTION" && c.authorization?.outcome !== "NO_ACTION") {
-    throw new Error("invariant: CLOSED_NO_ACTION requires a NO_ACTION authorization");
+  if (to === "CLOSED_NO_ACTION") {
+    // Policy found nothing owed, or this case's refund call replayed a refund that already existed
+    // and read-back confirmed it: either way this case moved no money of its own.
+    const replayedAndVerified = c.state === "VERIFYING" && c.action?.replayed === true && c.verification?.verified === true;
+    if (c.authorization?.outcome !== "NO_ACTION" && !replayedAndVerified) {
+      throw new Error("invariant: CLOSED_NO_ACTION requires a NO_ACTION authorization or a verified replayed refund");
+    }
+  }
+  if (to === "RESOLVED" && c.action?.replayed === true) {
+    throw new Error("invariant: a replayed refund cannot resolve a second case");
   }
   if (to === "RESOLVED" && c.verification?.verified !== true) {
     throw new Error("invariant: RESOLVED requires successful verification");

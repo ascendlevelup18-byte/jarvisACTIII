@@ -11,7 +11,7 @@ export function MoneyMovementStrip({ caseData }: { caseData: Case }) {
         </h3>
         <span className="text-[10px] text-[var(--color-jarvis-muted)]">Amounts from records only — not AI text</span>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2">
         {lanes.map((lane) => (
           <div key={lane.label} className={lane.muted ? "opacity-50" : ""}>
             <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-jarvis-muted)]">{lane.label}</p>

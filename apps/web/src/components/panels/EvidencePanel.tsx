@@ -5,7 +5,7 @@ import { Panel, TrustBadge } from "../ui/Panel.tsx";
 export function EvidencePanel({ evidence }: { evidence: EvidenceBundle | null }) {
   if (!evidence) {
     return (
-      <Panel title="Evidence" badge={<TrustBadge kind="authoritative" />} variant="authoritative">
+      <Panel id="evidence-panel" title="Evidence" badge={<TrustBadge kind="authoritative" />} variant="authoritative">
         <p className="text-[var(--color-jarvis-muted)]">Not gathered.</p>
       </Panel>
     );
@@ -65,7 +65,7 @@ export function EvidencePanel({ evidence }: { evidence: EvidenceBundle | null })
           </section>
         )}
         {evidence.contradictions.length > 0 && (
-          <section className="rounded border border-[var(--color-danger)]/35 bg-[#1f1416] p-2">
+          <section className="rounded border border-[var(--color-danger)]/35 bg-[var(--color-danger-surface)] p-2">
             <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-danger)]">
               Contradictions
             </h4>
