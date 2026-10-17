@@ -6,6 +6,11 @@ import { computeMetrics, formatMetricValue } from "../team/metrics.ts";
 import { append, deleteThread, exportThread, loadStore, MAX_MESSAGE_CHARS, saveStore, setShared, sharedNotes, thread, type TeamStore } from "../team/conversations.ts";
 import { runBoardroom, type Analysis, type AuditEvent, type BoardroomResult } from "../team/orchestrator.ts";
 import { FixtureTeamProvider } from "../team/provider.ts";
+import { LiveTeamError, liveBoardroom, liveReply, liveStatus, provenanceLabel, type LiveUsage } from "../team/live-client.ts";
+import { submitCase, ApiError } from "../lib/api.ts";
+import type { Case } from "../lib/case-types.ts";
+import { DEMO_SCENARIOS, type DemoScenario } from "../fixtures/demo-scenarios.ts";
+import { caseProvenance, isActionable, MISSION_LINK_NOTE } from "../team/mission.ts";
 import "./team.css";
 
 type Tab = "directory" | "chat" | "boardroom";
@@ -13,12 +18,34 @@ const DEMO_PROBLEM =
   "Our quality is falling, monthly sales are declining and our margins are shrinking. Investigate the causes and help us improve business performance.";
 // Paced so each specialist's turn is visible; this is not model latency.
 const provider = new FixtureTeamProvider(220);
+/** Provider mode for this page. The operator token lives only in page memory. */
+interface LiveMode {
+  mode: "fixture" | "live";
+  token: string;
+  model: string | null;
+  usage: LiveUsage | null;
+}
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-export function TeamPage() {
+type MissionHooks = { onRecord?: (c: Case, scenario: DemoScenario) => void; onOpenCase?: (id: string) => void };
+
+export function TeamPage({ onRecord, onOpenCase }: MissionHooks = {}) {
   const [tab, setTab] = useState<Tab>("directory");
   const [agent, setAgent] = useState<AgentId>("cfo");
   const [store, setStore] = useState<TeamStore>(() => loadStore());
+  const [live, setLive] = useState<LiveMode>({ mode: "fixture", token: "", model: null, usage: null });
+  const [liveMsg, setLiveMsg] = useState("");
+  const connect = async () => {
+    setLiveMsg("Checking the server…");
+    try {
+      const s = await liveStatus(live.token);
+      setLive((l) => ({ ...l, mode: "live", model: s.provider.model, usage: s.usage }));
+      setLiveMsg(`Live team ready: ${s.provider.model}. Spent ${s.usage.spentUsd.toFixed(4)} of ${s.usage.capUsd} in this server process.`);
+    } catch (e) {
+      setLive((l) => ({ ...l, mode: "fixture", model: null }));
+      setLiveMsg(e instanceof LiveTeamError ? e.message : "The JARVIS server did not answer.");
+    }
+  };
   useEffect(() => {
     saveStore(store);
   }, [store]);
@@ -36,11 +63,38 @@ export function TeamPage() {
           Ask a specialist privately, or bring a business problem to the boardroom. Specialists propose; every action waits for your approval and nothing is executed.
         </p>
         <ul className="team-chips" aria-label="Runtime labels">
-          <li className="chip chip-warn">Fixture specialists: deterministic rules, no language model</li>
+          {live.mode === "live" ? (
+            <li className="chip chip-live">OpenRouter live inference · {live.model} · operator session</li>
+          ) : (
+            <li className="chip chip-warn">Fixture specialists: deterministic rules, no language model</li>
+          )}
           <li className="chip">{DATASET_META.label}</li>
           <li className="chip">Single local user · stored in this browser only</li>
         </ul>
       </header>
+
+      <details className="team-provider">
+        <summary>Provider: {live.mode === "live" ? `OpenRouter (live) · ${live.model}` : "fixture rules in this browser"}</summary>
+        <p className="muted">
+          Live mode sends requests to the local JARVIS server, which holds the OpenRouter key and enforces the model allowlist, the spend cap and one request at a time. It
+          needs the server operator token, which is kept in this page's memory only.
+        </p>
+        <div className="team-actions">
+          <label className="team-select">
+            Operator token
+            <input type="password" autoComplete="off" value={live.token} onChange={(e) => setLive((l) => ({ ...l, token: e.target.value }))} />
+          </label>
+          <button type="button" className="team-btn" onClick={() => void connect()} disabled={!live.token}>
+            Use live team
+          </button>
+          {live.mode === "live" && (
+            <button type="button" className="team-link" onClick={() => (setLive((l) => ({ ...l, mode: "fixture", model: null })), setLiveMsg("Back to fixture rules."))}>
+              Back to fixture
+            </button>
+          )}
+        </div>
+        {liveMsg && <p role="status" className="muted">{liveMsg}</p>}
+      </details>
 
       <div className="team-tabs" role="tablist" aria-label="AI Team">
         {(
@@ -58,8 +112,8 @@ export function TeamPage() {
 
       <section role="tabpanel" id={`team-panel-${tab}`} aria-labelledby={`team-tab-${tab}`} className="team-panel">
         {tab === "directory" && <Directory onOpen={open} store={store} />}
-        {tab === "chat" && <PrivateChat agent={agent} setAgent={setAgent} store={store} setStore={setStore} />}
-        {tab === "boardroom" && <Boardroom store={store} />}
+        {tab === "chat" && <PrivateChat agent={agent} setAgent={setAgent} store={store} setStore={setStore} live={live} />}
+        {tab === "boardroom" && <Boardroom store={store} live={live} onRecord={onRecord} onOpenCase={onOpenCase} />}
       </section>
     </div>
   );
@@ -95,7 +149,7 @@ function Directory({ onOpen, store }: { onOpen: (id: AgentId) => void; store: Te
   );
 }
 
-function PrivateChat({ agent, setAgent, store, setStore }: { agent: AgentId; setAgent: (a: AgentId) => void; store: TeamStore; setStore: (f: (s: TeamStore) => TeamStore) => void }) {
+function PrivateChat({ agent, setAgent, store, setStore, live }: { agent: AgentId; setAgent: (a: AgentId) => void; store: TeamStore; setStore: (f: (s: TeamStore) => TeamStore) => void; live: LiveMode }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const role = agentById(agent);
@@ -112,8 +166,10 @@ function PrivateChat({ agent, setAgent, store, setStore }: { agent: AgentId; set
     setDraft("");
     setStore((s) => append(s, agent, { author: "owner", authorKind: "human", text, at: new Date().toISOString() }));
     try {
-      const r = await provider.reply(agent, text, scopedContext(agent), new AbortController().signal);
-      setStore((s) => append(s, agent, { author: agent, authorKind: "ai-fixture", text: r.text, evidence: r.evidence, at: new Date().toISOString() }));
+      const r = live.mode === "live" ? await liveReply(live.token, agent, text) : await provider.reply(agent, text, scopedContext(agent), new AbortController().signal);
+      setStore((s) => append(s, agent, { author: agent, authorKind: r.provider.kind === "live" ? "ai-live" : "ai-fixture", text: r.text, evidence: r.evidence, at: new Date().toISOString(), provenance: provenanceLabel(r.provider) }));
+    } catch (e) {
+      setStore((s) => append(s, agent, { author: agent, authorKind: "ai-fixture", text: `No answer: ${e instanceof Error ? e.message : "request failed"}`, at: new Date().toISOString(), provenance: "error" }));
     } finally {
       setBusy(false);
     }
@@ -147,7 +203,8 @@ function PrivateChat({ agent, setAgent, store, setStore }: { agent: AgentId; set
         {msgs.map((m) => (
           <li key={m.id} className={m.authorKind === "human" ? "msg msg-human" : "msg msg-ai"}>
             <p className="msg-meta">
-              <strong>{m.authorKind === "human" ? "You (human)" : `${role.short} (AI specialist, fixture)`}</strong> · {time(m.at)} · #{m.seq}
+              <strong>{m.authorKind === "human" ? "You (human)" : m.authorKind === "ai-live" ? `${role.short} (AI specialist, live)` : `${role.short} (AI specialist, fixture)`}</strong>
+              {m.provenance && m.authorKind !== "human" && <span className="muted mono">{m.provenance}</span>} · {time(m.at)} · #{m.seq}
               {m.sharedToBoardroom && <span className="st st-ok">shared to boardroom</span>}
             </p>
             <p className="msg-text">{m.text}</p>
@@ -187,11 +244,13 @@ function PrivateChat({ agent, setAgent, store, setStore }: { agent: AgentId; set
 
 const STATUS_LABEL: Record<Analysis["status"], string> = { ok: "done", invalid: "rejected: invalid output", timeout: "timed out", error: "failed", cancelled: "cancelled", skipped_budget: "skipped: budget" };
 
-function Boardroom({ store }: { store: TeamStore }) {
+function Boardroom({ store, live, onRecord, onOpenCase }: { store: TeamStore; live: LiveMode } & MissionHooks) {
+  const [missionFor, setMissionFor] = useState<string | null>(null);
   const [problem, setProblem] = useState(DEMO_PROBLEM);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<Analysis[]>([]);
   const [result, setResult] = useState<BoardroomResult | null>(null);
+  const [error, setError] = useState("");
   const [decisions, setDecisions] = useState<Record<string, "approved" | "rejected">>({});
   const [ownerAudit, setOwnerAudit] = useState<AuditEvent[]>([]);
   const ctrl = useRef<AbortController | null>(null);
@@ -203,12 +262,19 @@ function Boardroom({ store }: { store: TeamStore }) {
     setRunning(true);
     setProgress([]);
     setResult(null);
+    setError("");
     setDecisions({});
     setOwnerAudit([]);
     ctrl.current = new AbortController();
     try {
-      const r = await runBoardroom(problem, provider, { signal: ctrl.current.signal, shared, onProgress: (a) => setProgress((p) => [...p, a]) });
+      const r =
+        live.mode === "live"
+          ? await liveBoardroom(live.token, problem, shared, ctrl.current.signal)
+          : await runBoardroom(problem, provider, { signal: ctrl.current.signal, shared, onProgress: (a) => setProgress((p) => [...p, a]) });
+      if (live.mode === "live") setProgress(r.analyses);
       setResult(r);
+    } catch (e) {
+      setError(e instanceof Error && e.name !== "AbortError" ? e.message : "The run was cancelled.");
     } finally {
       setRunning(false);
     }
@@ -260,12 +326,12 @@ function Boardroom({ store }: { store: TeamStore }) {
         </ol>
       )}
 
+      {error && <p role="alert" className="team-empty">{error}</p>}
       {result && (
         <article className="team-report" aria-label="Executive report">
           <h3>Executive report</h3>
           <p className="muted">
-            {result.cancelled ? "Cancelled by you; partial report. " : ""}Request routed to {result.selected.map((a) => agentById(a).short).join(", ")} · {result.calls} specialist calls · provider:{" "}
-            {result.provider.kind} ({result.provider.name})
+            {result.cancelled ? "Cancelled by you; partial report. " : ""}Request routed to {result.selected.map((a) => agentById(a).short).join(", ")} · {result.calls} specialist calls · <strong>{provenanceLabel(result.provider)}</strong> ({result.provider.name})
           </p>
 
           <h4>Executive diagnosis: what the records establish</h4>
@@ -331,7 +397,13 @@ function Boardroom({ store }: { store: TeamStore }) {
                     Reject
                   </button>
                   {decisions[a.id] && <span className={decisions[a.id] === "approved" ? "st st-ok" : "st st-fail"}>{decisions[a.id]} by you</span>}
+                  {isActionable(a) && (
+                    <button type="button" className="team-link" aria-expanded={missionFor === a.id} onClick={() => setMissionFor(missionFor === a.id ? null : a.id)}>
+                      Hand to JARVIS: open a refund investigation
+                    </button>
+                  )}
                 </div>
+                {missionFor === a.id && <MissionPanel actionId={a.id} onRecord={onRecord} onOpenCase={onOpenCase} />}
               </li>
             ))}
           </ol>
@@ -429,5 +501,57 @@ function Boardroom({ store }: { store: TeamStore }) {
         </article>
       )}
     </div>
+  );
+}
+
+type MissionState = { status: "idle" } | { status: "running" } | { status: "done"; c: Case } | { status: "error"; error: string };
+
+/** Human-reviewed hand-off from a team recommendation to the real JARVIS case engine. */
+function MissionPanel({ actionId, onRecord, onOpenCase }: { actionId: string } & MissionHooks) {
+  const [m, setM] = useState<MissionState>({ status: "idle" });
+  const scenario = DEMO_SCENARIOS.find((d) => d.id === "valid-duplicate")!;
+  const run = async () => {
+    if (m.status === "running") return;
+    setM({ status: "running" });
+    try {
+      const c = await submitCase(scenario.request);
+      onRecord?.(c, scenario);
+      setM({ status: "done", c });
+    } catch (e) {
+      setM({ status: "error", error: e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed" });
+    }
+  };
+  const verified = (c: Case) => c.state === "RESOLVED" && c.verification?.verified === true;
+  return (
+    <section className="team-mission" aria-label={`JARVIS investigation for ${actionId}`}>
+      <p>
+        <strong>Human review.</strong> Send the canonical synthetic request “{scenario.request.message}” (order #{scenario.request.orderId}) to JARVIS. The team cannot run it, choose the amount or
+        approve a refund: JARVIS's model reads the request and proposes, deterministic policy decides, the simulated gateway executes only if authorized, and read-back verifies.
+      </p>
+      <p className="muted">{MISSION_LINK_NOTE}</p>
+      <button type="button" className="team-btn" onClick={() => void run()} disabled={m.status === "running"}>
+        {m.status === "running" ? "JARVIS is investigating…" : m.status === "done" ? "Run it again" : "Run JARVIS investigation"}
+      </button>
+      {m.status === "error" && <p role="alert" className="danger">{m.error}</p>}
+      {m.status === "done" && (
+        <dl className="team-mission-result">
+          <div><dt>Result</dt><dd>{m.c.state}{verified(m.c) ? " · read-back verified" : ""}</dd></div>
+          <div><dt>Policy</dt><dd>{m.c.authorization?.outcome ?? "not reached"}</dd></div>
+          <div><dt>Money moved</dt><dd>{m.c.action?.status === "ACCEPTED" && m.c.authorization?.action ? `${(m.c.authorization.action.amountMinor / 100).toFixed(2)} ${m.c.authorization.action.currency} (simulated)` : "0.00 (nothing executed)"}</dd></div>
+          <div><dt>Inference</dt><dd>{caseProvenance(m.c).label}</dd></div>
+          <div><dt>Case</dt><dd className="mono">{m.c.id} · {m.c.audit.length} audit events</dd></div>
+          {onOpenCase && (
+            <div>
+              <dt>Proof</dt>
+              <dd>
+                <button type="button" className="team-link" onClick={() => onOpenCase(m.c.id)}>
+                  Open the full investigation and audit trail
+                </button>
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </section>
   );
 }

@@ -4,6 +4,7 @@
 // No loop: each selected specialist is called at most once per request, then the CEO synthesis is computed.
 import { AGENTS, SpecialistOutput, TEAM_TOOLS, agentById, type AgentId, type Topic } from "./agents.ts";
 import { scopedContext, type SharedNote } from "./context.ts";
+import { unsupportedFigures } from "./figures.ts";
 import { DATASET_META } from "./dataset.ts";
 import { marginBridge, computeMetrics } from "./metrics.ts";
 import type { ProviderInfo, TeamProvider } from "./provider.ts";
@@ -41,6 +42,7 @@ export interface PlanAction {
   owner: AgentId;
   proposedBy: AgentId;
   successMetric: string;
+  lever: string;
   status: "proposed";
   requiresApproval: true;
   note?: string;
@@ -158,7 +160,18 @@ export async function runBoardroom(
           if (!ok) rejectedTools.push(r.tool);
           return ok;
         });
-        a = { agent, status: "ok", output: { ...parsed.data, recommendations }, provider: res.provider, latencyMs: res.latencyMs, rejectedTools };
+        // Figure check: findings may only state numbers the deterministic calculations support.
+        const unsupported: string[] = [];
+        const findings = parsed.data.findings.filter((f) => {
+          const bad = unsupportedFigures(f.text, ctx);
+          if (bad.length) unsupported.push(`${bad.join(", ")} in "${f.text.slice(0, 80)}"`);
+          return bad.length === 0;
+        });
+        for (const u of unsupported) log("FIGURE_REJECTED", `unsupported figure ${u}`, agent);
+        a =
+          findings.length === 0
+            ? { agent, status: "invalid", error: "every finding stated figures the data does not support", provider: res.provider, latencyMs: res.latencyMs, rejectedTools }
+            : { agent, status: "ok", output: { ...parsed.data, findings, recommendations }, provider: res.provider, latencyMs: res.latencyMs, rejectedTools };
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -208,7 +221,7 @@ export function synthesize(ok: Analysis[], conflicts: Conflict[], shared: Shared
   const actions: PlanAction[] = recs
     .sort((x, y) => rank(x.lever) - rank(y.lever))
     .map((r, i) => ({
-      id: r.id, order: i + 1, action: r.action, owner: r.owner, proposedBy: r.proposedBy, successMetric: r.successMetric, status: "proposed", requiresApproval: true,
+      id: r.id, order: i + 1, action: r.action, owner: r.owner, proposedBy: r.proposedBy, successMetric: r.successMetric, lever: r.lever, status: "proposed", requiresApproval: true,
       ...(conflicted.has(r.id) ? { note: "Disputed: see the conflict above; decide before approving." } : {}),
     }));
 
@@ -263,7 +276,7 @@ export const DATASET_LABEL = DATASET_META.label;
 export function dedupeMeasured<T extends { evidence: string[]; from: AgentId; text: string }>(items: T[]): (T & { alsoFrom: AgentId[] })[] {
   const seen = new Map<string, T & { alsoFrom: AgentId[] }>();
   for (const f of items) {
-    const key = f.evidence[0];
+    const key = f.evidence[0] ?? f.text;
     const hit = seen.get(key);
     if (hit) {
       if (hit.from !== f.from && !hit.alsoFrom.includes(f.from)) hit.alsoFrom.push(f.from);

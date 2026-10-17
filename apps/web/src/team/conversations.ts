@@ -7,7 +7,9 @@ export interface ChatMessage {
   id: string;
   seq: number; // order within the thread
   author: "owner" | AgentId;
-  authorKind: "human" | "ai-fixture";
+  authorKind: "human" | "ai-fixture" | "ai-live";
+  /** Which provider produced an AI message, e.g. "OPENROUTER LIVE INFERENCE · vendor/model". */
+  provenance?: string;
   text: string;
   at: string;
   evidence?: string[];

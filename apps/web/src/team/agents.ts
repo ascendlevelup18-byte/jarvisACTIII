@@ -58,7 +58,7 @@ export const AGENTS: AgentRole[] = [
   {
     id: "hr", version: "hr@1.0.0", title: "HR Director · People", short: "HR",
     responsibilities: ["Workforce capacity", "Hiring scenarios", "Training", "Team effectiveness"],
-    topics: ["staffing", "quality"], metrics: ["ticketsPerAgent", "firstResponseHours"], tools: ["read_metrics", "support_capacity"],
+    topics: ["staffing", "quality"], metrics: ["ticketsPerAgent", "firstResponseHours", "supportFte"], tools: ["read_metrics", "support_capacity"],
     boundary: "Proposes capacity and training options only. Never makes employment decisions or infers personal characteristics.",
   },
 ];

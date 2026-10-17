@@ -16,7 +16,8 @@ export type MetricKey =
   | "ticketsPerAgent"
   | "cacUsd"
   | "repeatOrderSharePct"
-  | "marketingSpendUsd";
+  | "marketingSpendUsd"
+  | "supportFte";
 
 export interface Metric {
   key: MetricKey;
@@ -48,14 +49,15 @@ const DEFS: { key: MetricKey; label: string; unit: Metric["unit"]; formula: stri
   { key: "cacUsd", label: "Marketing cost per new customer", unit: "usd", formula: "marketing spend ÷ new customers", of: (m) => usd(m.marketingSpendMinor) / m.newCustomers },
   { key: "repeatOrderSharePct", label: "Orders from returning customers", unit: "pct", formula: "repeat orders ÷ orders", of: (m) => (100 * m.repeatOrders) / m.orders },
   { key: "marketingSpendUsd", label: "Marketing spend", unit: "usd", formula: "marketing spend", of: (m) => usd(m.marketingSpendMinor) },
+  { key: "supportFte", label: "Support headcount (FTE)", unit: "count", formula: "support agents, full-time equivalent", of: (m) => m.supportAgentsFte },
 ];
 
 export function computeMetrics(months: MonthRecord[] = MONTHS): Record<MetricKey, Metric> {
   const out = {} as Record<MetricKey, Metric>;
   for (const d of DEFS) {
     const series = months.map((m) => round(d.of(m), 2));
-    const first = series[0];
-    const last = series[series.length - 1];
+    const first = series[0]!;
+    const last = series[series.length - 1]!;
     out[d.key] = { key: d.key, label: d.label, unit: d.unit, formula: d.formula, first, last, change: round(last - first, 2), series, evidence: months.map((m) => m.id) };
   }
   return out;
@@ -66,8 +68,8 @@ export function computeMetrics(months: MonthRecord[] = MONTHS): Record<MetricKey
  * Deterministic; the statement "refunds explain X points" is only as good as the synthetic records.
  */
 export function marginBridge(months: MonthRecord[] = MONTHS) {
-  const a = months[0];
-  const b = months[months.length - 1];
+  const a = months[0]!;
+  const b = months[months.length - 1]!;
   const margin = (gross: number, refunds: number, cogs: number) => (100 * (gross - refunds - cogs)) / (gross - refunds);
   const actualFirst = margin(a.grossSalesMinor, a.refundsMinor, a.cogsMinor);
   const actualLast = margin(b.grossSalesMinor, b.refundsMinor, b.cogsMinor);
@@ -87,15 +89,15 @@ export function marginBridge(months: MonthRecord[] = MONTHS) {
 
 /** Monthly support hours needed versus available, at an assumed handling time (an assumption, stated). */
 export function supportCapacity(minutesPerTicket = 24, productiveHoursPerFte = 130, months: MonthRecord[] = MONTHS) {
-  const m = months[months.length - 1];
+  const m = months[months.length - 1]!;
   const needed = (m.supportTickets * minutesPerTicket) / 60;
   const available = m.supportAgentsFte * productiveHoursPerFte;
-  return { neededHours: round(needed, 0), availableHours: round(available, 0), utilizationPct: round((100 * needed) / available, 1), assumption: `${minutesPerTicket} min per ticket, ${productiveHoursPerFte} productive h per FTE per month`, evidence: [m.id] };
+  return { minutesPerTicket, productiveHoursPerFte, supportFte: m.supportAgentsFte, neededHours: round(needed, 0), availableHours: round(available, 0), utilizationPct: round((100 * needed) / available, 1), assumption: `${minutesPerTicket} min per ticket, ${productiveHoursPerFte} productive h per FTE per month`, evidence: [m.id] };
 }
 
 export function formatMetricValue(unit: Metric["unit"], v: number): string {
   if (unit === "usd") return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 100 ? 2 : 0 });
   if (unit === "pct") return `${v.toFixed(1)}%`;
   if (unit === "hours") return `${v.toFixed(1)} h`;
-  return Math.round(v).toLocaleString("en-US");
+  return Number.isInteger(v) ? v.toLocaleString("en-US") : v.toLocaleString("en-US", { maximumFractionDigits: 1 });
 }

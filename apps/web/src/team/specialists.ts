@@ -7,7 +7,7 @@ import { formatMetricValue, type Metric, type MetricKey } from "./metrics.ts";
 
 type Finding = SpecialistOutput["findings"][number];
 
-const ev = (m: Metric) => [m.key, m.evidence[0], m.evidence[m.evidence.length - 1]];
+const ev = (m: Metric): string[] => [m.key, m.evidence[0]!, m.evidence[m.evidence.length - 1]!];
 const fmt = (m: Metric, v: number) => formatMetricValue(m.unit, v);
 const move = (m: Metric) => `${m.label} moved from ${fmt(m, m.first)} to ${fmt(m, m.last)}`;
 

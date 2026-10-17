@@ -304,7 +304,7 @@ export default function App() {
           )}
           {route.nav === "team" && (
             <Suspense fallback={<LoadingRows label="Opening AI Team…" />}>
-              <TeamPage />
+              <TeamPage onRecord={(result, s) => record(result, { scenarioTitle: s.title, scenarioId: s.id })} onOpenCase={openCase} />
             </Suspense>
           )}
           {route.nav === "judge" && (

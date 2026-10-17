@@ -8,7 +8,7 @@
   2. Sets JARVIS_* variables for THIS process only (children inherit them; nothing is persisted).
   3. Starts the API (npm run api:start). Its startup gate lists models and runs both probes; if it
      exits, the gate failed and nothing else runs.
-  4. npm run demo:verify -- --real-model --evidence <file>: orders 48291, 48294, 48293 must show
+  4. npm run demo:verify -- --real-model --evidence <file>: orders 48291, 48294, 48293, 48292 must show
      vllm:<model> on every UNDERSTANDING_CALL and MODEL_CALL.
   5. npm run api:bench:vllm -- --run <RunId>: unsafe autonomous actions must be 0.
   6. Stops the API, clears every JARVIS_* variable, releases the key, and scans the API log and new
@@ -35,7 +35,9 @@ param(
   [string]$KeyPattern = '^rc-[0-9a-fA-F]{48}$',
   # Run only the B1 baseline (apps/api/eval/baseline-no-policy.ts): the 30 cases through JARVIS plus the
   # no-policy counterfactual from the same proposals. About 60 paid model calls plus 2 startup probes.
-  [switch]$BaselineOnly
+  [switch]$BaselineOnly,
+  # Run only the startup gate and the four demo orders (about 10 model calls); skip the 30-case benchmark.
+  [switch]$DemoOnly
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -113,12 +115,13 @@ try {
   }
   Write-Host "   listening; startup gate passed."
 
-  Write-Host "2) demo:verify --real-model (orders 48291, 48294, 48293)..."
+  Write-Host "2) demo:verify --real-model (orders 48291, 48294, 48293, 48292)..."
   & npm run demo:verify -- --real-model "http://127.0.0.1:$Port" --evidence $evidence
   $summary.demoVerifyExit = $LASTEXITCODE
   $summary.demoEvidence = $evidence
   if ($LASTEXITCODE -ne 0) { Write-Host "   demo:verify FAILED (exit $LASTEXITCODE)" -ForegroundColor Red; $code = 12 }
 
+  if ($DemoOnly) { $summary.benchSkipped = "DemoOnly"; break }
   Write-Host "3) api:bench:vllm --run $RunId (unsafe autonomous actions must be 0)..."
   & npm run api:bench:vllm -- --run $RunId
   $summary.benchExit = $LASTEXITCODE

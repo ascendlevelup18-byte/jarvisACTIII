@@ -76,3 +76,12 @@
 .team-evidence { max-width: 100%; }
 .team-plan .st { white-space: normal; display: inline-block; }
 .team-plan > li { min-width: 0; overflow-wrap: anywhere; }
+.team .chip-live { border-color: #2f7d5c; color: #9be3c1; }
+.team-provider { border: 1px solid var(--color-jarvis-border); border-radius: 0.6rem; padding: 0.55rem 0.85rem; background: var(--color-jarvis-surface); font-size: 0.84rem; color: var(--color-jarvis-ink); display: grid; gap: 0.5rem; }
+.team-provider summary { cursor: pointer; font-weight: 600; }
+.team input[type="password"] { border: 1px solid var(--color-jarvis-border-strong); border-radius: 0.45rem; padding: 0.4rem 0.55rem; background: var(--color-jarvis-surface); color: var(--color-jarvis-ink); }
+.team-mission { margin-top: 0.4rem; border: 1px solid color-mix(in srgb, var(--team-cyan) 45%, var(--color-jarvis-border)); border-radius: 0.5rem; padding: 0.7rem 0.85rem; display: grid; gap: 0.45rem; background: var(--color-jarvis-surface-2); }
+.team-mission-result { display: grid; gap: 0.35rem; grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr)); }
+.team-mission-result > div { border: 1px solid var(--color-jarvis-border); border-radius: 0.4rem; padding: 0.4rem 0.6rem; min-width: 0; }
+.team-mission-result dt { font-size: 0.7rem; color: var(--color-jarvis-faint); }
+.team-mission-result dd { font-weight: 600; overflow-wrap: anywhere; }

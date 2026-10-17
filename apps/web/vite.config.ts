@@ -9,6 +9,11 @@ export default defineConfig({
     port: 43123,
     strictPort: true,
     proxy: {
+      // Operator-only live AI Team endpoints on the local Node server.
+      "/team": {
+        target: "http://127.0.0.1:3000",
+        changeOrigin: true,
+      },
       "/cases": {
         target: "http://127.0.0.1:3000",
         changeOrigin: true,

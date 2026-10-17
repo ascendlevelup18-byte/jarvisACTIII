@@ -81,6 +81,36 @@ try {
     if (OUT) await page.screenshot({ path: `${OUT}/ai-team-boardroom.png`, fullPage: true });
   });
 
+  await check("mission: a refund recommendation hands one canonical case to JARVIS; policy and read-back decide; provenance from the case audit", async () => {
+    await page.getByRole("button", { name: "Hand to JARVIS: open a refund investigation" }).first().click();
+    await page.getByText(/Illustrative link/).waitFor();
+    await page.getByRole("button", { name: "Run JARVIS investigation" }).click();
+    const panel = page.locator(".team-mission");
+    await panel.getByText("RESOLVED · read-back verified").waitFor({ timeout: 30000 });
+    const t = await panel.innerText();
+    assert.match(t, /APPROVE/);
+    assert.match(t, /89\.99 USD \(simulated\)/);
+    assert.match(t, /DETERMINISTIC FIXTURE · no model call/);
+    if (OUT) await page.screenshot({ path: `${OUT}/ai-team-mission.png`, fullPage: true });
+    await panel.getByRole("button", { name: "Open the full investigation and audit trail" }).click();
+    await page.waitForFunction(() => location.hash.startsWith("#/case/"));
+    await page.goto(`${BASE}/#/ai-team`);
+    await page.getByRole("heading", { name: "Six specialists, one accountable plan." }).waitFor();
+  });
+
+  await check("malicious HTML in a chat message is shown as text, never executed", async () => {
+    let dialog = false;
+    page.on("dialog", (d) => ((dialog = true), d.dismiss()));
+    await page.getByRole("tab", { name: "Private chats" }).click();
+    await page.getByLabel("Specialist").selectOption("hr");
+    await page.getByLabel(/Message to HR/).fill("<img src=x onerror=alert(1)><script>alert(2)</script>");
+    await page.keyboard.press("Enter");
+    await page.getByText("<img src=x onerror=alert(1)><script>alert(2)</script>").waitFor();
+    assert.equal(await page.getByRole("log").locator("img, script").count(), 0);
+    assert.equal(dialog, false);
+    await page.getByRole("tab", { name: "Executive boardroom" }).click();
+  });
+
   await check("cancel stops the run and says so", async () => {
     await page.getByRole("button", { name: "Convene the team" }).click();
     await page.getByRole("button", { name: "Cancel" }).click();
@@ -98,7 +128,7 @@ try {
     for (const label of ["Executive directory", "Private chats", "Executive boardroom", "Open private chat with CEO"]) assert.ok([...seen].includes(label), label);
   });
 
-  await check("the AI Team sends nothing to the API (no POST, PUT or DELETE)", async () => assert.deepEqual(posts, []));
+  await check("the only write is the one human-started JARVIS case (POST /cases); the team itself writes nothing", async () => assert.deepEqual(posts.map((u) => new URL(u).pathname), ["/cases"]));
   await check("no console errors on desktop", async () => assert.deepEqual(errors, []));
   await ctx.close();
 
