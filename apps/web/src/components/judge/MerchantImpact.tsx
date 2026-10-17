@@ -56,13 +56,14 @@ export function MerchantImpact() {
           <dl className="impact-metrics">
             <div><dt>Handling hours saved / month</dt><dd>{num(r.hoursSaved, 1)} h</dd></div>
             <div><dt>Labor capacity value / month</dt><dd>{usd(r.laborValue)}</dd></div>
-            <div><dt>Processing cost / month</dt><dd>{usd(r.processingCost)}</dd></div>
+            <div><dt>Processing cost / month{a.modelCostPerCase === 0 ? " (model cost not included)" : ""}</dt><dd>{usd(r.processingCost)}</dd></div>
             <div className={r.netHypothesis >= 0 ? "impact-net" : "impact-net impact-neg"}><dt>Net value hypothesis / month</dt><dd>{usd(r.netHypothesis)}</dd></div>
           </dl>
           <p className="impact-formula">
             Hours = tickets × closed share × minutes ÷ 60 = {num(a.casesPerMonth)} × {num(a.autoResolvedPct, 1)}% × {num(a.minutesPerCase, 1)} ÷ 60. Processing = JARVIS fee{" "}
             {usd(r.jarvisFee)}
-            {r.minimumApplies ? " (monthly minimum applies)" : ""} + model cost {usd(r.modelCost)}. {num(r.escalated)} escalations a month still go to people, with the evidence assembled;
+            {r.minimumApplies ? " (monthly minimum applies)" : ""} + model cost{" "}
+            {a.modelCostPerCase === 0 ? "not included: JARVIS model cost per case has not been measured, so it stays $0 until you enter your provider's price" : usd(r.modelCost)}. {num(r.escalated)} escalations a month still go to people, with the evidence assembled;
             that time is not counted.
           </p>
           <p className="amd-note">Not counted either: prevented wrong or double refunds, chargeback fees. Their real frequency at a merchant is unknown.</p>

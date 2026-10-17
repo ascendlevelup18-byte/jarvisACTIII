@@ -43,3 +43,12 @@ describe("merchant impact studio", () => {
     assert.match(src, /Not measured for JARVIS/);
   });
 });
+
+describe("merchant impact studio: unmeasured model cost", () => {
+  test("the default $0 model cost is disclosed as unmeasured and excluded, next to the result", () => {
+    assert.equal(DEFAULT_ASSUMPTIONS.modelCostPerCase, 0);
+    const src = readFileSync(new URL("../src/components/judge/MerchantImpact.tsx", import.meta.url), "utf8");
+    assert.match(src, /\(model cost not included\)/);
+    assert.match(src, /JARVIS model cost per case has not been measured/);
+  });
+});

@@ -128,6 +128,8 @@ try {
     await s.getByLabel("Closed by JARVIS with no human").fill("50");
     await s.getByText("133.3 h").waitFor();
     assert.match(await s.innerText(), /not observed savings or ROI/);
+    assert.match(await s.innerText(), /model cost not included/i);
+    assert.match(await s.innerText(), /has not been measured/);
     await shot(page, "judge-impact.png");
   });
 
