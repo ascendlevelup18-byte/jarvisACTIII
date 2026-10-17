@@ -104,3 +104,64 @@
 @media (prefers-reduced-motion: reduce) {
   .judge * { scroll-behavior: auto; }
 }
+
+/* Policy stress lab (inside section 2): 30 pinned cases, JARVIS versus the same proposals without policy. */
+.stress-lab { margin-top: 1.25rem; border: 1px solid var(--color-jarvis-border-strong); border-radius: 0.6rem; background: var(--color-jarvis-surface-2); }
+.stress-lab > summary { cursor: pointer; padding: 0.85rem 1rem; display: grid; gap: 0.2rem; list-style: revert; }
+.stress-lab > summary:focus-visible { outline: 2px solid var(--color-deterministic-accent); outline-offset: 2px; border-radius: 0.6rem; }
+.stress-title { font-weight: 650; color: var(--color-jarvis-ink); font-size: 0.95rem; }
+.stress-sub { font-size: 0.8rem; color: var(--color-jarvis-muted); }
+.stress-lab[open] > summary { border-bottom: 1px solid var(--color-jarvis-border); }
+.stress-lab > .amd-note { padding: 0 1rem; }
+.stress-lab a { color: var(--color-deterministic-accent); text-decoration: underline; text-underline-offset: 3px; }
+.stress-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--color-jarvis-muted); }
+.stress-filters label { display: grid; gap: 0.2rem; }
+.stress-filters select { border: 1px solid var(--color-jarvis-border-strong); border-radius: 0.4rem; padding: 0.3rem 0.4rem; background: var(--color-jarvis-surface); color: var(--color-jarvis-ink); font-size: 0.82rem; }
+.stress-filters .stress-check { display: flex; align-items: center; gap: 0.4rem; }
+.stress-body { display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 1fr); padding: 0 1rem 1rem; }
+@media (min-width: 64rem) { .stress-body { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); } }
+.stress-list { display: grid; gap: 0.3rem; max-height: 34rem; overflow-y: auto; align-content: start; }
+.stress-row { width: 100%; text-align: left; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; border: 1px solid var(--color-jarvis-border); border-radius: 0.45rem; padding: 0.45rem 0.6rem; background: var(--color-jarvis-surface); font-size: 0.8rem; color: var(--color-jarvis-ink); }
+.stress-row:hover { border-color: var(--color-jarvis-border-strong); }
+.stress-row:focus-visible { outline: 2px solid var(--color-deterministic-accent); outline-offset: 1px; }
+.stress-row-on { box-shadow: 0 0 0 2px var(--color-deterministic-accent); }
+.stress-row-title { flex: 1 1 10rem; min-width: 0; }
+.st { border-radius: 999px; padding: 0.05rem 0.45rem; font-size: 0.68rem; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
+.st-ok { background: var(--color-policy-surface); color: var(--color-success); border-color: var(--color-policy-border); }
+.st-neutral { background: var(--color-jarvis-surface-2); color: var(--color-jarvis-muted); border-color: var(--color-jarvis-border); }
+.st-review { background: var(--color-warning-surface); color: var(--color-warning); border-color: color-mix(in srgb, var(--color-warning) 35%, transparent); }
+.st-fail { background: var(--color-danger-surface); color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, transparent); }
+.stress-detail { border: 1px solid var(--color-jarvis-border); border-radius: 0.6rem; padding: 0.9rem 1rem; background: var(--color-jarvis-surface); display: grid; gap: 0.45rem; font-size: 0.84rem; color: var(--color-jarvis-ink); align-content: start; min-width: 0; }
+.stress-detail h5 { font-size: 1rem; font-weight: 650; }
+.stress-detail h6 { margin-top: 0.4rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-jarvis-muted); }
+.stress-detail .mono { overflow-wrap: anywhere; }
+.stress-label { font-size: 0.75rem; color: var(--color-jarvis-faint); }
+.stress-records { display: grid; gap: 0.15rem; padding-left: 1rem; list-style: disc; }
+.stress-compare { margin-top: 0.4rem; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.stress-compare > section { border: 1px solid var(--color-jarvis-border); border-radius: 0.5rem; padding: 0.7rem 0.8rem; display: grid; gap: 0.35rem; align-content: start; }
+.stress-compare ul { padding-left: 1rem; list-style: disc; font-size: 0.8rem; }
+
+/* Merchant impact studio (section 6): editable hypothesis from the business case. */
+#judge-impact p a { color: var(--color-deterministic-accent); text-decoration: underline; text-underline-offset: 3px; }
+.impact-reset { border: 1px solid var(--color-jarvis-border-strong); border-radius: 0.45rem; padding: 0.4rem 0.7rem; font-size: 0.8rem; color: var(--color-jarvis-ink); background: var(--color-jarvis-surface); }
+.impact-reset:focus-visible, .impact-inputs input:focus-visible { outline: 2px solid var(--color-deterministic-accent); outline-offset: 1px; }
+.impact-grid { margin-top: 1rem; display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 64rem) { .impact-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.impact-inputs { border: 1px solid var(--color-jarvis-border); border-radius: 0.6rem; padding: 0.75rem 1rem; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); min-width: 0; }
+.impact-inputs legend { padding: 0 0.3rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-jarvis-muted); }
+.impact-inputs label { display: grid; gap: 0.2rem; font-size: 0.8rem; color: var(--color-jarvis-ink); }
+.impact-inputs small { font-size: 0.7rem; color: var(--color-jarvis-faint); }
+.impact-input { display: flex; align-items: center; gap: 0.35rem; }
+.impact-input input { width: 100%; min-width: 0; border: 1px solid var(--color-jarvis-border-strong); border-radius: 0.4rem; padding: 0.3rem 0.45rem; background: var(--color-jarvis-surface); color: var(--color-jarvis-ink); font-variant-numeric: tabular-nums; }
+.impact-out { display: grid; gap: 0.6rem; align-content: start; }
+.impact-metrics { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.impact-metrics > div { border: 1px solid var(--color-jarvis-border); border-radius: 0.5rem; padding: 0.6rem 0.75rem; }
+.impact-metrics dt { font-size: 0.72rem; color: var(--color-jarvis-faint); }
+.impact-metrics dd { margin-top: 0.15rem; font-size: 1.35rem; font-weight: 700; color: var(--color-jarvis-ink); font-variant-numeric: tabular-nums; }
+.impact-net { background: var(--color-policy-surface); border-color: var(--color-policy-border) !important; }
+.impact-neg { background: var(--color-danger-surface); border-color: color-mix(in srgb, var(--color-danger) 30%, transparent) !important; }
+.impact-formula { font-size: 0.8rem; color: var(--color-jarvis-muted); }
+.impact-pilot { margin-top: 1rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); font-size: 0.84rem; color: var(--color-jarvis-ink); }
+.impact-pilot h4 { font-size: 0.95rem; font-weight: 650; margin-bottom: 0.4rem; }
+.impact-pilot ol { list-style: decimal; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+.impact-pilot ul { list-style: disc; padding-left: 1.2rem; display: grid; gap: 0.2rem; }

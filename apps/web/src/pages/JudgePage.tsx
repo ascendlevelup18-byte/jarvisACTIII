@@ -7,6 +7,8 @@ import { DEMO_SCENARIOS, type DemoScenario } from "../fixtures/demo-scenarios.ts
 import { EVIDENCE_FILES, RECORDED_RUN, evidenceUrl, replayTimeline } from "../lib/recorded-amd-run.ts";
 import { BASELINE_FILE, NO_POLICY_BASELINE } from "../lib/baseline-result.ts";
 import { DecisionExplainer } from "../components/proof/DecisionExplainer.tsx";
+import { MerchantImpact } from "../components/judge/MerchantImpact.tsx";
+import { StressLab } from "../components/judge/StressLab.tsx";
 import { ProofChain } from "../components/proof/ProofChain.tsx";
 import { StateBadge } from "../components/ui/StateBadge.tsx";
 import { btn } from "../components/ui/styles.ts";
@@ -126,6 +128,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
           <a href="#judge-proof">3 · Inspect a case</a>
           <a href="#judge-amd">4 · Recorded AMD run</a>
           <a href="#judge-evidence">5 · Evidence files</a>
+          <a href="#judge-impact">6 · Merchant impact</a>
         </nav>
       </header>
 
@@ -243,6 +246,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
             No-policy refunds are computed from each case's evidence, never sent to a gateway. <a href={evidenceUrl(BASELINE_FILE)}>Result file</a> ·{" "}
             <a href={evidenceUrl("docs/improvement/BASELINE_EXPERIMENT.md")}>method and limits</a>
           </p>
+          <StressLab />
         </div>
       </section>
 
@@ -275,6 +279,8 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
           <li><a href={evidenceUrl("docs/AMD_EVIDENCE.md")}>AMD evidence write-up</a> <span>method, caveats, reproduction</span></li>
         </ul>
       </section>
+
+      <MerchantImpact />
     </div>
   );
 }
