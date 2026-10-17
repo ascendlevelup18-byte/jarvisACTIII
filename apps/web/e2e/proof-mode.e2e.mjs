@@ -26,12 +26,20 @@ const check = async (name, fn) => {
 };
 const shot = async (page, file, fullPage = true) => OUT && page.screenshot({ path: `${OUT}/${file}`, fullPage });
 
+// Proof Mode and AI provider live under the sidebar's collapsed "Demo & advanced tools" (16 Oct redesign).
+async function openNav(page, label) {
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  const button = nav.getByRole("button", { name: label, exact: true });
+  if (!(await button.isVisible())) await nav.getByText("Demo & advanced tools").click();
+  await button.click();
+}
+
 async function runDemo(page, title) {
   const back = page.getByRole("button", { name: /Back to / });
   if (await back.count()) await back.click();
-  const nav = page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Proof Mode" });
-  if (!(await page.getByRole("group", { name: "Canonical demo scenarios" }).count())) await nav.click();
-  await page.getByRole("group", { name: "Canonical demo scenarios" }).getByRole("button", { name: new RegExp(title) }).click();
+  const scenarios = page.getByRole("group", { name: "Demo scenarios" });
+  if (!(await scenarios.count())) await openNav(page, "Proof Mode");
+  await scenarios.getByRole("button", { name: new RegExp(title) }).click();
   await page.getByText("Proof chain").waitFor();
 }
 
@@ -43,11 +51,15 @@ try {
   await page.goto(`${BASE}/#/proof`);
 
   await check("runtime chips come from /api/health (fixture backend)", async () => {
-    const chips = page.getByRole("list", { name: "Runtime status" }).first();
-    await chips.getByText("API ONLINE").waitFor({ timeout: 5000 });
-    await chips.getByText("FIXTURE AI").waitFor();
-    await chips.getByText("AMD HW NOT VERIFIED").waitFor();
-    await chips.getByText("EVOLUS NOT CONNECTED").waitFor();
+    // Header chips, then the expanded connection details, all derived from /api/health.
+    const bar = page.locator(".runtime-bar");
+    await bar.getByText("Connected", { exact: true }).waitFor({ timeout: 5000 });
+    await bar.getByText("Demo AI (fixture)").waitFor();
+    await bar.getByText("Payments simulated").first().waitFor();
+    await bar.getByText("Connection details").click();
+    await bar.getByText("FIXTURE AI", { exact: true }).waitFor();
+    await bar.getByText("AMD hardware: NOT VERIFIED").waitFor();
+    await bar.getByText("Evolus: NOT CONNECTED").waitFor();
   });
   await shot(page, "01-operations.png", false);
 
@@ -98,7 +110,7 @@ try {
 
   await check("system page: truthful labels from health", async () => {
     await page.getByRole("button", { name: /Back to / }).click();
-    await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "AI provider" }).click();
+    await openNav(page, "AI provider");
     const truth = page.locator("#system-truth");
     await truth.getByText("FIXTURE AI").waitFor({ timeout: 5000 });
     await truth.getByText("NODE-SERVER").waitFor();
@@ -112,7 +124,7 @@ try {
   await mobile.addInitScript(() => localStorage.setItem("jarvis.setup.v1", JSON.stringify({ modules: ["refunds"] })));
   await mobile.goto(`${BASE}/#/proof`);
   await check("mobile: investigation renders without horizontal page scroll", async () => {
-    await runDemo(mobile, "Adversarial");
+    await runDemo(mobile, "Prompt injection");
     await mobile.getByRole("heading", { name: "Why JARVIS refused to refund" }).waitFor();
     const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 1, `page overflows by ${overflow}px`);

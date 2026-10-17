@@ -24,6 +24,7 @@ test("vercel.json: no inline env (no model keys); commit-triggered master deploy
   assert.equal(vercel.env, undefined);
   assert.equal(vercel.build?.env, undefined);
   assert.equal(vercel.git?.deploymentEnabled?.master, false);
+  assert.equal(vercel.git?.deploymentEnabled?.['post-submission/audit-hardening-2026-10-16'], false);
 });
 
 test("web source never references model credentials or server-only env", () => {

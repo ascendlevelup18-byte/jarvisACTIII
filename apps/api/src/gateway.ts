@@ -3,9 +3,16 @@ import { randomUUID } from "node:crypto";
 import type { Refund, RefundAction } from "./contracts.ts";
 import type { CommerceStore } from "./fixtures.ts";
 
+export interface RefundReceipt {
+  refundId: string;
+  // True when the idempotency key already had a refund, so this call created nothing.
+  // A provider that cannot tell is treated as having created the refund.
+  replayed?: boolean;
+}
+
 export interface PaymentGateway {
   // Idempotent on action.idempotencyKey.
-  refund(action: RefundAction): Promise<{ refundId: string }>;
+  refund(action: RefundAction): Promise<RefundReceipt>;
   // Independent read-back used for verification.
   findRefund(idempotencyKey: string): Promise<Refund | null>;
 }
@@ -23,13 +30,13 @@ export class SimulatedPaymentGateway implements PaymentGateway {
     this.#clock = clock;
   }
 
-  async refund(action: RefundAction): Promise<{ refundId: string }> {
+  async refund(action: RefundAction): Promise<RefundReceipt> {
     const fault = this.nextFault;
     this.nextFault = null;
     if (fault === "TIMEOUT_BEFORE_COMMIT") throw new Error("provider timeout (request not processed)");
 
     const existing = this.#store.refundByIdempotencyKey(action.idempotencyKey);
-    if (existing) return { refundId: existing.id };
+    if (existing) return { refundId: existing.id, replayed: true };
 
     const tx = this.#store.getTransaction(action.transactionId);
     if (!tx) throw new Error(`provider: unknown transaction ${action.transactionId}`);
@@ -49,7 +56,7 @@ export class SimulatedPaymentGateway implements PaymentGateway {
     };
     this.#store.recordRefund(refund);
     if (fault === "TIMEOUT_AFTER_COMMIT") throw new Error("provider timeout (response lost)");
-    return { refundId: refund.id };
+    return { refundId: refund.id, replayed: false };
   }
 
   async findRefund(idempotencyKey: string): Promise<Refund | null> {

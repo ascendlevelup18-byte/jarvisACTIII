@@ -12,13 +12,38 @@
 import { loadAiConfig, AiConfigError, resolveModelTimeouts, sanitizeEndpoint } from "./ai-config.ts";
 import { initializeAi, type AiRuntime, type AiStartupReport } from "./ai-mode.ts";
 import { demoStoreSnapshot } from "./demo-store.ts";
-import { handleCaseRequest, freshWorld } from "./ingress.ts";
+import { handleCaseRequest, freshWorld, MAX_BODY_BYTES } from "./ingress.ts";
 import { IngressConfigError, loadIngressSecurity, LocalInferenceLimiter, type IngressLimits } from "./limits.ts";
 import { FixtureModelAdapter } from "./model-adapter.ts";
 import { isProviderError, OpenAICompatibleClient } from "./provider/index.ts";
 import { FixtureRequestUnderstandingAdapter } from "./request-understanding.ts";
 
 const PROVIDER_CHECK_TTL_MS = 60_000;
+
+/**
+ * Reads at most `max` bytes of a request body. Returns null (the ingress answers 413) as soon
+ * as the declared length or the bytes actually received exceed the limit, so an oversized
+ * body is never buffered whole. Decodes as UTF-8 like Request.text().
+ */
+export async function readBoundedText(request: Request, max = MAX_BODY_BYTES): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) return null;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
 
 interface ProviderCheck {
   checkedAt: string;
@@ -131,7 +156,7 @@ export function createServerlessHandlers(deployment: ServerlessDeployment, env: 
     const r = await handleCaseRequest(
       {
         method: request.method,
-        bodyText: request.method === "POST" ? await request.text() : "",
+        bodyText: request.method === "POST" ? await readBoundedText(request) : "",
         authorization: request.headers.get("authorization") ?? undefined,
         clientKey: clientKey(request, deployment),
       },

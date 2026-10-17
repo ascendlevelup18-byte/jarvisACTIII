@@ -35,7 +35,8 @@ async function requestFromStore(page, orderNumber) {
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
   page.setDefaultTimeout(8000);
-  await page.goto(BASE);
+  // Since the 16 Oct redesign a first visit opens Home; setup is the #setup route.
+  await page.goto(`${BASE}/#setup`);
 
   await check("first run shows onboarding; only Refunds is operational", async () => {
     await page.getByRole("heading", { name: "What do you want to automate?" }).waitFor();
@@ -50,20 +51,27 @@ try {
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByRole("heading", { name: "Connect your store" }).waitFor();
     await page.getByLabel("Your store domain").fill("myshop.example.com");
-    await page.getByText(/not available in this build/).waitFor();
-    assert.equal(await page.getByRole("button", { name: /Connect \(not available yet\)/ }).isDisabled(), true);
+    await page.getByText(/Store integrations are not available yet/).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Coming soon" }).isDisabled(), true);
     await page.getByRole("button", { name: "Connect demo store" }).click();
     await page.getByText(/Connected: Northwind Goods \(demo\) · 4 orders read from the backend/).waitFor();
   });
   await shot(page, "m02-connect-store.png", false);
 
-  await check("command center opens on Automations with the setup choices", async () => {
+  await check("setup opens Home; the automation catalog shows the setup choices", async () => {
     await page.getByRole("button", { name: "Open command center" }).click();
+    await page.getByRole("heading", { name: "Welcome back." }).waitFor();
+    // The catalog lives under the sidebar's collapsed "Demo & advanced tools" since the redesign.
+    const nav = page.getByRole("navigation", { name: "Primary" });
+    await nav.getByText("Demo & advanced tools").click();
+    await nav.getByRole("button", { name: "Automation catalog", exact: true }).click();
     await page.getByRole("heading", { name: "Automation catalog", exact: true }).waitFor();
     assert.equal(await page.getByText("Selected in setup").count(), 2);
   });
 
   await check("storefront: valid duplicate → real case RESOLVED → customer told refund issued (simulated)", async () => {
+    // "Open demo store" moved into the merchant profile menu.
+    await page.getByLabel("Merchant profile").click();
     await page.getByRole("button", { name: "Open demo store" }).click();
     await page.getByText("Demo storefront · synthetic data · simulated payments").waitFor();
     await requestFromStore(page, "48291");
@@ -86,13 +94,15 @@ try {
   });
 
   await check("merchant sees the store cases: investigation, approvals, analytics", async () => {
-    await page.getByRole("button", { name: /See how JARVIS decided/ }).last().click();
-    await page.getByRole("heading", { name: "Why JARVIS refused to refund" }).waitFor();
-    await page.getByText("Demo store · order #48294").first().waitFor();
-    await page.getByRole("button", { name: /Back to / }).click();
+    // The storefront no longer links customers to the merchant investigation; the merchant opens it from Approvals.
+    await page.getByRole("button", { name: /Merchant command center/ }).click();
     const nav = page.getByRole("navigation", { name: "Primary" });
     await nav.getByRole("button", { name: "Approvals" }).click();
     await page.getByText("from demo store").first().waitFor();
+    await page.getByRole("row", { name: /#48294/ }).getByRole("button", { name: "Review evidence" }).click();
+    await page.getByRole("heading", { name: "Why JARVIS refused to refund" }).waitFor();
+    await page.getByText("Demo store · order #48294").first().waitFor();
+    await page.getByRole("button", { name: /Back to / }).click();
     await nav.getByRole("button", { name: "Analytics" }).click();
     const cases = page.locator("dt", { hasText: /^Recorded cases$/ }).locator("xpath=following-sibling::dd").first();
     assert.equal(await cases.innerText(), "2");

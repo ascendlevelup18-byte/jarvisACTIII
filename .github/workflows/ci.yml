@@ -3,9 +3,9 @@ name: ci
 
 on:
   push:
-    branches: [claude/kickoff-day1-jkg6ry, master]
+    branches: [claude/kickoff-day1-jkg6ry, master, 'post-submission/**', 'improve/**']
   pull_request:
-    branches: [master]
+    branches: [master, claude/kickoff-day1-jkg6ry]
 
 permissions:
   contents: read

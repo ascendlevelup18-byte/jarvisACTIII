@@ -1,162 +1,169 @@
-# JARVIS: autonomous duplicate-charge resolver
+<div align="center">
 
-JARVIS resolves one ecommerce operations exception end to end: a customer reports a **duplicate charge**. The system handles it in eight steps:
+**JARVIS AUTOMATIONS · COMMERCE, IN CONTROL**
 
-1. Reads the message.
-2. Gathers order, transaction and refund evidence.
-3. Asks an AI model for a **structured proposal**.
-4. Passes the proposal through **deterministic policy and permission checks**.
-5. Executes an allowed (simulated) refund.
-6. **Verifies** the result by reading it back.
-7. Records a full audit trail.
-8. **Escalates instead of acting** whenever evidence is incomplete, contradictory, adversarial or out of policy.
+# A duplicate charge. A controlled resolution.
 
-**The model proposes; deterministic code decides.** The model never chooses amounts, never executes anything and never marks anything verified. Money arithmetic, policy, permissions, idempotency, execution, verification and state transitions are plain TypeScript.
+**AI proposes. Policy decides. Every refund is verified.**
 
-**Live demo:** https://jarvis-actiii-preview.vercel.app/#/command-center (no login; fixture AI, synthetic store, simulated payments).
+Investigate payment exceptions, authorize a simulated refund from transaction evidence,
+and verify the result—or hand the case to a person with a complete audit trail.
 
-**Why it is not a chatbot:** the AI only interprets the request and proposes a structured action. Deterministic code authorizes, a simulated gateway executes, a read-back verifies, every step is audited, and anything unsafe is escalated to a person.
+[**Verify it in Judge Mode →**](https://jarvis-actiii-preview.vercel.app/#/judge) · [Command Center](https://jarvis-actiii-preview.vercel.app/#/command-center) · [Every claim and its evidence](CLAIMS.md) · [Watch the 3:30 film](https://storage.googleapis.com/lablab-video-submissions/submissions/jpcwip3viee0s3f1hkwb0vgv/lp1nzpneomsafp3lv6rjp220/video/video_mth4q7sf53kfdjj6qlg30myk.mp4) · [Read the deck](docs/submission/deck/jarvis-deck.pdf) · [Inspect the evidence](docs/submission/EVIDENCE_SUMMARY.md)
 
-> **Truth labels:**
-> - Payments are **simulated** and data is **synthetic**. No real money ever moves.
-> - The **public demo runs fixture AI** (deterministic adapters), so visitors trigger no paid inference and no key is deployed.
-> - **AMD hosted inference was verified locally on 14 Oct 2026:** JARVIS ran on DeepSeek-V4-Flash through AMD's hosted inference API (base URL from AMD's Token Factory API documentation): 17/17 real-model demo checks and the pinned 30-case benchmark with **0 unsafe autonomous actions** (26/30 exact outcomes, 20/20 escalations). Evidence: `docs/AMD_EVIDENCE.md`, `evals/results/`. No self-hosted AMD GPU is used.
-> - An optional Google **Gemma** understanding path is implemented and offline-tested but **not proven end to end**: the endpoint stopped listing Gemma before a full live run.
+**Public demo: fixture AI · synthetic data · simulated payments · no real money moves**
 
-## JARVIS Automations (merchant platform)
+</div>
 
-The app opens on a first-run setup ("What do you want to automate?"). It then offers a **demo store** and a light, sidebar-based **merchant command center**:
+![Command Center: order 48291 resolved with policy approval and a verified simulated refund](docs/submission/deck/assets/command-center-48291.png)
 
-| Page | What it shows | Data source |
+*Actual product capture, 16 Oct 2026. Recorded fixture demonstration, not a live AMD inference session.*
+
+## Proof before promises
+
+Historical hosted-model evaluation: **14 Oct 2026 · DeepSeek-V4-Flash · run `tf-1`**.
+
+| **26 / 30** | **0 / 30** | **20 / 20** | **17 / 17** |
+|:---:|:---:|:---:|:---:|
+| Exact benchmark outcomes | Unsafe autonomous actions observed | Correct escalations by benchmark definition | Real-model demo checks |
+
+Sources: [raw benchmark](evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json) · [demo checks](evals/results/demo-evidence-live-20261014T201902Z.json) · [definitions and provenance](docs/AMD_EVIDENCE.md).
+
+These are bounded synthetic evaluations, not production results or a safety guarantee. Two cases (`DC-E02`, `DC-E03`) use scripted decision outputs. The four exact-outcome misses include a timeout, two conservative escalations and invalid decision output. The escalation metric counts a safe `FAILED` case as correct; it does not mean every case ended in `ESCALATED`. Only **7/10** ground-truth autonomous cases resolved autonomously. No ROI or business impact has been measured, and no live-model run without the policy layer has been made.
+
+The separate [fixture benchmark](evals/results/duplicate-charge-eval.v1.json) records **29/30 exact outcomes and zero unsafe actions**. Fixture figures shown in the app are distinct from the hosted-model results above.
+
+## What the policy layer prevents
+
+On the same 30 pinned cases, one run scores JARVIS and a counterfactual agent that executes each schema-valid proposal directly, with the policy layer removed.
+
+| | JARVIS | Same proposals, no policy layer |
+|---|:---:|:---:|
+| Unsafe outcomes (benchmark definition) | **0** | 18 |
+| Refunds the case evidence does not authorize | **0** | 11 |
+| Exact expected outcomes | 29 / 30 | 12 / 30 |
+
+**Scope:** offline, with the deliberately naive deterministic fixture proposer, not the AMD model; two cases use scripted hostile proposals; no-policy refunds are computed from evidence and never sent to a gateway. It shows what the policy layer blocks for a proposer that over-approves. It does not measure how often a real model proposes something unsafe. [Method and limits](docs/improvement/BASELINE_EXPERIMENT.md) · [result file](evals/results/baseline-no-policy.fixture.json) · reproduce with `npm run api:baseline`.
+
+## Three cases. Three accountable outcomes.
+
+| Scenario | Evidence and control | Outcome |
 |---|---|---|
-| Dashboard | Today's recorded cases, pending reviews, verified refunds, needs-attention list, automation status | Recorded cases, demo store |
-| Proof Mode | Safety showdown, the four canonical scenarios, labelled fixture-benchmark KPIs | `/cases` responses, pinned benchmark |
-| Orders | Sortable, searchable, filterable table (cards on mobile); detail drawer with payment records, linked cases, decision history and audit links; deep link `#/orders/<id>` | `GET /api/demo-store` + recorded cases |
-| Customers | Seed customers with their orders, cases and pending reviews | Demo store + recorded cases |
-| Support inbox | Queue, conversation (recorded messages only, case progression), **JARVIS Copilot** with distinct PROPOSED / APPROVED / EXECUTED / VERIFIED / ESCALATED states, policy, evidence, approval and audit link | Recorded cases |
-| Automation catalog | Live refund workflow (Trigger → Evidence → AI → Policy → Action → Verification → Audit), requirements; previews run nothing | Static catalog + recorded counts |
-| Cases, Approvals, Audit trail | Investigations; a review-only escalation queue with reasons; every engine audit event, filterable by kind and case | Recorded cases |
-| Analytics | Date ranges (today/7/30/90 days/all), source filter, KPIs with previous-period comparison only when earlier records exist, cases over time, resolution vs escalation, refund outcomes, automation (AI-call) activity, support activity, orders by status, drill-down case report; a separate, labelled **Sample data** mode | Recorded cases (`apps/web/src/lib/analytics.ts`), or `sample-analytics.ts` |
-| AI provider, Settings | Runtime truth from `/api/health`; setup choices, clearing recorded cases, security boundaries | Backend, this browser |
+| **#48291 · duplicate $89.99 charge** | Two matching successful charges. Policy derives 8,999 minor units from records, revalidates, then permits an idempotent simulated refund. Read-back confirms it. | **RESOLVED · verified** |
+| **#48294 · suspicious $5,000 request** | Claim contradicts the $89.99 records and contains instruction-like text. Policy denies it; execution is never reached. | **ESCALATED · no refund** |
+| **#48293 · already refunded** | Records show the duplicate was already refunded. No additional action is authorized. | **CLOSED_NO_ACTION · no second refund** |
 
-Recorded cases are copies of real `/cases` responses kept in this browser (newest 50) so deep links and date ranges survive a reload. Pages deep-link with hash routes (`#/analytics`, `#/case/<id>`), and browser back/forward works.
+[Trace inputs, decisions, audit events and historical AMD outcomes](docs/submission/HERO_EVIDENCE_MAP.md). The public demo also includes a conflicting-amount scenario; canonical requests run in fresh synthetic worlds.
 
-Nothing in these pages is invented: no revenue, ROI, chat history or fulfilment data. An empty session shows empty states. Browser checks: `apps/web/e2e/*.e2e.mjs` (Proof Mode, merchant journey, commerce console); screenshots in `docs/screenshots/`.
+![Command Center: suspicious request 48294 blocked and escalated without executing a refund](docs/submission/deck/assets/command-center-48294.png)
 
-| Automation | Status |
+*Actual fixture UI capture. [Public-deployment scenario evidence](evals/results/hero-evidence-vercel-prod-20261016.json) records the outcomes.*
+
+## The model proposes; code holds authority
+
+```mermaid
+flowchart TD
+    U[Customer message / merchant workspace] --> I[Ingress: demo allowlist or operator token]
+    I --> A[AI: structured understanding]
+    A --> E[Code: transaction and refund evidence]
+    E --> P[AI: structured proposal]
+    P --> G{Code: policy and permissions}
+    G -->|Authorized| R[Code: revalidate current state]
+    R --> X[Simulated gateway: idempotent execution]
+    X --> V[Code: read-back verification]
+    V --> T[Verified resolution or safe failure]
+    G -->|Unsafe or uncertain| H[Human review escalation]
+    G -->|Already refunded| N[Close without action]
+    I -.-> L[Audit trail across every stage]
+    T -.-> L
+    H -.-> L
+    N -.-> L
+```
+
+The model cannot choose refund amounts, authorize payments, execute actions or mark them verified. Deterministic TypeScript handles money arithmetic, permissions, policy, idempotency and state transitions. Proposals are schema-validated and rechecked against records before execution. Under concurrent or repeated requests one refund is executed; a case whose refund call replays an existing refund closes as "refund already executed" instead of counting as a second resolution ([money-path tests](apps/api/test/financial-action-safety.test.ts)).
+
+[Architecture and source map](docs/submission/ARCHITECTURE_SUMMARY.md) · [case engine](apps/api/src/case-engine.ts) · [policy engine](apps/api/src/policy-engine.ts) · [safety invariant tests](apps/api/test/safety-invariants.test.ts)
+
+## AMD integration, with provenance
+
+JARVIS used **AMD-hosted OpenAI-compatible inference** for understanding and decision proposals in the recorded 14 Oct run. Configured model: `DeepSeek-V4-Flash`; observed smoke-test model: `self-dploy/DeepSeek-V4-Flash`.
+
+| Boundary | What the evidence supports |
 |---|---|
-| Refunds and returns (duplicate charges) | **Operational:** the full engine below |
-| Risk and exceptions, Customer support, Order operations, Inventory alerts, Store analytics | **Preview:** shown with exactly what is not built; nothing runs |
+| Hosted endpoint | `https://developer.amd.com.cn/radeon/api/v1`, from AMD documentation supplied by the owner; [completion receipt](evals/results/amd-live-001.json) and [startup gate](evals/results/live-gate-20261014T201902Z.json) are committed |
+| Token Factory naming | Equivalence to the hackathon Token Factory portal is **not independently confirmed** |
+| Hardware | Remote hosted API; no self-hosted AMD GPU, GPU model, ROCm deployment or training demonstrated |
+| Runtime | Adapter mode is named `vllm`; that name does not establish the provider's serving stack. Startup requires a listed model and valid probes; no fixture fallback |
+| Public deployment | Fixture-only Vercel demo; live inference belongs on a private long-running host with server-side credentials |
+| Optional Gemma | Smoke/startup evidence exists, but no end-to-end cases or benchmark. Last recorded startup failed closed because Gemma was no longer listed |
 
-**Demo store** (open with `#store`):
-- Order lookup reads the backend seed (`GET /api/demo-store`).
-- "Request a refund" sends that order's fixed request through `POST /cases`. It's a real case, and the merchant sees it.
-- Customer free text needs an operator token in the public demo.
-- "Connect your store" with a real domain is not available. No external store is read.
+The benchmark records commit `55be4ab`, a dirty working tree, dataset SHA-256, prompt hashes and scripted cases. [AMD evidence](docs/AMD_EVIDENCE.md) explains clock differences, failures and reproduction. Current code also rejects mismatched provider-reported model IDs; that later guard was **not exercised in the historical live run**.
 
-**Model providers:** one OpenAI-compatible adapter covers both hosted inference (AMD Token Factory, see `docs/TOKEN_FACTORY_SETUP.md`) and self-hosted vLLM on AMD GPUs (`docs/AMD_DEPLOYMENT_RUNBOOK.md`). Only `JARVIS_MODEL_BASE_URL`, `JARVIS_MODEL_NAME` and the server-side key differ. Without them, the app runs fixture AI and says so in the header.
+## Run it locally
 
-## Requirements
-
-- Node.js ≥ 24 (TypeScript runs natively; no build step for the API)
-
-## Quick start
+Requires **Node.js 24 or later**. From the repository root:
 
 ```bash
 npm ci
 npm ci --prefix apps/web
-npm run api:typecheck && npm run api:test     # API: unit, engine, adapter, startup, ingress, e2e
-npm run web:test && npm run web:build         # UI
-npm run api:bench:ci                          # pinned 30-case fixture benchmark; fails on any unsafe action
-npm run legacy:check                          # old prototype in legacy-prototype/ (reference only)
+npm run api:start
 ```
 
-Local demo:
+In a second terminal:
 
 ```bash
-PORT=3000 npm run api:start          # terminal A (fixture mode by default)
-npm run web:dev                      # terminal B → http://127.0.0.1:43123  (#store = demo store, #setup = onboarding)
-npm run demo:verify                  # terminal C: 13 live checks (health, store, 3 outcomes, audit, refusals) before recording
+npm run web:dev
 ```
 
-## Demo scenarios
+Open [the local workspace](http://127.0.0.1:43123/#/command-center). The API defaults to port 3000 and fixture AI; no model key is required. Use the demo store or canonical scenarios to create cases. Free-text requests require a server-side operator token.
 
-These four canonical requests run **without a token**. Each run gets a fresh synthetic world, so they can be repeated in any order.
+Verify locally, with the API running:
 
-| Scenario id | Request (customer · order) | Expected | Why |
-|---|---|---|---|
-| `valid-duplicate` | CUST-1001 · 48291 | `RESOLVED` | Two identical successful charges; refund of the later one is authorized, executed (simulated) and verified |
-| `conflicting-amount` | CUST-1002 · 48292 | `ESCALATED` | The customer's stated $250 contradicts the records ($180) |
-| `already-refunded` | CUST-1003 · 48293 | `CLOSED_NO_ACTION` | Already paid exactly once; nothing to refund |
-| `prompt-injection` | CUST-1004 · 48294 | `ESCALATED` | Instruction-like text plus a $5,000 claim; the policy gate blocks it |
+```bash
+npm run demo:verify
+npm run api:typecheck
+npm test
+npm run web:build
+npm run api:bench:ci
+```
 
-The exact messages are in `apps/api/src/fixtures.ts` (`SCENARIOS`) and `apps/web/src/fixtures/demo-scenarios.ts`. Escalation is a **correct safety outcome**, not a failure.
+These are reproduction commands, not a claim about current CI status. For hosted inference, follow the [owner runbook](docs/OWNER_RUNBOOK.md), [AMD reproduction steps](docs/AMD_EVIDENCE.md) and [environment template](apps/api/.env.example). Live calls require credentials and can incur provider charges.
 
-## How a request is handled
+## Explore the implementation and receipts
 
-Every entry point (node server, Netlify, Vercel) uses one ingress guard (`apps/api/src/ingress.ts`). It runs **before any model call**:
-
-1. Method, body size (64 KiB), JSON and schema validation.
-2. **Request class:**
-   - An exact canonical demo is **public**.
-   - Anything else is **privileged** and needs `Authorization: Bearer $JARVIS_CASES_TOKEN`. That is a server-side secret, never in the UI bundle, compared in constant time.
-   - With no token configured, free text is refused (403).
-3. **Cost limits** (429 + `Retry-After`):
-   - per-client rate (default 30/min);
-   - global concurrency (default 2);
-   - daily model-call budget. In vllm mode this is required, and each case reserves 2 calls.
-4. The unchanged case engine:
-   - understanding (AI) → evidence (deterministic) → proposal (AI);
-   - policy authorization and revalidation (deterministic);
-   - simulated gateway → read-back verification → terminal state.
-
-The limits are in-process. They are a real global limit for one long-running server, **but only per instance on serverless**. That is why serverless hosts are fixture-only (see below).
-
-## AI modes
-
-| Mode | Adapters | Startup |
-|---|---|---|
-| `fixture` (default) | Deterministic fixture adapters | No endpoint, no network |
-| `vllm` | `VllmRequestUnderstandingAdapter` + `VllmModelAdapter` on one OpenAI-compatible client | `GET /models` must list `JARVIS_MODEL_NAME`, and one synthetic probe per adapter must return schema-valid JSON. Otherwise the process exits 1. **Never falls back to fixture.** |
-
-Live-model environment (server-side only; never in the browser or the repo): `JARVIS_AI_MODE=vllm`, `JARVIS_MODEL_BASE_URL`, `JARVIS_MODEL_NAME` (e.g. `DeepSeek-V4-Flash`), `JARVIS_MODEL_API_KEY`, `JARVIS_DAILY_MODEL_CALL_BUDGET` (required), optional `JARVIS_MODEL_STRUCTURED_OUTPUT` (`json_schema` | `json_object` | `off`), `JARVIS_MODEL_TIMEOUT_MS`, `JARVIS_MODEL_MAX_RETRIES`, `JARVIS_MODEL_MIN_INTERVAL_MS` (pacing), `JARVIS_UNDERSTANDING_MODEL_NAME` (optional second model for understanding). Free text needs `JARVIS_CASES_TOKEN`. The safest way to set the key is `scripts/live-gate.ps1` or `docs/submission/recording/start-live-api.ps1` (hidden prompt). Replies whose provider-reported model differs from the configured one fail closed.
-
-Configuration: `apps/api/.env.example`. Real-model benchmark: `npm run api:bench:vllm -- --run <id>`. It writes `evals/results/duplicate-charge-eval.v1.vllm-<model>-<id>.json` and never touches the fixture results or baselines.
-
-## Deployment
-
-- **Netlify:** `netlify.toml` + `netlify/functions/*`.
-- **Vercel:** `vercel.json` + `api/*`, deployed (fixture mode, no environment variables) at https://jarvis-actiii-preview.vercel.app; verified anonymously with `npm run demo:verify -- <url>` (13/13) on 16 Oct 2026.
-- Both are thin wrappers over `apps/api/src/serverless.ts` and are **fixture-only**. A deployment configured with `JARVIS_AI_MODE=vllm` refuses cases (503) instead of silently serving fixtures.
-- Real-model inference belongs on a **private long-running host** (`npm run api:start` with `JARVIS_AI_MODE=vllm`).
-
-## Security limitations (known)
-
-- Rate, concurrency and budget limits are in-memory. They are not global across serverless instances, and the budget resets when the process restarts.
-- One shared bearer token. No per-user identity, rotation or audit of token use.
-- No TLS termination in the node server; run it behind a TLS proxy and set `JARVIS_TRUST_PROXY=1` only behind a trusted one.
-- The payment gateway is simulated. There is no real payment integration.
-
-## Documents
-
-| Doc | Purpose |
+| Start here | What you can inspect |
 |---|---|
-| `docs/ACTIII_ENGINEERING_HANDOVER.md` | Current state: commits, verification, readiness, next task |
-| `docs/IMPLEMENTATION_STATUS.md` | Status of record (IMPLEMENTED / VERIFIED / NOT DONE) |
-| `docs/AMD_EVIDENCE.md` | Live AMD hosted-inference evidence (14 Oct 2026), Gemma status, reproduction steps |
-| `docs/SUBMISSION.md` | Submission text: positioning, descriptions, tags, architecture, demo outline, checklist |
-| `docs/DEMO_SCRIPT.md` | Timed 3-minute judge demo across the merchant workspace; demonstrated versus future |
-| `docs/STORYBOARD.md` | Shot list mapped to real screenshots in `docs/screenshots/` |
-| `docs/OWNER_RUNBOOK.md` | Windows PowerShell runbook: pull, install, AMD model discovery and first call, real-model mode, verification, benchmark, Vercel preview, judge access, recording |
-| `docs/SUBMISSION_PREFLIGHT.md` | Public submission requirements versus current status; slide outline |
-| `docs/BUSINESS_EVIDENCE.md` | Measured benchmark facts versus assumption-labelled value estimates |
-| `docs/AMD_DEPLOYMENT_RUNBOOK.md` | Step-by-step real-model run on AMD Developer Cloud (plus RX 6800 notes) |
-| `docs/TOKEN_FACTORY_SETUP.md` | Connect a hosted OpenAI-compatible endpoint (AMD Token Factory): verification, Windows PowerShell steps (`scripts/tokenfactory-smoke.ps1`), env, Vercel server-side opt-in |
-| `docs/VERCEL_PREVIEW_SETUP.md` | Safe fixture-only Vercel preview via CLI (no production, no `master`) |
-| `docs/EVOLUS_INTEGRATION.md` | Evolus requirements, intended two-block design, blockers |
-| `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md` | Prompt contracts, failure mapping, test matrix, smoke and benchmark plan |
-| `docs/JARVIS_ACT_III_BUILD_CONTRACT.md` | Product and authority contract |
-| `TESTING_GUIDE.md`, `NETLIFY_DEPLOY.md` | Verification and Netlify notes |
-| `FINAL_STATUS.md`, `CONTINUATION_GUIDE.md`, `KICKOFF_PLAN.md`, `CURSOR_*`, `HANDOFF_MANIFEST.md`, `FINAL_HANDOVER_SHA256.txt` | Historical pre-kickoff and Cursor-era docs; superseded by the handover above |
+| [Judge Mode](https://jarvis-actiii-preview.vercel.app/#/judge) · [walkthrough](docs/improvement/JUDGE_WALKTHROUGH.md) | Run the outcomes, see who decides each step, inspect the recorded AMD run |
+| [CLAIMS.md](CLAIMS.md) | Every claim with its evidence file and reproduce command |
+| [AMD provenance](docs/improvement/AMD_PROVENANCE.md) | What ran on AMD, what ran locally, measured latencies, open questions |
+| [Security review](docs/improvement/SECURITY_REVIEW.md) · [technical reference](docs/TECHNICAL_REFERENCE.md) | Findings and fixes; ingress, AI modes, deployment and known limits |
+| [Business case](docs/improvement/BUSINESS_CASE.md) | Buyer, workflow, assumption-labelled value model, pilot plan |
+| [Evidence summary](docs/submission/EVIDENCE_SUMMARY.md) | Historical checks, dates, verified and unverified claims |
+| [Pinned dataset](data/cases/duplicate-charge-eval.v1.json) · [evaluator](apps/api/eval/run-benchmark.ts) | Ground truth and metric definitions, including safe failures |
+| [Hero evidence map](docs/submission/HERO_EVIDENCE_MAP.md) | Three outcomes linked to raw audit artifacts |
+| [Implementation status](docs/IMPLEMENTATION_STATUS.md) | Implemented capabilities and outstanding work |
+| [Business evidence](docs/BUSINESS_EVIDENCE.md) | Measured technical results versus assumption-labelled estimates |
+| [Demo script](docs/DEMO_SCRIPT.md) · [screenshot gallery](docs/screenshots/) | Merchant workflow and earlier fixture UI captures |
+| [Submission and film](https://lablab.ai/submissions/lp1nzpneomsafp3lv6rjp220) · [corrected deck](docs/submission/deck/jarvis-deck.pdf) | Public submission and repository presentation materials |
 
-Benchmark figures shown in the UI are **fixture results, not AMD or real-model results**, and are labelled as such. The live AMD benchmark result is in `evals/results/duplicate-charge-eval.v1.vllm-deepseek-v4-flash-tf-1.json`. Submission material: `docs/submission/`.
+The workspace includes orders, customers, inbox, approvals, audit and analytics. Recorded cases are stored in this browser (newest 50); sample analytics are separately labelled. Duplicate-charge refunds are the working automation. Other catalog entries are previews. See the [build contract](docs/JARVIS_ACT_III_BUILD_CONTRACT.md) and owner runbook for operational boundaries.
+
+## Limits that matter
+
+- **Synthetic data and simulated gateway:** no real payments, external store connection or production customer deployment demonstrated.
+- **Human review is review-only:** escalation does not implement a complete approval-to-payment workflow.
+- **Finite evaluation:** one historical hosted-model benchmark, with conservative misses and two scripted cases; zero observed unsafe actions does not prove general safety.
+- **In-memory controls:** limits apply per process; serverless limits are per instance and budgets reset on restart. Serverless live-model mode exists only behind an explicit opt-in (`JARVIS_SERVERLESS_REAL_MODEL=enabled`); with per-instance quotas and per-instance startup probes, unrestricted public paid inference would be unsafe, so the public demo stays fixture-only.
+- **Idempotency is per world:** each public demo request gets a fresh synthetic world; a real deployment needs durable idempotency keys shared across workers.
+- **Shared operator token:** no per-user identity or token-use audit. Run the Node server behind a trusted TLS proxy; see the runbook.
+- **Provider availability changes:** historical receipts do not promise present availability. Gemma cases, self-hosted GPUs, Evolus integration and measured commercial impact remain unproven.
+
+---
+
+<div align="center">
+
+**Inspect the evidence. Follow the decision. Verify the action.**
+
+[Open Judge Mode →](https://jarvis-actiii-preview.vercel.app/#/judge)
+
+</div>

@@ -168,6 +168,8 @@ export interface AuthorizationDecision {
 export interface ActionResult {
   status: "ACCEPTED" | "ERROR";
   providerRefundId: string | null;
+  // The gateway returned a refund that already existed for this idempotency key: no new money moved.
+  replayed?: boolean;
   error: string | null;
   attemptedAt: string;
 }
@@ -210,6 +212,7 @@ export type ReasonCode =
   | "MODEL_ERROR"
   | "MODEL_OUTPUT_INVALID"
   | "EXECUTION_NOT_VERIFIED"
+  | "REFUND_ALREADY_EXECUTED"
   | "INTERNAL_ERROR";
 
 export interface Reason {

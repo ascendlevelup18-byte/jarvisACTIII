@@ -7,7 +7,7 @@ import { RuntimeChips } from '../ui/RuntimeChips.tsx';
 import { GlobalSearch } from './GlobalSearch.tsx';
 import { Icon, type IconName } from '../ui/Icon.tsx';
 
-const PRIMARY:{id:NavId;icon:IconName}[]=[{id:'dashboard',icon:'home'},{id:'command-center',icon:'shield'},{id:'orders',icon:'orders'},{id:'customers',icon:'customers'},{id:'inbox',icon:'inbox'},{id:'assistant',icon:'spark'},{id:'benchmarks',icon:'chart'},{id:'approvals',icon:'shield'},{id:'activity',icon:'activity'},{id:'settings',icon:'settings'}];
+const PRIMARY:{id:NavId;icon:IconName}[]=[{id:'judge',icon:'shield'},{id:'dashboard',icon:'home'},{id:'command-center',icon:'shield'},{id:'orders',icon:'orders'},{id:'customers',icon:'customers'},{id:'inbox',icon:'inbox'},{id:'assistant',icon:'spark'},{id:'benchmarks',icon:'chart'},{id:'approvals',icon:'shield'},{id:'activity',icon:'activity'},{id:'settings',icon:'settings'}];
 export function OpsShell({activeNav,onNavigate,actions,badges,store,history,pendingReview,onSearchSelect,children}:{activeNav:NavId;onNavigate:(id:NavId)=>void;actions?:ReactNode;badges?:Partial<Record<NavId,number>>;store:DemoStoreSnapshot|null;history:SessionCaseEntry[];pendingReview:number;onSearchSelect:(r:Route)=>void;children:ReactNode}) {
  const [menu,setMenu]=useState(false);
  const go=(id:NavId)=>{setMenu(false);onNavigate(id);};

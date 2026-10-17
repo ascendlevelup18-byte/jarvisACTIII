@@ -2,6 +2,7 @@
 // /api/health (see runtime-truth.ts).
 
 export type NavId =
+  | "judge"
   | "command-center"
   | "assistant"
   | "dashboard"
@@ -28,6 +29,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { id: "judge", label: "Judge Mode", section: "Overview", slug: "judge" },
   { id: "command-center", label: "Command Center", section: "Overview", slug: "command-center" },
   { id: "assistant", label: "AI Assistant", section: "Overview", slug: "assistant" },
   { id: "dashboard", label: "Home", section: "Overview", slug: "dashboard" },

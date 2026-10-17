@@ -57,6 +57,7 @@ type MerchantRoute = Extract<Route, { surface: "merchant" }>;
 const BenchmarksPage = lazy(() => import("./pages/BenchmarksPage.tsx").then((m) => ({ default: m.BenchmarksPage })));
 
 const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage.tsx").then(m => ({ default: m.CommandCenterPage })));
+const JudgePage = lazy(() => import("./pages/JudgePage.tsx").then((m) => ({ default: m.JudgePage })));
 
 const DEFAULT_ROUTE: MerchantRoute = { surface: "merchant", nav: "dashboard" };
 function initialRoute(): Route {
@@ -299,6 +300,11 @@ export default function App() {
               onRunOrder={runOrder}
               onOpenCase={openCase}
             />
+          )}
+          {route.nav === "judge" && (
+            <Suspense fallback={<LoadingRows label="Opening Judge Mode…" />}>
+              <JudgePage onRecord={(result, s) => record(result, { scenarioTitle: s.title, scenarioId: s.id })} onOpenCase={openCase} />
+            </Suspense>
           )}
           {route.nav === "command-center" && (
             <Suspense fallback={<LoadingRows label="Opening Command Center…" />}>

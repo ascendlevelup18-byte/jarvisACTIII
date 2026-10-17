@@ -14,6 +14,8 @@ import { dirname } from "node:path";
 
 const args = process.argv.slice(2);
 const REAL = args.includes("--real-model");
+const FIXTURE = args.includes("--fixture");
+if (REAL && FIXTURE) throw new Error("Choose --fixture or --real-model, not both");
 const evidenceAt = args.indexOf("--evidence");
 const EVIDENCE = evidenceAt === -1 ? null : args[evidenceAt + 1];
 const positional = args.filter((a, i) => !a.startsWith("--") && (evidenceAt === -1 || i !== evidenceAt + 1));
@@ -49,14 +51,24 @@ async function main() {
   const h = await call("GET", "/api/health");
   check("1 API health", h.status === 200 && h.json?.ok === true, `HTTP ${h.status} · aiMode=${h.json?.aiMode} · deployment=${h.json?.deployment}`);
   check("  payments are simulated", h.json?.paymentGateway === "simulated", `paymentGateway=${h.json?.paymentGateway}`);
+  if (FIXTURE) {
+    const fixture = h.json?.aiMode === "fixture" && h.json?.remoteModel === false;
+    check("  fixture runtime: no remote inference", fixture, `aiMode=${h.json?.aiMode} · remoteModel=${h.json?.remoteModel}`);
+    // Do not submit cases to a target that fails the requested runtime contract.
+    if (!fixture) return;
+  }
 
   // 2. Demo store
   const s = await call("GET", "/api/demo-store");
   const orders = s.json?.orders ?? [];
   check("2 Demo store available", s.status === 200 && orders.length === 4, `HTTP ${s.status} · ${orders.length} orders · data=${s.json?.store?.data} · payments=${s.json?.store?.payments}`);
+  check("  demo store is synthetic and payments simulated", s.json?.store?.data === "synthetic" && s.json?.store?.payments === "simulated");
   const order = (id) => orders.find((o) => o.orderId === id);
   const request = (id) => ({ customerId: order(id).customerId, orderId: id, message: order(id).supportRequest.message });
   if (orders.length !== 4) return;
+  const complete = ["48291", "48292", "48293", "48294"].every((id) => order(id)?.supportRequest?.message && order(id)?.customerId);
+  check("  all four canonical orders have saved requests", complete);
+  if (!complete) return;
 
   // 3. Valid duplicate → verified simulated refund of exactly the duplicate charge
   const v = await call("POST", "/cases", request("48291"));
@@ -118,7 +130,21 @@ async function main() {
     `HTTP ${again.status} · ${again.json?.state} · new case id`,
   );
 
-  if (REAL) realModelProof(h.json, [["48291", vc], ["48294", uc], ["48293", ac]]);
+  const conflict = await call("POST", "/cases", request("48292"));
+  const cc = conflict.json;
+  check("8 #48292 conflicting amount → ESCALATED, no execution",
+    conflict.status === 200 && cc?.state === "ESCALATED" && cc.action === null && cc.verification === null &&
+    !reachedState(cc, "EXECUTING") && !types(cc).includes("ACTION_ATTEMPTED") && contiguous(cc),
+    `HTTP ${conflict.status} · ${cc?.state} · no simulated refund`);
+
+  const cases = [["48291", vc], ["48294", uc], ["48293", ac], ["48292", cc]];
+  if (FIXTURE) {
+    for (const [id, c] of cases) {
+      const calls = c.audit.filter((e) => e.type === "UNDERSTANDING_CALL" || e.type === "MODEL_CALL");
+      check(`  #${id} audited AI calls use fixture adapters`, calls.length > 0 && calls.every((e) => String(e.data?.adapter).startsWith("fixture")));
+    }
+  }
+  if (REAL) realModelProof(h.json, cases);
 }
 
 // Proof that the cases themselves ran on the remote model: health mode plus the adapter id on every audited AI call.
@@ -169,5 +195,9 @@ try {
 }
 for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  —  ${r.detail}` : ""}`);
 const failed = results.filter((r) => !r.ok).length;
+if (EVIDENCE && !REAL) {
+  mkdirSync(dirname(EVIDENCE), { recursive: true });
+  writeFileSync(EVIDENCE, `${JSON.stringify({ capturedAt: new Date().toISOString(), target: new URL(BASE).origin, mode: FIXTURE ? "fixture" : "unspecified", checks: results }, null, 2)}\n`);
+}
 console.log(`\n${results.length - failed}/${results.length} checks passed${failed ? "" : " · ready to record"}`);
 process.exitCode = failed || results.length === 0 ? 1 : 0;
