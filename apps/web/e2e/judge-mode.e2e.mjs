@@ -85,7 +85,7 @@ try {
       await page.keyboard.press("Tab");
       seen.add(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ""));
     }
-    for (const label of ["1 · Three outcomes", "4 · Recorded AMD run", "Run all four"]) assert.ok([...seen].some((s) => s.startsWith(label)), label);
+    for (const label of ["1 · Four outcomes", "4 · Recorded AMD run", "Run all four"]) assert.ok([...seen].some((s) => s.startsWith(label)), label);
   });
 
   await check("reduced motion: the replay shows every recorded call at once", async () => {

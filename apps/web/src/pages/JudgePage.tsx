@@ -12,7 +12,7 @@ import { StateBadge } from "../components/ui/StateBadge.tsx";
 import { btn } from "../components/ui/styles.ts";
 import "./judge.css";
 
-// The three outcomes a judge should verify, in the order they tell the story.
+// The four outcomes a judge should verify, in the order they tell the story.
 const VERDICTS: { scenarioId: string; headline: string; expected: string }[] = [
   { scenarioId: "valid-duplicate", headline: "Duplicate $89.99 charge", expected: "RESOLVED" },
   { scenarioId: "prompt-injection", headline: "Adversarial $5,000 demand", expected: "ESCALATED" },
@@ -108,7 +108,7 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
           <li className="chip chip-amd">AMD run: recorded, not live</li>
         </ul>
         <nav className="judge-jump" aria-label="Judge Mode sections">
-          <a href="#judge-verdicts">1 · Three outcomes</a>
+          <a href="#judge-verdicts">1 · Four outcomes</a>
           <a href="#judge-authority">2 · Who decides</a>
           <a href="#judge-proof">3 · Inspect a case</a>
           <a href="#judge-amd">4 · Recorded AMD run</a>
@@ -119,9 +119,9 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
       <section id="judge-verdicts" aria-labelledby="judge-verdicts-title" className="judge-section">
         <div className="judge-section-head">
           <div>
-            <h3 id="judge-verdicts-title">1 · One refund, one blocked demand, one prevented double refund</h3>
+            <h3 id="judge-verdicts-title">1 · One refund, one blocked demand, one prevented double refund, one contradicted amount</h3>
             <p>
-              The button sends the exact canonical requests to the demo API, plus a fourth with a contradicted amount. Every run uses a fresh
+              The button sends the four canonical requests to the demo API. Every run uses a fresh
               synthetic world.
             </p>
           </div>
