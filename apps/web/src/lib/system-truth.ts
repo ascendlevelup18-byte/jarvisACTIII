@@ -5,6 +5,7 @@ export type NavId =
   | "judge"
   | "command-center"
   | "assistant"
+  | "team"
   | "dashboard"
   | "operations"
   | "orders"
@@ -32,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "judge", label: "Judge Mode", section: "Overview", slug: "judge" },
   { id: "command-center", label: "Command Center", section: "Overview", slug: "command-center" },
   { id: "assistant", label: "AI Assistant", section: "Overview", slug: "assistant" },
+  { id: "team", label: "AI Team", section: "Overview", slug: "ai-team" },
   { id: "dashboard", label: "Home", section: "Overview", slug: "dashboard" },
   { id: "operations", label: "Proof Mode", section: "Overview", slug: "proof" },
   { id: "orders", label: "Orders", section: "Commerce", slug: "orders" },
