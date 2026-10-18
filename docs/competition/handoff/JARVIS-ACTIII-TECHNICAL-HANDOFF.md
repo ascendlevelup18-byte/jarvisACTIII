@@ -133,3 +133,39 @@ Prepared 18 Oct 2026, 06:30 UTC, by Claude Code for ChatGPT Work. Every number b
 
 ## 9. Suggested one-paragraph description update (for owner approval; Claude did not edit lablab)
 > JARVIS Automations resolves payment exceptions such as duplicate charges with AI that proposes and deterministic policy that decides. On AMD-hosted DeepSeek-V4-Flash, all four demo orders passed live on 17 Oct 2026 (25/25 checks): a verified $89.99 simulated refund, a blocked $5,000 demand, no second refund on an already-refunded order, and an escalated amount conflict. On a 30-case adversarial benchmark it made 0 unsafe autonomous actions, against 18 unsafe outcomes without its policy layer. A six-specialist AI Executive Team analyses a synthetic store's decline. It withholds any number the data cannot support and leaves disagreements to the owner, and its refund recommendation flows into a JARVIS case that policy authorizes and read-back verifies. Payments are simulated and data is synthetic; Judge Mode lets anyone verify each outcome.
+
+## 10. Supabase cloud status (`jarvis-actiii-cloud`, separate from the public site)
+| Component | Status | Basis |
+|---|---|---|
+| Database migrations (3, versioned in `supabase/migrations/`) | VERIFIED | applied; SQL security test 46/46 |
+| Row-level security and SQL grants | VERIFIED | 46/46 SQL checks; 7 REST checks in the live test |
+| Authentication (Supabase Auth, email/password) | VERIFIED | live sign-in of disposable test users; forged, garbage and anon tokens refused |
+| Edge Function `jarvis-gateway` (v2, JWT on) | VERIFIED | 28/28 live checks after the `603ad90` fix |
+| Gateway authorization (owner/operator/viewer, cross-org) | VERIFIED | live owner/viewer and cross-org checks |
+| AI provider routing (registry, owner-only model selection) | PARTIAL | routes and registry verified; no cloud model call yet (flags off by design) |
+| Persistent conversations and boardroom sharing | PARTIAL | tables, RLS and sharing verified in SQL; not exercised with live AI in the cloud |
+| Owner-only settings and quotas | VERIFIED (SQL) / PARTIAL (live) | SQL tests; live owner model selection passed |
+| Audit records (append-only) | VERIFIED | SQL tamper tests |
+| Secrets (AMD and OpenRouter keys) | VERIFIED configured | admin health check returned yes/yes, no values |
+| Cloud model calls | NOT ENABLED | `JARVIS_TEAM_LIVE_ENABLED` / `JARVIS_AMD_ROUTE_ENABLED` unset by decision |
+| Browser sign-in UI for the cloud | NOT DEPLOYED | public site stays fixture-only |
+| `JARVIS_ALLOWED_ORIGINS` | not set | browsers cannot call the gateway yet (not needed for the competition) |
+
+## 11. Recommended video sequence (about 3 minutes, all from production)
+1. **0:00–0:20.** The problem: payment exceptions and duplicate charges cost merchants time and money. Rule on screen: "AI proposes. Policy decides. Every refund is verified."
+2. **0:20–1:00.** Judge Mode → "Run all four" (`screenshots/02-judge-four-outcomes.png`). Show #48291 verified, #48294 blocked, #48293 no action, #48292 escalated. Open "Inspect why" on #48291 (policy checks, read-back, audit).
+3. **1:00–1:35.** The 17 Oct AMD panel (`03-…png`). Caption: "Recorded live on AMD-hosted DeepSeek-V4-Flash · 17 Oct 2026 · 25/25 checks". Then the 14 Oct benchmark: 0 unsafe; 18/30 unsafe without policy.
+4. **1:35–2:25.** AI Executive Team (`05-ai-team.png`): boardroom, specialists, disagreements left to the owner. Caption from the live run: "Six live specialists (free OpenRouter model, recorded 18 Oct) · numbers checked against data". Then the Mission: refund proposal → JARVIS case → policy APPROVE → read-back verified.
+5. **2:25–2:50.** Policy Stress Lab and Merchant Impact Studio.
+6. **2:50–3:00.** Close: synthetic data and simulated payments; evidence on GitHub; URL.
+
+**Captions must say "recorded" for any live AMD or OpenRouter result.** The public page itself runs fixture AI.
+
+## 12. Known defects and restrictions
+- The public AI Team page runs fixture specialists. The live team needs the owner's local server or the (disabled) cloud route.
+- The 17 Oct AMD run used a working tree with uncommitted cloud files (`gitDirty: true`).
+- The figure check accepts values within 0.5% of a real figure, and cannot stop misleading prose that contains no numbers.
+- Local-server limits are per process. Durable quotas exist only in the cloud path.
+- No backup-and-restore drill has been run on the cloud database. Deleting an organization is blocked by append-only audit rows (needs an admin retention job).
+- Smoke-test data: 3 disposable users (`smoke-*@jarvis-smoke.invalid`) and their test orgs remain in the cloud project; they are safe to delete after judging.
+- Gemma: BLOCKED. Evolus: BLOCKED.
