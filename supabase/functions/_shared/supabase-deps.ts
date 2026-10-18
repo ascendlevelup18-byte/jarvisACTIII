@@ -26,8 +26,9 @@ export function denoDeps(): GatewayDeps & { isPlatformAdmin(userId: string): Pro
       const { data, error } = await service.auth.getUser(jwt);
       return error || !data.user ? null : { id: data.user.id };
     },
-    async roleOf(jwt, orgId) {
-      const { data, error } = await asUser(jwt).from("memberships").select("role").eq("org_id", orgId).limit(1).maybeSingle();
+    async roleOf(jwt, orgId, userId) {
+      // RLS shows every member's row in the org; only the caller's own row decides their role.
+      const { data, error } = await asUser(jwt).from("memberships").select("role").eq("org_id", orgId).eq("user_id", userId).maybeSingle();
       return error || !data ? null : (data.role as Role);
     },
     async rpcAsUser(jwt, fn, args) {

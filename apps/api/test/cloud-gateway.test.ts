@@ -84,7 +84,12 @@ const deps = (e = env()): GatewayDeps & { isPlatformAdmin(u: string): Promise<bo
   env: e,
   fetch,
   getUser: async (jwt) => (w.users[jwt] ? { id: w.users[jwt]! } : null),
-  roleOf: async (jwt, org) => w.roles[`${w.users[jwt]}:${org}`] ?? null,
+  // Like RLS: the caller may see every membership row of an org they belong to, so the gateway must ask
+  // for its own row by user id (regression for the bug the deployed-gateway test found on 18 Oct).
+  roleOf: async (jwt, org, userId) => {
+    if (userId !== w.users[jwt]) throw new Error("roleOf must be asked for the caller's own row");
+    return w.roles[`${userId}:${org}`] ?? null;
+  },
   rpcAsUser: async (jwt, fn, args) => {
     const member = w.roles[`${w.users[jwt]}:${args.p_org}`];
     if (fn === "resolve_model") return member ? (w.selected[args.p_purpose as "team" | "case"] ?? null) : null;

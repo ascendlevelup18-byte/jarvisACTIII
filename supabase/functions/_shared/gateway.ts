@@ -45,8 +45,11 @@ export interface GatewayDeps {
   fetch: typeof fetch;
   /** Verifies the JWT with Supabase Auth; null when invalid or expired. */
   getUser(jwt: string): Promise<{ id: string } | null>;
-  /** The caller's role in the org, read with the caller's JWT under row-level security. */
-  roleOf(jwt: string, orgId: string): Promise<Role | null>;
+  /**
+   * The caller's own role in the org, read with the caller's JWT under row-level security. Must filter on
+   * userId: RLS lets a member see every membership row of the org, not only their own.
+   */
+  roleOf(jwt: string, orgId: string, userId: string): Promise<Role | null>;
   /** Calls a SQL function as the caller (RLS and auth.uid() apply). Throws Error(message) on failure. */
   rpcAsUser(jwt: string, fn: string, args: Record<string, unknown>): Promise<unknown>;
   /** Calls a SQL function with the service role (server-only functions such as complete_model_request). */
@@ -113,7 +116,7 @@ async function admit(req: Request, deps: GatewayDeps, method: "POST" | "GET"): P
 }
 
 async function requireOperator(ctx: Ctx, orgId: string, deps: GatewayDeps, op: string): Promise<Response | Role> {
-  const role = await deps.roleOf(ctx.jwt, orgId).catch(() => null);
+  const role = await deps.roleOf(ctx.jwt, orgId, ctx.user.id).catch(() => null);
   if (role === "owner" || role === "operator") return role;
   await deps.insertAsService("security_events", { org_id: role ? orgId : null, user_id: ctx.user.id, kind: "gateway_denied", detail: { op, role } }).catch(() => null);
   return json(403, { error: "forbidden" }, ctx.cors);
@@ -296,7 +299,7 @@ export async function handleStatus(req: Request, deps: GatewayDeps): Promise<Res
   const { ctx } = a;
   const p = OrgBody.safeParse(a.raw);
   if (!p.success) return json(400, { error: "invalid_request" }, ctx.cors);
-  const role = await deps.roleOf(ctx.jwt, p.data.orgId).catch(() => null);
+  const role = await deps.roleOf(ctx.jwt, p.data.orgId, ctx.user.id).catch(() => null);
   if (!role) return json(403, { error: "forbidden" }, ctx.cors);
   const [team, cases, quotas, usage] = await Promise.all([
     resolveModel(ctx, p.data.orgId, "team", deps),

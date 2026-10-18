@@ -50,6 +50,8 @@ check("disallowed browser origin → 403", (await gw("/status", A.jwt, { orgId: 
 const sv = await gw("/status", V.jwt, { orgId: orgA });
 check("viewer reads own org status", sv.status === 200 && sv.body?.role === "viewer", `${sv.status}`);
 check("status reveals no secret", !SECRET.test(sv.text));
+const so = await gw("/status", A.jwt, { orgId: orgA });
+check("owner gets their own role (owner), not another member's", so.status === 200 && so.body?.role === "owner", so.text);
 check("other org's owner cannot read org A status → 403", (await gw("/status", B.jwt, { orgId: orgA })).status === 403);
 check("viewer cannot run a case → 403", (await gw("/cases", V.jwt, { orgId: orgA, request: { customerId: "CUST-1001", orderId: "48291", message: "I was charged twice for order #48291." } })).status === 403);
 check("other org cannot run a case in org A → 403", (await gw("/cases", B.jwt, { orgId: orgA, request: { customerId: "CUST-1001", orderId: "48291", message: "I was charged twice for order #48291." } })).status === 403);
