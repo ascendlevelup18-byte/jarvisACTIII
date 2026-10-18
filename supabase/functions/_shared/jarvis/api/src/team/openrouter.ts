@@ -191,12 +191,13 @@ export class OpenRouterTeamProvider implements TeamProvider {
         method: "POST",
         headers: this.headers(),
         signal: AbortSignal.any([signal, AbortSignal.timeout(this.cfg.timeoutMs)]),
-        body: JSON.stringify({ model: this.cfg.model, messages, max_tokens: this.cfg.maxOutputTokens, temperature: 0.2, usage: { include: true }, ...(json ? { response_format: { type: "json_object" } } : {}) }),
+        // Reasoning models spend output tokens thinking before they answer; keep that short and out of the reply.
+        body: JSON.stringify({ model: this.cfg.model, messages, max_tokens: this.cfg.maxOutputTokens, temperature: 0.2, usage: { include: true }, reasoning: { effort: "low", exclude: true }, ...(json ? { response_format: { type: "json_object" } } : {}) }),
       });
       if (res.status === 429) this.stop("QUOTA_EXHAUSTED", "provider rate limit or daily free quota reached (HTTP 429); no retry");
       if (res.status === 402) this.stop("QUOTA_EXHAUSTED", "provider refused the request for credit or spend limit (HTTP 402)");
       if (!res.ok) throw new TeamProviderError("HTTP_ERROR", `provider returned HTTP ${res.status}`);
-      const body = (await res.json()) as { model?: string; choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number } };
+      const body = (await res.json()) as { model?: string; choices?: { message?: { content?: string | null }; finish_reason?: string }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number } };
       // No silent substitution: the answering model must be the one requested.
       if (body.model !== this.cfg.model) throw new TeamProviderError("MODEL_MISMATCH", `requested ${this.cfg.model}, provider answered with ${String(body.model).slice(0, 80)}`);
       const cost = typeof body.usage?.cost === "number" ? body.usage.cost : null;
@@ -206,7 +207,10 @@ export class OpenRouterTeamProvider implements TeamProvider {
       this.tokens.completion += body.usage?.completion_tokens ?? 0;
       if (this.cfg.freeOnly && cost !== null && cost > 0) this.stop("UNEXPECTED_COST", `a free-only request reported a cost of ${cost}; provider stopped`);
       const content = body.choices?.[0]?.message?.content;
-      if (typeof content !== "string") throw new TeamProviderError("BAD_RESPONSE", "no message content");
+      if (typeof content !== "string" || content.trim() === "") {
+        const truncated = body.choices?.[0]?.finish_reason === "length";
+        throw new TeamProviderError("BAD_RESPONSE", truncated ? `no answer: the output-token limit (${this.cfg.maxOutputTokens}) was used up before the model answered` : "no message content");
+      }
       outcome = { status: "completed", tokensIn: body.usage?.prompt_tokens ?? null, tokensOut: body.usage?.completion_tokens ?? null, costUsd: cost, error: null };
       return { content, latencyMs: Date.now() - t0, tokensIn: outcome.tokensIn, tokensOut: outcome.tokensOut, costUsd: cost };
     } catch (e) {

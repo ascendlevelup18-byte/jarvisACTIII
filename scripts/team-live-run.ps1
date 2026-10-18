@@ -35,7 +35,7 @@ param(
   [ValidateSet("check", "cfo", "three", "six", "all")][string]$Stage = "all",
   [ValidateRange(1, 40)][int]$MaxRequests = 12,
   [int]$Port = 3220,
-  [ValidateRange(5000, 120000)][int]$TimeoutMs = 60000,
+  [ValidateRange(5000, 120000)][int]$TimeoutMs = 120000,
   [string]$KeyPattern = '^sk-or-v1-[0-9a-fA-F]{64}$',
   # Also run the core JARVIS engine on the AMD model and finish with the Commerce Recovery Mission.
   [switch]$WithAmd,
@@ -102,9 +102,9 @@ function Invoke-Team([string]$path, $body) {
   $headers = @{ Authorization = "Bearer $script:opToken" }
   $uri = "http://127.0.0.1:$Port$path"
   try {
-    if ($null -eq $body) { return Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -TimeoutSec 400 }
+    if ($null -eq $body) { return Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -TimeoutSec 900 }
     $json = $body | ConvertTo-Json -Depth 6 -Compress
-    return Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -ContentType "application/json" -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 400
+    return Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -ContentType "application/json" -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 900
   } catch {
     return [pscustomobject]@{ httpError = $_.Exception.Message }
   }
@@ -154,7 +154,7 @@ try {
   if ($BaseUrl) { $env:JARVIS_TEAM_BASE_URL = $BaseUrl }
   $env:JARVIS_TEAM_MAX_REQUESTS = "$MaxRequests"
   $env:JARVIS_TEAM_MAX_USD = "0.01"
-  $env:JARVIS_TEAM_MAX_OUTPUT_TOKENS = "900"
+  $env:JARVIS_TEAM_MAX_OUTPUT_TOKENS = "4000" # free model; reasoning models think before answering
   $env:JARVIS_TEAM_TIMEOUT_MS = "$TimeoutMs"
   $env:JARVIS_TEAM_FREE_ONLY = "1"
   $env:JARVIS_CASES_TOKEN = $script:opToken
@@ -207,7 +207,7 @@ try {
   }
   $caseReq = (& node --input-type=module -e "import { SCENARIOS } from './apps/api/src/fixtures.ts'; process.stdout.write(JSON.stringify(SCENARIOS.validDuplicate))")
   try {
-    $c = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/cases" -Method Post -ContentType "application/json" -Body ([Text.Encoding]::UTF8.GetBytes($caseReq)) -TimeoutSec 400
+    $c = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/cases" -Method Post -ContentType "application/json" -Body ([Text.Encoding]::UTF8.GetBytes($caseReq)) -TimeoutSec 900
   } catch { $c = [pscustomobject]@{ httpError = $_.Exception.Message } }
   $adapters = @($c.audit | Where-Object { $_.type -eq "UNDERSTANDING_CALL" -or $_.type -eq "MODEL_CALL" } | ForEach-Object { $_.data.adapter }) | Select-Object -Unique
   $mission.case = $c

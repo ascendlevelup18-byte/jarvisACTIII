@@ -13,7 +13,7 @@ import { handleTeamRequest } from "../src/team/routes.ts";
 const KEY = "sk-or-test-0123456789abcdef";
 const MODEL = "vendor/model-a";
 const FREE = "vendor/model-a:free";
-type Mode = "ok" | "swap" | "notjson" | "fabricate" | "slow" | "http500" | "injected" | "http429" | "http402" | "nocost" | "fabreply" | "fabproposal";
+type Mode = "ok" | "swap" | "notjson" | "fabricate" | "slow" | "http500" | "injected" | "http429" | "http402" | "nocost" | "fabreply" | "fabproposal" | "reasoningonly";
 let keyData: Record<string, unknown> = { limit: 0, limit_remaining: 0, usage: 0, is_free_tier: true };
 let mode: Mode = "ok";
 let costPerCall = 0.001;
@@ -40,6 +40,7 @@ before(async () => {
       return res.end(JSON.stringify({ error: { message: `upstream failed for key ${KEY}` } }));
     }
     if (mode === "slow") return setTimeout(() => res.end("{}"), 3000);
+    if (mode === "reasoningonly") return res.end(JSON.stringify({ model: body.model, choices: [{ message: { content: null, reasoning: "thinking..." }, finish_reason: "length" }], usage: { prompt_tokens: 900, completion_tokens: 900, cost: 0 } }));
     const sys: string = body.messages[0].content;
     const agent = (/\((\w+)@1\.0\.0\)/.exec(sys)?.[1] ?? "ceo") as AgentId;
     const out = fixtureAnalysis(agent, "x", scopedContext(agent));
@@ -235,6 +236,16 @@ describe("free-tier request budget and stop conditions", () => {
     assert.doesNotMatch(r.text, /6\.14e1|1\.2M|61\.4/);
     assert.equal(r.withheld, 2);
     assert.match(r.text, /2 statements withheld/);
+  });
+});
+
+describe("reasoning models", () => {
+  test("requests short, excluded reasoning; an answer cut off by the token limit is reported as such", async () => {
+    mode = "reasoningonly";
+    seen.length = 0;
+    const r = await runBoardroom(DEMO, new OpenRouterTeamProvider(freeCfg()), { agents: ["cfo"] });
+    assert.deepEqual(seen.find((x) => x.body?.messages)!.body.reasoning, { effort: "low", exclude: true });
+    assert.match(r.analyses[0]!.error!, /output-token limit \(900\) was used up/);
   });
 });
 

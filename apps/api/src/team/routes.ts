@@ -66,13 +66,13 @@ export async function handleTeamRequest(path: string, method: string, authorizat
     if (path === "/team/boardroom") {
       const p = BoardroomBody.safeParse(json);
       if (!p.success) return { status: 400, body: { error: "invalid_request" } };
-      const result = await runBoardroom(p.data.request, deps.provider, { shared: p.data.shared, agents: p.data.agents, budgets: { perCallTimeoutMs: 60000, maxCalls: 6 } });
+      const result = await runBoardroom(p.data.request, deps.provider, { shared: p.data.shared, agents: p.data.agents, budgets: { perCallTimeoutMs: 125000, maxCalls: 6 } });
       return { status: 200, body: { ...result, usage: deps.provider.usage() } };
     }
     const p = ReplyBody.safeParse(json);
     if (!p.success) return { status: 400, body: { error: "invalid_request" } };
     try {
-      const r = await deps.provider.reply(p.data.agent, p.data.question, scopedContext(p.data.agent), AbortSignal.timeout(60000));
+      const r = await deps.provider.reply(p.data.agent, p.data.question, scopedContext(p.data.agent), AbortSignal.timeout(125000));
       return { status: 200, body: { ...r, usage: deps.provider.usage() } };
     } catch (e) {
       return { status: 502, body: { error: safeError(e) } };
