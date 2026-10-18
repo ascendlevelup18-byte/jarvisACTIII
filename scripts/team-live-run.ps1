@@ -33,6 +33,8 @@ param(
   # the listing and the zero price before any request.
   [string]$Model = "nvidia/nemotron-3-super-120b-a12b:free",
   [ValidateSet("check", "cfo", "three", "six", "all")][string]$Stage = "all",
+  # First stage to run: cfo (default), three, or six (skips stages that already passed in an earlier run).
+  [ValidateSet("cfo", "three", "six")][string]$From = "cfo",
   [ValidateRange(1, 40)][int]$MaxRequests = 12,
   [int]$Port = 3220,
   [ValidateRange(5000, 120000)][int]$TimeoutMs = 120000,
@@ -181,11 +183,23 @@ try {
   Write-Host ("   passed: {0} is listed with zero price. Key info: {1}" -f $Model, ($evidence.startup.key | ConvertTo-Json -Compress))
   if ($Stage -eq "check") { break }
 
-  if (-not (Test-Board "1-cfo" @("cfo"))) { $code = 12; break }
+  # -From skips stages that already passed in an earlier, committed run (saves free-tier calls).
+  $evidence.from = $From
+  if ($From -eq "cfo") {
+    if (-not (Test-Board "1-cfo" @("cfo"))) { $code = 12; break }
+  }
   if ($Stage -eq "cfo") { break }
-  if (-not (Test-Board "2-cfo-coo-ceo" @("cfo", "coo", "ceo"))) { $code = 12; break }
+  if ($From -ne "six") {
+    if (-not (Test-Board "2-cfo-coo-ceo" @("cfo", "coo", "ceo"))) { $code = 12; break }
+  }
   if ($Stage -eq "three") { break }
-  if (-not (Test-Board "3-six" @("cfo", "sales", "cmo", "coo", "hr", "ceo"))) { $code = 12; break }
+  # The six-specialist stage does not block the rest: a specialist whose output fails validation is
+  # recorded as such (exit code 12), and the private question and mission still run on the validated plan.
+  if (-not (Test-Board "3-six" @("cfo", "sales", "cmo", "coo", "hr", "ceo"))) {
+    $code = 12
+    if (-not $evidence.stages["3-six"].result.report) { break }
+    Write-Host "   continuing with the validated specialists' plan; the failure above stays in the evidence" -ForegroundColor Yellow
+  }
   if ($Stage -eq "six") { break }
   Write-Host "4) Private CFO question (1 model call)..."
   $q = Invoke-Team "/team/reply" @{ agent = "cfo"; question = "What is driving the margin decline, and which figures support that?" }

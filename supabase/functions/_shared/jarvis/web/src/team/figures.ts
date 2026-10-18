@@ -62,6 +62,7 @@ export function unsupportedFigures(text: string, ctx: ScopedContext, extra: numb
     const f = parse(raw);
     if (!f) continue;
     if (!f.unit && Number.isInteger(f.value) && Math.abs(f.value) <= 12) continue;
+    if (f.value === 0 || f.value === 100) continue; // exact bounds ("below 100% utilization") are not data claims
     if (!allowed.some((a) => close(f, a))) bad.push(f.raw);
   }
   return bad;

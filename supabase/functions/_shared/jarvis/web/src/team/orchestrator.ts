@@ -152,7 +152,7 @@ export async function runBoardroom(
       if (size > b.maxOutputChars) {
         a = { agent, status: "invalid", error: `output over budget (${size} > ${b.maxOutputChars} chars)`, provider: res.provider, latencyMs: res.latencyMs, rejectedTools: [] };
       } else if (!parsed.success || parsed.data.agent !== agent) {
-        a = { agent, status: "invalid", error: parsed.success ? "answered for a different role" : parsed.error.issues[0]?.message ?? "schema", provider: res.provider, latencyMs: res.latencyMs, rejectedTools: [] };
+        a = { agent, status: "invalid", error: parsed.success ? "answered for a different role" : schemaError(parsed.error.issues), provider: res.provider, latencyMs: res.latencyMs, rejectedTools: [] };
       } else {
         // Tool allowlist: a recommendation that asks for a tool outside the role's read-only tools is dropped.
         const role = agentById(agent);
@@ -198,6 +198,12 @@ export async function runBoardroom(
   }
 
   const ok = analyses.filter((a) => a.status === "ok" && a.output);
+  for (const a of ok)
+    for (const r of a.output!.recommendations) {
+      const mapped = normalizeLever(r.lever, r.action);
+      if (mapped !== r.lever) log("LEVER_MAPPED", `"${r.lever.slice(0, 60)}" → ${mapped}`, a.agent);
+      r.lever = mapped;
+    }
   const conflicts = findConflicts(ok);
   for (const c of conflicts) log("CONFLICT", `${c.lever}: ${c.positions.map((p) => `${p.agent} ${p.direction}`).join(" vs ")}`);
   const report = synthesize(ok, conflicts, (opts.shared ?? []).filter((s) => s.text.trim().length > 0));
@@ -222,6 +228,38 @@ export function findConflicts(ok: Analysis[]): Conflict[] {
 }
 
 const PRIORITY: string[] = ["refunds", "fulfilment", "productQuality", "supportAutomation", "supportCapacity", "checkoutFunnel", "acquisitionChannels", "marketingSpend", "retention", "training"];
+/** The fixed lever vocabulary specialists are asked to use. */
+export const LEVERS = [...PRIORITY, "costs"] as const;
+
+const LEVER_RULES: [RegExp, string][] = [
+  [/refund|return/i, "refunds"],
+  [/fulfil|fulfill|ship|warehouse|deliver|carrier|logistic/i, "fulfilment"],
+  [/defect|quality|supplier/i, "productQuality"],
+  [/automat|ai[- ]driven|routing|chatbot|self[- ]service/i, "supportAutomation"],
+  [/support|staff|capacity|first response|ticket|headcount|hiring/i, "supportCapacity"],
+  [/checkout|conversion|funnel|page load|website/i, "checkoutFunnel"],
+  [/acquisition|cac|channel|media|\bads?\b|creative|targeting/i, "acquisitionChannels"],
+  [/retention|loyal|repeat|win[- ]back|satisfaction|csat/i, "retention"],
+  [/marketing|spend|budget/i, "marketingSpend"],
+  [/train/i, "training"],
+  [/cogs|cost|pric|margin/i, "costs"],
+];
+
+/**
+ * Maps a model's free-text lever onto the fixed vocabulary by keyword, deterministically, so conflicts and
+ * the mission link compare like with like. The lever text is tried first, then the action text. Unknown
+ * levers are kept as written (lower-cased). Every remapping is audited.
+ */
+export function normalizeLever(lever: string, action: string): string {
+  if ((LEVERS as readonly string[]).includes(lever)) return lever;
+  for (const text of [lever, action]) for (const [re, l] of LEVER_RULES) if (re.test(text)) return l;
+  return lever.trim().toLowerCase();
+}
+
+const schemaError = (issues: { path: PropertyKey[]; message: string }[]) => {
+  const i = issues[0];
+  return i ? `${i.path.map(String).join(".") || "output"}: ${i.message}` : "schema";
+};
 
 export function synthesize(ok: Analysis[], conflicts: Conflict[], shared: SharedNote[] = []): BoardroomResult["report"] {
   const findings = ok.flatMap((a) => a.output!.findings.map((f) => ({ ...f, from: a.agent })));

@@ -97,3 +97,24 @@ describe("boardroom uses the same rule for findings, proposals and notes", () =>
     assert.ok(r.report.actions.length > 0);
   });
 });
+
+describe("live-run fixes (17–18 Oct evidence)", () => {
+  test("free-text levers map onto the fixed vocabulary; the mission's refund lever is recognised", async () => {
+    const { normalizeLever } = await import("../src/team/orchestrator.ts");
+    assert.equal(normalizeLever("refunds", "x"), "refunds");
+    assert.equal(normalizeLever("refund reduction", "Implement AI-driven quality check to reduce refunds"), "refunds");
+    assert.equal(normalizeLever("refundCostSharePct", "Stricter return-policy controls"), "refunds");
+    assert.equal(normalizeLever("lateShipmentPct", "Shipment tracking alerts"), "fulfilment");
+    assert.equal(normalizeLever("firstResponseHours", "AI-driven ticket routing"), "supportAutomation");
+    assert.equal(normalizeLever("marketing efficiency", "Run A/B tests on ad creatives"), "marketingSpend");
+    assert.equal(normalizeLever("lower CAC", "x"), "acquisitionChannels");
+    assert.equal(normalizeLever("leads", "x"), "leads");
+    assert.equal(normalizeLever("lead quality", "x"), "productQuality");
+    assert.equal(normalizeLever("COGS reduction", "Renegotiate supplier contracts"), "costs");
+    assert.equal(normalizeLever("Something Else", "nothing matches here"), "something else");
+  });
+
+  test("a 100% bound is not treated as an invented figure", () => {
+    assert.deepEqual(unsupportedFigures("Bring utilization below 100%.", cfo), []);
+  });
+});
