@@ -8,8 +8,8 @@ Branch `feature/actiii-grand-championship`. This file is updated at each gate. P
 | Public Judge Mode (Vercel) | **Fixture** (deterministic, not a language model) | none | Labelled in the product |
 | Historical AMD run | **Recorded live**, 14 Oct 2026 | `vllm:DeepSeek-V4-Flash` on `developer.amd.com.cn/radeon/api/v1` | `evals/results/*tf-1*`, `demo-evidence-live-20261014T201902Z.json` |
 | New AMD four-order run | **Recorded live, 17 Oct 2026 21:00 UTC: 25/25 checks** | `vllm:DeepSeek-V4-Flash` (served `self-dploy/DeepSeek-V4-Flash`) | `evals/results/live-gate-20261017T210008Z.json`, `demo-evidence-live-20261017T210008Z.json`; shown in Judge Mode §4 |
-| AI Executive Team, local | Fixture by default; **live only in the owner-run script** | `nvidia/nemotron-3-super-120b-a12b:free` via OpenRouter | will be `evals/results/team-live-<time>.json` |
-| Commerce Recovery Mission | Fixture in the browser; live in `team-live-run.ps1 -WithAmd` | OpenRouter team + AMD case | as above |
+| AI Executive Team, local | Fixture by default; **live recorded 18 Oct 2026** (owner-run script) | `nvidia/nemotron-3-super-120b-a12b:free` via OpenRouter, cost $0 | `evals/results/team-live-20261018T055512Z.json` (six specialists all valid, private CFO answer, 20 proposals, 2 disagreements left to the owner); earlier stages and failures in T054026Z, T054209Z, T053008Z, T053156Z |
+| Commerce Recovery Mission | **Live recorded 18 Oct 2026**: live team plan proposal "Reduce refunds…" (lever refunds) → case #48291 on AMD DeepSeek-V4-Flash → policy APPROVE → simulated refund → read-back verified | OpenRouter team + AMD case | `team-live-20261018T055512Z.json` stage 5-mission |
 | Cloud database | **Applied and tested** on Supabase `jarvis-actiii-cloud` (empty) | — | Section 3 |
 | Cloud AI gateway | Built and tested locally; **not deployed** (owner CLI step) | OpenRouter only; AMD route disabled | `apps/api/test/cloud-gateway.test.ts` |
 | Payments | **Simulated everywhere** | — | — |
@@ -18,7 +18,7 @@ Branch `feature/actiii-grand-championship`. This file is updated at each gate. P
 | Provider | Requests | Cost | Notes |
 |---|---|---|---|
 | AMD | about 12 (2 startup probes, 8 for the four orders, 2 for the verifier's repeat order) | within the 1 USD/day endpoint allowance; exact cost not reported by the endpoint | 0 failures, 0 retries, key in files 0 |
-| OpenRouter | 0 | 0 | Only the public model list was read (no key) |
+| OpenRouter | 20 across five owner runs (2 empty answers from a reasoning-token cap, later fixed) | $0 reported on every call; key limit 0 / free tier | no stop conditions hit |
 
 ## 2. Test report (commit of this file)
 | Gate | Result |
