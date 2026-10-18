@@ -1,6 +1,5 @@
 import type { Case } from "../../lib/case-types.ts";
 import { WorkflowRail } from "../investigation/WorkflowRail.tsx";
-import { OperationalFlow } from "../flow/OperationalFlow.tsx";
 import { AuditTimelinePanel } from "../panels/AuditTimelinePanel.tsx";
 import { AuthorizationPanel } from "../panels/AuthorizationPanel.tsx";
 import { CaseContextPanel } from "../panels/CaseContextPanel.tsx";
@@ -10,6 +9,8 @@ import { ExecutionPanel, VerificationPanel } from "../panels/ExecutionVerificati
 import { IntentCuesPanel } from "../panels/IntentCuesPanel.tsx";
 import { ProposalPanel } from "../panels/ProposalPanel.tsx";
 import { UnderstandingPanel } from "../panels/UnderstandingPanel.tsx";
+import { DecisionExplainer } from "../proof/DecisionExplainer.tsx";
+import { ProofChain } from "../proof/ProofChain.tsx";
 import { MoneyMovementStrip } from "../workspace/MoneyMovementStrip.tsx";
 import { VerdictBanner } from "../workspace/VerdictBanner.tsx";
 
@@ -17,10 +18,13 @@ export function InvestigationView({
   caseData,
   scenarioTitle,
   onBack,
+  backLabel = "operations",
 }: {
   caseData: Case;
   scenarioTitle?: string;
   onBack?: () => void;
+  /** Where the back button returns to (page name). */
+  backLabel?: string;
 }) {
   return (
     <div className="motion-fade-in space-y-4">
@@ -39,14 +43,17 @@ export function InvestigationView({
             onClick={onBack}
             className="rounded border border-[var(--color-jarvis-border)] px-3 py-1.5 text-xs text-[var(--color-jarvis-muted)] hover:text-[var(--color-jarvis-ink)]"
           >
-            ← Back to operations
+            ← Back to {backLabel}
           </button>
         )}
       </div>
 
       <VerdictBanner caseData={caseData} />
-      <MoneyMovementStrip caseData={caseData} />
-      <OperationalFlow caseData={caseData} />
+      <ProofChain caseData={caseData} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <DecisionExplainer caseData={caseData} />
+        <MoneyMovementStrip caseData={caseData} />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
         <WorkflowRail caseData={caseData} />

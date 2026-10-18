@@ -1,11 +1,12 @@
-// Runs evaluation cases through the real case engine with the FixtureModelAdapter.
-// Each case gets a fresh, isolated world and a fixed clock, so results are deterministic.
-import type { CaseRequest } from "../src/contracts.ts";
+// Runs evaluation cases through the real case engine. Default: the FixtureModelAdapter,
+// deterministic. Optionally (benchmark --mode vllm) with real-model adapters instead.
+// Each case gets a fresh, isolated world and a fixed clock.
+import type { Case, CaseRequest } from "../src/contracts.ts";
 import { runCase, type EngineDeps } from "../src/case-engine.ts";
 import { CommerceStore, REFUND_POLICY } from "../src/fixtures.ts";
 import { SimulatedPaymentGateway } from "../src/gateway.ts";
 import { FixtureModelAdapter, type ModelAdapter } from "../src/model-adapter.ts";
-import { FixtureRequestUnderstandingAdapter } from "../src/request-understanding.ts";
+import { FixtureRequestUnderstandingAdapter, type RequestUnderstandingAdapter } from "../src/request-understanding.ts";
 import type { EvalCase, LoadedDataset } from "./dataset.ts";
 import { computeMetrics, METRIC_DEFINITIONS, score, type ActualOutcome, type ScoredCase } from "./metrics.ts";
 
@@ -23,53 +24,72 @@ function buildStore(ec: EvalCase): CommerceStore {
   return store;
 }
 
-function buildModel(ec: EvalCase, store: CommerceStore): ModelAdapter {
-  const naive = new FixtureModelAdapter();
-  const midflight = ec.setup.midflightRefund;
-  const output = ec.model.kind === "raw" ? ec.model.output : null;
-  if (output === null && !midflight) return naive;
-  return new FixtureModelAdapter(async (input, signal) => {
-    // Simulates another actor changing payment state after the evidence snapshot.
-    if (midflight) {
-      const tx = store.getTransaction(midflight.transactionId)!;
-      store.recordRefund({
-        id: `RF-MIDFLIGHT-${midflight.transactionId}`,
-        transactionId: midflight.transactionId,
-        amountMinor: midflight.amountMinor,
-        currency: tx.currency,
-        status: "SUCCEEDED",
-        idempotencyKey: `other-agent-${midflight.transactionId}`,
-        createdAt: EVAL_NOW.toISOString(),
-      });
-    }
-    return output ?? naive.propose(input, signal);
-  });
+/** Adapters to evaluate instead of the fixtures (e.g. vLLM). Never mixed with fixture adapters. */
+export interface EvalAdapters {
+  understanding: RequestUnderstandingAdapter;
+  model: ModelAdapter;
+  modelTimeoutMs: number;
 }
 
-export async function runEvalCase(ec: EvalCase): Promise<ActualOutcome> {
+// Dataset cases with model.kind "raw" stay scripted in every mode: they test the
+// policy gate against a specific hostile proposal, not the model.
+export const SCRIPTED_MODEL_ADAPTER_ID = "scripted-dataset-output";
+
+function buildModel(ec: EvalCase, store: CommerceStore, base: ModelAdapter): ModelAdapter {
+  const midflight = ec.setup.midflightRefund;
+  const output = ec.model.kind === "raw" ? ec.model.output : null;
+  if (output === null && !midflight) return base;
+  return {
+    id: output === null ? base.id : SCRIPTED_MODEL_ADAPTER_ID,
+    propose: async (input, signal) => {
+      // Simulates another actor changing payment state after the evidence snapshot.
+      if (midflight) {
+        const tx = store.getTransaction(midflight.transactionId)!;
+        store.recordRefund({
+          id: `RF-MIDFLIGHT-${midflight.transactionId}`,
+          transactionId: midflight.transactionId,
+          amountMinor: midflight.amountMinor,
+          currency: tx.currency,
+          status: "SUCCEEDED",
+          idempotencyKey: `other-agent-${midflight.transactionId}`,
+          createdAt: EVAL_NOW.toISOString(),
+        });
+      }
+      return output ?? base.propose(input, signal);
+    },
+  };
+}
+
+export async function runEvalCase(
+  ec: EvalCase,
+  adapters: EvalAdapters | null = null,
+  observe?: (c: Case) => void,
+): Promise<ActualOutcome> {
   const store = buildStore(ec);
   const clock = () => EVAL_NOW;
   const gateway = new SimulatedPaymentGateway(store, clock);
   const deps = (model: ModelAdapter): EngineDeps => ({
     store,
     gateway,
-    understanding: new FixtureRequestUnderstandingAdapter(),
+    understanding: adapters?.understanding ?? new FixtureRequestUnderstandingAdapter(),
     model,
     policy: REFUND_POLICY,
     permissions: { autoRefund: true },
     clock,
-    modelTimeoutMs: MODEL_TIMEOUT_MS,
+    modelTimeoutMs: adapters?.modelTimeoutMs ?? MODEL_TIMEOUT_MS,
   });
+  const baseModel = (): ModelAdapter => adapters?.model ?? new FixtureModelAdapter();
   const request: CaseRequest = ec.request;
 
   // Earlier identical submissions (default model, no faults) are setup, not measured.
-  for (let i = 0; i < (ec.setup.priorSubmissions ?? 0); i++) await runCase(request, deps(new FixtureModelAdapter()));
+  for (let i = 0; i < (ec.setup.priorSubmissions ?? 0); i++) await runCase(request, deps(baseModel()));
 
   const txIds = ec.world.transactions.map((t) => t.id);
   const before = new Set(store.refundsForTransactions(txIds).map((r) => r.id));
   gateway.nextFault = ec.setup.gatewayFault ?? null;
 
-  const c = await runCase(request, deps(buildModel(ec, store)));
+  const c = await runCase(request, deps(buildModel(ec, store, baseModel())));
+  observe?.(c);
 
   const moneyMoved = store
     .refundsForTransactions(txIds)
@@ -91,11 +111,14 @@ export async function runEvalCase(ec: EvalCase): Promise<ActualOutcome> {
   };
 }
 
-export async function runBenchmark(loaded: LoadedDataset) {
+export async function runBenchmark(
+  loaded: LoadedDataset,
+  opts: { adapters?: EvalAdapters; observe?: (caseId: string, c: Case) => void } = {},
+) {
   const { dataset, sha256 } = loaded;
   const cases: ScoredCase[] = [];
   for (const ec of dataset.cases) {
-    const actual = await runEvalCase(ec);
+    const actual = await runEvalCase(ec, opts.adapters ?? null, opts.observe && ((c) => opts.observe!(ec.id, c)));
     cases.push({ id: ec.id, category: ec.category, expected: ec.expected, actual, scored: score(ec.expected, actual) });
   }
   const byCategory = Object.fromEntries(

@@ -108,10 +108,10 @@ export function VerificationPanel({ verification }: { verification: Verification
     <Panel id="verification-panel" title="Verification">
       <p
         className={`mb-2 text-lg font-semibold ${
-          verification.verified ? "text-[var(--color-policy-accent)]" : "text-[var(--color-warning)]"
+          verification.verified ? "text-[var(--color-policy-accent)]" : "text-[var(--color-danger)]"
         }`}
       >
-        {verification.verified ? "Verified" : "Not verified"}
+        {verification.verified ? "Verified by read-back" : "NOT verified — refund unconfirmed"}
       </p>
       <p className="text-sm">{verification.detail}</p>
       {verification.observedRefund && (

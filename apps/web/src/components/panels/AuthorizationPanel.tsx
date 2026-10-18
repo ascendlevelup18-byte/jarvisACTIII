@@ -114,7 +114,7 @@ function CheckList({
           className={`flex gap-3 rounded border px-3 py-2 text-sm ${
             c.passed
               ? "border-[var(--color-policy-border)]/50 bg-[var(--color-jarvis-bg)]/30"
-              : "border-[var(--color-danger)]/40 bg-[#1f1416]"
+              : "border-[var(--color-danger)]/40 bg-[var(--color-danger-surface)]"
           } ${compact ? "opacity-80" : ""}`}
         >
           <span

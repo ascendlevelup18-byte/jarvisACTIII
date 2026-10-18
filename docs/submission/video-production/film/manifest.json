@@ -1,0 +1,106 @@
+{
+  "title": "JARVIS ACT III — The Verified Action",
+  "totalSeconds": 210,
+  "maxWordsPerSecond": 2.5,
+  "flags": {
+    "gemmaLiveVerified": false,
+    "liveModelFootage": false
+  },
+  "assets": {
+    "R1": { "kind": "product", "file": "assets/R1_dashboard.mp4", "what": "Command Center (/#/command-center) if Work ships it, otherwise the Dashboard; after clearing cases; status chips showing the AI mode and simulated payments" },
+    "R2": { "kind": "product", "file": "assets/R2_store_48291.mp4", "what": "Demo store: order #48291 refund request and the verified reply ($89.99, simulated)" },
+    "R3": { "kind": "product", "file": "assets/R3_evidence_48291.mp4", "what": "Case evidence / audit for #48291: AI calls, policy, gateway, read-back" },
+    "R4": { "kind": "product", "file": "assets/R4_store_48294.mp4", "what": "Demo store: order #48294, ESCALATED, no refund" },
+    "R5": { "kind": "product", "file": "assets/R5_store_48293.mp4", "what": "Demo store: order #48293, CLOSED_NO_ACTION" },
+    "R6": { "kind": "product", "file": "assets/R6_audit_approvals.mp4", "what": "Audit trail filtered to the cases; review-only approvals" },
+    "R7": { "kind": "product", "file": "assets/R7_live_model.mp4", "what": "API window startup lines and AI provider page (only meaningful in Mode A; never show the key prompt)" },
+    "G1": { "kind": "illustration", "file": "assets/G1_overload.mp4", "what": "Gemini clip: abstract wave of order tickets and duplicate-charge alerts" },
+    "G2": { "kind": "illustration", "file": "assets/G2_founder_question.mp4", "what": "Gemini clip or founder webcam: the question 'what if the AI could act, but never act wrongly?'" },
+    "G3": { "kind": "illustration", "file": "assets/G3_reveal.mp4", "what": "Gemini clip: calm reveal backdrop for the JARVIS wordmark" },
+    "G4": { "kind": "illustration", "file": "assets/G4_models.mp4", "what": "Gemini clip: two model nodes on an AMD-labelled cloud, no GPU racks" },
+    "G5": { "kind": "illustration", "file": "assets/G5_closing.mp4", "what": "Gemini clip: closing backdrop" },
+    "B1": { "kind": "illustration", "file": "assets/B1_identity.mp4", "what": "Blender: order cards converge into the wordmark" },
+    "B2": { "kind": "illustration", "file": "assets/B2_problem.mp4", "what": "Blender: two identical charges, a wavering refund arrow, a $5,000 tile" },
+    "B3": { "kind": "illustration", "file": "assets/B3_unused.mp4", "what": "Reserved; not used" },
+    "B4": { "kind": "illustration", "file": "assets/B4_pipeline.mp4", "what": "Blender: seven-stage pipeline (blender/jarvis_pipeline_scene.py)" },
+    "B5": { "kind": "illustration", "file": "assets/B5_shield.mp4", "what": "Blender: shield closes over the $5,000 tile; Money moved $0.00" },
+    "B6": { "kind": "illustration", "file": "assets/B6_inference.mp4", "what": "Blender: request packets to the AMD hosted inference node and a schema-check gate" },
+    "B7": { "kind": "illustration", "file": "assets/B7_architecture.mp4", "what": "Blender: architecture columns (optional; slide 9 can replace it)" },
+    "B8": { "kind": "illustration", "file": "assets/B8_close.mp4", "what": "Blender: wordmark and tagline" },
+    "S1": { "kind": "slide", "file": "slides/s1.png", "what": "Deck slide 1 (title)" },
+    "S2": { "kind": "slide", "file": "slides/s2.png", "what": "Deck slide 2 (problem)" },
+    "S4": { "kind": "slide", "file": "slides/s4.png", "what": "Deck slide 4 (pipeline)" },
+    "S5": { "kind": "slide", "file": "slides/s5.png", "what": "Deck slide 5 (AMD)" },
+    "S8": { "kind": "slide", "file": "slides/s8.png", "what": "Deck slide 8 (evaluation)" },
+    "S10": { "kind": "slide", "file": "slides/s10.png", "what": "Deck slide 10 (closing)" }
+  },
+  "scenes": [
+    {
+      "id": "S01", "title": "Commerce problem", "seconds": 16,
+      "assets": ["G1", "B2"], "fallback": "S2",
+      "onScreen": "Illustration",
+      "narration": "Every day, online stores get the same message: I was charged twice. It looks simple. But refund the wrong charge, or refund it twice, and the money is gone."
+    },
+    {
+      "id": "S02", "title": "Founder's question", "seconds": 16,
+      "assets": ["G2"], "fallback": "S1",
+      "onScreen": "Illustration",
+      "narration": "So I asked myself one question. Can an AI agent handle these cases, and still be unable to move money it shouldn't? That question became JARVIS."
+    },
+    {
+      "id": "S03", "title": "JARVIS reveal", "seconds": 14,
+      "assets": ["G3", "B1"], "fallback": "S1",
+      "onScreen": "JARVIS Automations · Illustration",
+      "narration": "JARVIS Automations. The AI proposes. Deterministic policy decides. And every refund is verified before anyone hears it's done."
+    },
+    {
+      "id": "S04", "title": "Google + AMD architecture", "seconds": 20,
+      "assets": ["G4", "B4", "B6"], "fallback": "S5",
+      "onScreen": "AMD hosted inference · Illustration",
+      "narration": "The reasoning runs on DeepSeek-V4-Flash through AMD's hosted inference API. We also built an optional path where Google's Gemma, served on the same AMD platform, reads each request; that path is still being validated live.",
+      "narrationIfGemmaVerified": "The reasoning runs on AMD's hosted inference. Google's Gemma reads each request, DeepSeek-V4-Flash proposes the action, and neither model can move money on its own."
+    },
+    {
+      "id": "S05", "title": "Real dashboard", "seconds": 18,
+      "assets": ["R1"],
+      "onScreen": "Live product footage · Simulated payments",
+      "narration": "This is the real merchant workspace. The status bar says exactly what's running: the API, the AI model, and that payments here are simulated."
+    },
+    {
+      "id": "S06", "title": "Order #48291", "seconds": 25,
+      "assets": ["R2", "R3"],
+      "onScreen": "Live product footage · RESOLVED · $89.99 simulated · verified",
+      "narration": "Order 48291 was charged twice. The AI proposes refunding the duplicate. Policy approves exactly that charge, the simulated gateway refunds 89 dollars 99, and a read-back confirms it before the customer is told."
+    },
+    {
+      "id": "S07", "title": "Order #48294", "seconds": 22,
+      "assets": ["R4", "B5"],
+      "onScreen": "Live product footage · ESCALATED · $0 moved · Simulated payments",
+      "narration": "Order 48294 claims a five thousand dollar charge and slips in a fake system notice. The records don't support it, so policy denies it. Escalated to a person. Zero dollars moved."
+    },
+    {
+      "id": "S08", "title": "Order #48293", "seconds": 15,
+      "assets": ["R5"],
+      "onScreen": "Live product footage · CLOSED_NO_ACTION · Simulated payments",
+      "narration": "Order 48293 was already refunded. JARVIS closes it with no action. No second refund, ever."
+    },
+    {
+      "id": "S09", "title": "Audit and verification", "seconds": 21,
+      "assets": ["R6", "R7"],
+      "onScreen": "Live product footage",
+      "narration": "Every step is on the record: each AI call and which model made it, the policy check, the gateway call, and the read-back. Escalations wait for a person. JARVIS can't approve its own."
+    },
+    {
+      "id": "S10", "title": "Benchmarks", "seconds": 22,
+      "assets": ["S8"],
+      "onScreen": "Pinned 30-case benchmark · live AMD model, 14 Oct 2026",
+      "narration": "We tested it on thirty adversarial cases with the live AMD model. Zero unsafe actions. Twenty of twenty escalations correct. Twenty-six of thirty exact outcomes, and every miss went to a person."
+    },
+    {
+      "id": "S11", "title": "Founder closing", "seconds": 21,
+      "assets": ["G5", "B8"], "fallback": "S10",
+      "onScreen": "AI proposes. Policy decides. Every refund is verified. · Illustration",
+      "narration": "Today it's one automation, on simulated payments. But the rule scales: AI proposes, policy decides, results are verified. That's how I want AI to touch money. This is JARVIS."
+    }
+  ]
+}

@@ -4,13 +4,13 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { SCENARIOS } from "../src/fixtures.ts";
 import { createApp } from "../src/server.ts";
-import { makeDeps } from "./helpers.ts";
+import { ingressFor, makeDeps } from "./helpers.ts";
 
 let server: Server;
 let base: string;
 
 before(async () => {
-  server = createApp(makeDeps());
+  server = createApp(ingressFor(makeDeps()));
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });

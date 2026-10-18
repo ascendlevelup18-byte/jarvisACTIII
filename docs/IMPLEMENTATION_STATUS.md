@@ -155,6 +155,30 @@ Generic OpenAI-compatible plumbing only. **No** live AMD calls, **no** vLLM adap
 
 See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`, `docs/PRE_KICKOFF_AMD_KICKOFF_CHECKLIST.md`. The exact kickoff contract (K1–K4, prompts, failure mapping, test matrix) is `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`.
 
+## IMPLEMENTED: G2 vLLM adapters + G3 startup wiring + real-model benchmark mode (fake server only)
+
+Prompt contracts §D/§E of `docs/KICKOFF_IMPLEMENTATION_PACKAGE.md`, verified only against the local fake OpenAI-compatible server with a scripted model. **No** real model or AMD endpoint has been called. Details: `docs/ACTIII_ENGINEERING_HANDOVER.md`.
+
+| Item | Status |
+|---|---|
+| `VllmRequestUnderstandingAdapter` (§D prompt, `UNDERSTANDING_PROMPT_VERSION`) | IMPLEMENTED, FAKE-SERVER VERIFIED |
+| `VllmModelAdapter` (§E prompt; `decisionPromptVersion` = sha256 of the full system prompt) | IMPLEMENTED, FAKE-SERVER VERIFIED |
+| §G rows 1–23 + prompt-boundary assertions (`vllm-adapters.test.ts`) | FAKE-SERVER VERIFIED |
+| Composition (`ai-mode.ts`, `main.ts`): fixture unchanged; vllm requires `/models` to list the model + both schema probes, else exit 1; never fixture (§G row 24, `ai-startup.test.ts`) | IMPLEMENTED, FAKE-SERVER VERIFIED |
+| `api:bench:vllm` (separate results per run, metadata, parse/provider/latency telemetry, unsafe = fail) | IMPLEMENTED, FAKE-SERVER VERIFIED; no real run |
+| Real-model inference on AMD | NOT DONE (credits/endpoint pending) |
+
+## IMPLEMENTED: Ingress security, repeatable demos, serverless (Sprint 2)
+
+| Item | Status |
+|---|---|
+| Shared ingress guard (`ingress.ts`): exact four-demo allowlist without a token; everything else needs `JARVIS_CASES_TOKEN` (constant-time); refused when no token is configured | IMPLEMENTED, VERIFIED (`ingress.test.ts`) |
+| Limits before any model call: per-client rate, global concurrency, daily model-call budget (required in vllm), 429 + Retry-After | IMPLEMENTED, VERIFIED. In-memory: global only for one server process |
+| Fresh synthetic world per demo run; demo run ids; simulated-payment headers | IMPLEMENTED, VERIFIED (four demos × three orders, all ingresses) |
+| `node:http` server through the guard + honest `GET /api/health` | IMPLEMENTED, VERIFIED |
+| Netlify + Vercel wrappers over one shared serverless handler; fixture-only (vllm config → 503) | IMPLEMENTED, VERIFIED locally (direct calls + Rolldown bundle smoke). **Vercel not deployed; Vercel's own build not run** |
+| Global (cross-instance) rate limiting for public real-model exposure | NOT DONE. Public real-model exposure is blocked |
+
 ## IMPLEMENTED: Operations UI (UX V3) and Netlify fixture deployment
 
 | Item | Status |
@@ -170,12 +194,10 @@ See `docs/PRE_KICKOFF_AMD_SCAFFOLD_REPORT.md`, `docs/AMD_DEPLOYMENT_RUNBOOK.md`,
 
 | Area | Status |
 |---|---|
-| `VllmRequestUnderstandingAdapter` / `VllmModelAdapter` | NOT IMPLEMENTED (pre-kickoff deliberately) |
-| JARVIS prompts / schema-to-model mapping | NOT IMPLEMENTED |
-| AMD (Developer Cloud, ROCm, live vLLM endpoint calls) | No live endpoint; client scaffold only |
+| AMD (Developer Cloud, ROCm, live vLLM endpoint calls) | No live endpoint. Adapters, startup gate and benchmark mode are ready (fake-server verified only) |
 | Evolus (extractor, knowledge library, workflow) | No code and no API access |
-| Real model, including local Colibri (Gate 0) | Not integrated or validated; only `FixtureModelAdapter` exists |
-| Benchmark against a real model / AMD endpoint, and latency | None. Only the fixture-model benchmark above exists |
+| Real model, including local Colibri (Gate 0) | Not integrated or validated; vLLM adapters tested against the fake server only |
+| Benchmark against a real model / AMD endpoint, and latency | Runner exists (`api:bench:vllm`); never run against a real endpoint |
 | Deployment of `apps/api` for real inference (long-running host, Docker) | Runbook skeleton only; the public demo runs as Netlify functions in fixture mode |
 
 ## LEGACY: earlier prototype in `legacy-prototype/`

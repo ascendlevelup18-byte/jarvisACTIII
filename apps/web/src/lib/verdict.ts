@@ -10,7 +10,7 @@ export interface CaseVerdict {
 }
 
 /** Every policy rule the backend can emit; unknown rules fall back to the raw rule id. */
-const CHECK_LABELS: Record<string, string> = {
+export const CHECK_LABELS: Record<string, string> = {
   NO_CONTRADICTIONS: "EVIDENCE CONTRADICTION",
   CURRENCY_CONSISTENT: "CURRENCY CONFLICT",
   INTENT_SUPPORTED: "UNSUPPORTED REQUEST TYPE",
@@ -33,7 +33,7 @@ const CHECK_LABELS: Record<string, string> = {
 };
 
 /** Escalation reasons without a DENY authorization; other codes fall back to the raw code. */
-const REASON_LABELS: Record<string, string> = {
+export const REASON_LABELS: Record<string, string> = {
   CUSTOMER_NOT_FOUND: "CUSTOMER NOT FOUND",
   ORDER_NOT_FOUND: "ORDER NOT FOUND",
   ORDER_OWNERSHIP_MISMATCH: "ORDER OWNERSHIP MISMATCH",

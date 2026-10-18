@@ -7,7 +7,7 @@ const variantClass: Record<PanelVariant, string> = {
   ai: "bg-[var(--color-ai-surface)] border-[var(--color-ai-border)]",
   policy: "bg-[var(--color-policy-surface)] border-[var(--color-policy-border)]",
   deterministic: "bg-[var(--color-deterministic)] border-[var(--color-deterministic-border)]",
-  danger: "bg-[#1f1416] border-[var(--color-danger)]/40",
+  danger: "bg-[var(--color-danger-surface)] border-[var(--color-danger)]/40",
   muted: "bg-[var(--color-jarvis-surface-2)] border-[var(--color-jarvis-border)]",
   authoritative: "bg-[var(--color-policy-surface)] border-[var(--color-policy-border)]",
   untrusted: "bg-[var(--color-ai-surface)] border-[var(--color-ai-border)]",
@@ -31,7 +31,7 @@ export function Panel({
   return (
     <section
       id={id}
-      className={`rounded-md border ${variantClass[variant]} ${className}`}
+      className={`rounded-lg border shadow-card ${variantClass[variant]} ${className}`}
     >
       <header className="flex items-center justify-between gap-2 border-b border-inherit px-4 py-2.5">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-jarvis-muted)]">{title}</h3>

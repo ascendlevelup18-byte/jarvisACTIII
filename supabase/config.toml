@@ -1,0 +1,5 @@
+project_id = "jarvis-actiii-cloud"
+
+# JWT verification stays ON: the gateway also verifies the user itself and checks org membership under RLS.
+[functions.jarvis-gateway]
+verify_jwt = true
