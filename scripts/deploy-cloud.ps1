@@ -5,7 +5,7 @@
   token or key is typed here or stored in the repository. Deploying sends code only: no provider is called
   and no secret is set by this script.
 #>
-param([string]$ProjectRef = "bxjveqmdcnhvlzuotode", [string]$CliVersion = "2.48.3")
+param([string]$ProjectRef = "bxjveqmdcnhvlzuotode", [string]$CliVersion = "2.121.0")
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 node scripts/sync-edge-shared.mjs
