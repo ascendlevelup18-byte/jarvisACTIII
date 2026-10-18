@@ -10,8 +10,8 @@ Branch `feature/actiii-grand-championship`. This file is updated at each gate. P
 | New AMD four-order run | **Recorded live, 17 Oct 2026 21:00 UTC: 25/25 checks** | `vllm:DeepSeek-V4-Flash` (served `self-dploy/DeepSeek-V4-Flash`) | `evals/results/live-gate-20261017T210008Z.json`, `demo-evidence-live-20261017T210008Z.json`; shown in Judge Mode §4 |
 | AI Executive Team, local | Fixture by default; **live recorded 18 Oct 2026** (owner-run script) | `nvidia/nemotron-3-super-120b-a12b:free` via OpenRouter, cost $0 | `evals/results/team-live-20261018T055512Z.json` (six specialists all valid, private CFO answer, 20 proposals, 2 disagreements left to the owner); earlier stages and failures in T054026Z, T054209Z, T053008Z, T053156Z |
 | Commerce Recovery Mission | **Live recorded 18 Oct 2026**: live team plan proposal "Reduce refunds…" (lever refunds) → case #48291 on AMD DeepSeek-V4-Flash → policy APPROVE → simulated refund → read-back verified | OpenRouter team + AMD case | `team-live-20261018T055512Z.json` stage 5-mission |
-| Cloud database | **Applied and tested** on Supabase `jarvis-actiii-cloud` (empty) | — | Section 3 |
-| Cloud AI gateway | Built and tested locally; **not deployed** (owner CLI step) | OpenRouter only; AMD route disabled | `apps/api/test/cloud-gateway.test.ts` |
+| Cloud database | **Applied and tested** on Supabase `jarvis-actiii-cloud` (`bxjveqmdcnhvlzuotode`, Free) | — | SQL security test 46/46 (rolled back); 3 migrations |
+| Cloud AI gateway | **Deployed** (`jarvis-gateway` v2, JWT verification on); live security test **28/28**; both provider secrets configured (yes/no check), live flags **off**, so no cloud model call is possible yet | OpenRouter team + AMD case routes (off) | `scripts/cloud-smoke.mjs`, admin health 18 Oct 06:14 UTC |
 | Payments | **Simulated everywhere** | — | — |
 
 ## 1. Real model requests made by this sprint
@@ -45,6 +45,7 @@ Branch `feature/actiii-grand-championship`. This file is updated at each gate. P
 Unchanged: refund policy, policy engine, simulated gateway, pinned data and evaluation ground truth.
 
 ## 3. Security findings fixed in this sprint
+0. **Gateway role lookup (found by the deployed-gateway test, 18 Oct).** RLS lets a member see every membership row of the org, and the gateway took the first row, so a member could be treated with another member's role. Fixed in `603ad90` (own row only), regression test added, redeployed, 28/28 live.
 1. **Unverified numbers shown with a warning.** Private replies used to show the number with a warning appended. Now the statement is withheld and the figure is never repeated. The same rule covers findings, proposals, success metrics and notes.
 2. **Figure-check gaps.** Scientific notation, magnitude words (`$1.2M`), full-width and other-script digits, spelled-out amounts, percentages that look like small counts or years, and proposal text all got past the check. All are now caught.
 3. **No request-count limit.** Free calls often report zero or no cost, so the dollar cap never triggered. There is now a hard request cap counted per dispatch. Any reported cost on a free-only run stops the provider, 429 and 402 stop it without retrying, and requests run strictly one at a time.
