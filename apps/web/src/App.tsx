@@ -57,6 +57,7 @@ type MerchantRoute = Extract<Route, { surface: "merchant" }>;
 const BenchmarksPage = lazy(() => import("./pages/BenchmarksPage.tsx").then((m) => ({ default: m.BenchmarksPage })));
 
 const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage.tsx").then(m => ({ default: m.CommandCenterPage })));
+const TeamPage = lazy(() => import("./pages/TeamPage.tsx").then((m) => ({ default: m.TeamPage })));
 const JudgePage = lazy(() => import("./pages/JudgePage.tsx").then((m) => ({ default: m.JudgePage })));
 
 const DEFAULT_ROUTE: MerchantRoute = { surface: "merchant", nav: "dashboard" };
@@ -300,6 +301,11 @@ export default function App() {
               onRunOrder={runOrder}
               onOpenCase={openCase}
             />
+          )}
+          {route.nav === "team" && (
+            <Suspense fallback={<LoadingRows label="Opening AI Team…" />}>
+              <TeamPage onRecord={(result, s) => record(result, { scenarioTitle: s.title, scenarioId: s.id })} onOpenCase={openCase} />
+            </Suspense>
           )}
           {route.nav === "judge" && (
             <Suspense fallback={<LoadingRows label="Opening Judge Mode…" />}>

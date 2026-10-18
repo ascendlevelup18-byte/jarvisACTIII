@@ -26,6 +26,27 @@ export const DEFAULT_ASSUMPTIONS: ImpactAssumptions = {
 
 export const BUSINESS_CASE_FILE = "docs/improvement/BUSINESS_CASE.md";
 
+/** Accepted range per input; computeImpact clamps to these and the studio says when it did. */
+export const LIMITS: Record<keyof ImpactAssumptions, [number, number]> = {
+  casesPerMonth: [0, 10_000_000],
+  autoResolvedPct: [0, 100],
+  minutesPerCase: [0, 24 * 60],
+  loadedCostPerHour: [0, 10_000],
+  feePerResolved: [0, 1_000],
+  feePerEscalation: [0, 1_000],
+  monthlyMinimum: [0, 1_000_000],
+  modelCostPerCase: [0, 1_000],
+};
+
+/** Null when the value is used as entered; otherwise the value actually used. */
+export function clampNote(key: keyof ImpactAssumptions, value: number): string | null {
+  const [lo, hi] = LIMITS[key];
+  if (!Number.isFinite(value)) return `Not a number; using ${lo}.`;
+  if (value < lo) return `Below ${lo}; using ${lo}.`;
+  if (value > hi) return `Above ${hi.toLocaleString("en-US")}; using ${hi.toLocaleString("en-US")}.`;
+  return null;
+}
+
 const clamp = (n: number, lo: number, hi: number) => (Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo);
 
 export function computeImpact(a: ImpactAssumptions) {
@@ -58,3 +79,6 @@ export const PILOT_MEASURES = [
   "Read-back accuracy against the payment provider",
   "Model cost per case on the merchant's chosen provider",
 ] as const;
+
+/** The value the calculation actually uses for an input (after clamping to LIMITS). */
+export const usedValue = (key: keyof ImpactAssumptions, value: number) => clamp(value, LIMITS[key][0], LIMITS[key][1]);

@@ -2,12 +2,15 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { demoStoreSnapshot } from "./demo-store.ts";
 import { clientKeyFrom, handleCaseRequest, MAX_BODY_BYTES, type CaseIngress } from "./ingress.ts";
+import { handleTeamRequest, TEAM_MAX_BODY_BYTES, type TeamDeps } from "./team/routes.ts";
 
 export interface AppOptions {
   /** Key rate limits on X-Forwarded-For (only behind a trusted proxy). */
   trustProxy?: boolean;
   /** Body for GET /api/health; must describe the actual runtime mode. */
   health?: () => unknown;
+  /** Operator-only AI Team endpoints; absent = /team/* answers 404. */
+  team?: TeamDeps;
 }
 
 export function createApp(ingress: CaseIngress, opts: AppOptions = {}): Server {
@@ -27,6 +30,16 @@ async function handle(req: IncomingMessage, res: ServerResponse, ingress: CaseIn
   }
   if (path === "/api/demo-store") {
     return req.method === "GET" ? send(res, 200, demoStoreSnapshot(ingress.clock)) : send(res, 405, { error: "method_not_allowed" });
+  }
+  if (path.startsWith("/team/")) {
+    const parts: Buffer[] = [];
+    let n = 0;
+    for await (const chunk of req as AsyncIterable<Buffer>) {
+      n += chunk.length;
+      if (n <= TEAM_MAX_BODY_BYTES) parts.push(chunk);
+    }
+    const r = await handleTeamRequest(path, req.method ?? "GET", req.headers.authorization, n > TEAM_MAX_BODY_BYTES ? null : Buffer.concat(parts).toString("utf8"), opts.team ?? { provider: null, accessToken: null });
+    return send(res, r.status, r.body, r.headers);
   }
   if (path !== "/cases") return send(res, 404, { error: "not_found" });
 

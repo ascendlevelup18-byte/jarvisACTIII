@@ -98,6 +98,8 @@ export class AiStartupError extends Error {
 
 export interface AiInitOptions {
   onCall?: (entry: ModelCallLog) => void;
+  /** Optional outer wrapper per stage (the cloud gateway reserves durable quota before every model request). */
+  wrapClient?: (client: ChatClient, stage: ModelCallLog["stage"]) => ChatClient;
 }
 
 /** Builds the adapters for the configured mode. No network. vllm never builds fixture adapters. */
@@ -137,10 +139,10 @@ export function buildAiAdapters(
   const understandingClient = understandingModel === config.modelName ? client : clientFor(understandingModel);
   return {
     mode: "vllm",
-    understanding: new VllmRequestUnderstandingAdapter(logged(understandingClient, "UNDERSTANDING", opts.onCall), {
+    understanding: new VllmRequestUnderstandingAdapter(wrapped(logged(understandingClient, "UNDERSTANDING", opts.onCall), "UNDERSTANDING", opts), {
       structuredOutput: config.understandingStructuredOutput,
     }),
-    model: new VllmModelAdapter(logged(client, "MODEL", opts.onCall), { structuredOutput: config.structuredOutput }),
+    model: new VllmModelAdapter(wrapped(logged(client, "MODEL", opts.onCall), "MODEL", opts), { structuredOutput: config.structuredOutput }),
     engineTimeoutMs: timeouts.engineTimeoutMs,
     modelCallsPerCase: 2 * (1 + config.modelMaxRetries),
     client,
@@ -226,6 +228,8 @@ function errorText(e: unknown): string {
 
 // Wraps the client per stage: every provider call yields one safe log entry, and a reply the
 // provider attributes to a different model is rejected, so audited attribution is never wrong.
+const wrapped = (c: ChatClient, stage: ModelCallLog["stage"], opts: AiInitOptions) => (opts.wrapClient ? opts.wrapClient(c, stage) : c);
+
 function logged(client: ChatClient, stage: ModelCallLog["stage"], onCall: AiInitOptions["onCall"]): ChatClient {
   return {
     model: client.model,

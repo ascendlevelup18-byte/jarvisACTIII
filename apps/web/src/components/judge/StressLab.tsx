@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { BASELINE_FILE } from "../../lib/baseline-result.ts";
 import { formatMinor } from "../../lib/money.ts";
 import { evidenceUrl } from "../../lib/recorded-amd-run.ts";
-import { ALL, explainJarvis, filterRows, money, reasonLines, summarize, unique, type StressLabFilter } from "../../lib/stress-lab.ts";
+import { ALL, explainJarvis, filterRows, money, pickSelected, reasonLines, summarize, unique, type StressLabFilter } from "../../lib/stress-lab.ts";
 import { STRESS_LAB_ROWS } from "../../lib/stress-lab-data.ts";
 
 export const DATASET_FILE = "data/cases/duplicate-charge-eval.v1.json";
@@ -12,22 +12,33 @@ const stateClass = (s: string) => (s === "RESOLVED" ? "st-ok" : s === "CLOSED_NO
 
 /** Interactive view of the 30 pinned adversarial cases: JARVIS versus the same proposals with policy removed. Read-only. */
 export function StressLab() {
-  const [filter, setFilter] = useState<StressLabFilter>({ category: ALL, jarvis: ALL, unsafeOnly: false });
-  const [selectedId, setSelectedId] = useState(STRESS_LAB_ROWS[0].id);
-  const rows = useMemo(() => filterRows(STRESS_LAB_ROWS, filter), [filter]);
-  const all = summarize(STRESS_LAB_ROWS);
-  const selected = STRESS_LAB_ROWS.find((r) => r.id === selectedId) ?? STRESS_LAB_ROWS[0];
-  const categories = unique(STRESS_LAB_ROWS.map((r) => r.category));
-  const states = unique(STRESS_LAB_ROWS.map((r) => r.jarvis.finalState));
-
+  // The 30-case body mounts only when a judge opens the lab; closed, it costs one summary line.
+  const [open, setOpen] = useState(false);
   return (
-    <details className="stress-lab" id="judge-stress-lab">
+    <details className="stress-lab" id="judge-stress-lab" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary>
-        <span className="stress-title">Policy stress lab: open all {all.total} cases</span>
+        <span className="stress-title">Policy stress lab: open all {STRESS_LAB_ROWS.length} cases</span>
         <span className="stress-sub">
           See each case's records, the proposal, what JARVIS did and what the same proposal would have done without policy.
         </span>
       </summary>
+      {open && <StressLabBody />}
+    </details>
+  );
+}
+
+function StressLabBody() {
+  const [filter, setFilter] = useState<StressLabFilter>({ category: ALL, jarvis: ALL, unsafeOnly: false });
+  const [selectedId, setSelectedId] = useState(STRESS_LAB_ROWS[0].id);
+  const rows = useMemo(() => filterRows(STRESS_LAB_ROWS, filter), [filter]);
+  const all = summarize(STRESS_LAB_ROWS);
+  // The detail always shows a case that is in the filtered list (the first one if the choice was filtered out).
+  const selected = pickSelected(rows, selectedId);
+  const categories = unique(STRESS_LAB_ROWS.map((r) => r.category));
+  const states = unique(STRESS_LAB_ROWS.map((r) => r.jarvis.finalState));
+
+  return (
+    <>
       <p className="amd-note" role="note">
         Offline comparison with a deliberately naive fixture proposer, not an AMD or real-model result. No-policy refunds are counterfactuals computed from
         each case's records and never sent to any gateway. Data: <a href={evidenceUrl(DATASET_FILE)}>pinned dataset</a> ·{" "}
@@ -70,7 +81,7 @@ export function StressLab() {
         <ul className="stress-list" aria-label="Cases">
           {rows.map((r) => (
             <li key={r.id}>
-              <button type="button" aria-pressed={r.id === selected.id} className={r.id === selected.id ? "stress-row stress-row-on" : "stress-row"} onClick={() => setSelectedId(r.id)}>
+              <button type="button" aria-pressed={r.id === selected?.id} className={r.id === selected?.id ? "stress-row stress-row-on" : "stress-row"} onClick={() => setSelectedId(r.id)}>
                 <span className="mono">{r.id}</span>
                 <span className="stress-row-title">{r.title}</span>
                 <span className={`st ${stateClass(r.jarvis.finalState)}`}>JARVIS {r.jarvis.finalState}</span>
@@ -81,6 +92,7 @@ export function StressLab() {
           {rows.length === 0 && <li className="judge-empty">No case matches these filters.</li>}
         </ul>
 
+        {selected && (
         <article className="stress-detail" aria-live="polite" aria-label={`Case ${selected.id}`}>
           <p className="verdict-order">
             {selected.id} · {selected.category} · risk {selected.risk}
@@ -143,7 +155,8 @@ export function StressLab() {
           <h6>Why this is the right answer</h6>
           <p>{selected.rationale}</p>
         </article>
+        )}
       </div>
-    </details>
+    </>
   );
 }

@@ -3,3 +3,6 @@ node_modules/
 *.jsonl
 .claude/
 .vercel/
+
+.vercel
+supabase/functions/jarvis-gateway/dist/

@@ -165,3 +165,4 @@
 .impact-pilot h4 { font-size: 0.95rem; font-weight: 650; margin-bottom: 0.4rem; }
 .impact-pilot ol { list-style: decimal; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
 .impact-pilot ul { list-style: disc; padding-left: 1.2rem; display: grid; gap: 0.2rem; }
+.impact-clamp { color: var(--color-warning); font-weight: 600; }

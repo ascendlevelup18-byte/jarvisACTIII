@@ -3,9 +3,11 @@ import { submitCase, ApiError } from "../lib/api.ts";
 import type { Case } from "../lib/case-types.ts";
 import { canRunFixture, missionOutcome } from "../lib/command-center.ts";
 import type { HealthPayload } from "../lib/runtime-truth.ts";
+import { loadHealth } from "../lib/use-runtime-health.ts";
 import { DEMO_SCENARIOS, type DemoScenario } from "../fixtures/demo-scenarios.ts";
 import { EVIDENCE_FILES, RECORDED_RUN, evidenceUrl, replayTimeline } from "../lib/recorded-amd-run.ts";
 import { BASELINE_FILE, NO_POLICY_BASELINE } from "../lib/baseline-result.ts";
+import { LATEST_EVIDENCE_FILES, LATEST_RUN } from "../lib/latest-amd-run.ts";
 import { DecisionExplainer } from "../components/proof/DecisionExplainer.tsx";
 import { MerchantImpact } from "../components/judge/MerchantImpact.tsx";
 import { StressLab } from "../components/judge/StressLab.tsx";
@@ -60,32 +62,45 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
   const [health, setHealth] = useState<HealthPayload | null | undefined>();
   const [slots, setSlots] = useState<Slot[]>(VERDICTS.map(() => ({ status: "idle" })));
   const [selected, setSelected] = useState(0);
-  const running = slots.some((s) => s.status === "running");
+  const [starting, setStarting] = useState(false);
+  const inFlight = useRef(false);
+  const running = starting || slots.some((s) => s.status === "running");
 
+  // The runtime labels reuse the page's single /api/health response (already requested for the header chips),
+  // so the button is ready as soon as that answer arrives. Running still re-reads health fresh first.
   useEffect(() => {
     let cancelled = false;
-    readHealth().then((h) => !cancelled && setHealth(h));
+    loadHealth().then((h) => !cancelled && setHealth(h));
     return () => {
       cancelled = true;
     };
   }, []);
 
   const runAll = useCallback(async () => {
-    const h = await readHealth();
-    setHealth(h);
-    if (!canRunFixture(h)) return;
-    setSlots(VERDICTS.map(() => ({ status: "idle" })));
-    for (let i = 0; i < VERDICTS.length; i++) {
-      const scenario = DEMO_SCENARIOS.find((d) => d.id === VERDICTS[i].scenarioId)!;
-      setSlots((prev) => prev.map((s, j) => (j === i ? { status: "running" } : s)));
-      try {
-        const result = await submitCase(scenario.request);
-        onRecord(result, scenario);
-        setSlots((prev) => prev.map((s, j) => (j === i ? { status: "done", result } : s)));
-      } catch (e) {
-        const error = e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed";
-        setSlots((prev) => prev.map((s, j) => (j === i ? { status: "error", error } : s)));
+    // One run at a time: a second click during the fresh health check must not start a parallel run.
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setStarting(true);
+    try {
+      const h = await readHealth();
+      setHealth(h);
+      if (!canRunFixture(h)) return;
+      setSlots(VERDICTS.map(() => ({ status: "idle" })));
+      for (let i = 0; i < VERDICTS.length; i++) {
+        const scenario = DEMO_SCENARIOS.find((d) => d.id === VERDICTS[i].scenarioId)!;
+        setSlots((prev) => prev.map((s, j) => (j === i ? { status: "running" } : s)));
+        try {
+          const result = await submitCase(scenario.request);
+          onRecord(result, scenario);
+          setSlots((prev) => prev.map((s, j) => (j === i ? { status: "done", result } : s)));
+        } catch (e) {
+          const error = e instanceof ApiError ? `${e.message} (${e.status})` : e instanceof Error ? e.message : "Request failed";
+          setSlots((prev) => prev.map((s, j) => (j === i ? { status: "error", error } : s)));
+        }
       }
+    } finally {
+      inFlight.current = false;
+      setStarting(false);
     }
   }, [onRecord]);
 
@@ -266,11 +281,14 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
         )}
       </section>
 
+      <LatestAmdRun />
       <RecordedAmdRun />
 
       <section id="judge-evidence" aria-labelledby="judge-evidence-title" className="judge-section">
         <h3 id="judge-evidence-title">5 · Evidence files</h3>
         <ul className="evidence-list">
+          <li><a href={evidenceUrl(LATEST_EVIDENCE_FILES.demo)}>17 Oct live checks, four orders</a> <span>{LATEST_RUN.checksPassed}/{LATEST_RUN.checksTotal} checks, per-call adapter and latency</span></li>
+          <li><a href={evidenceUrl(LATEST_EVIDENCE_FILES.gate)}>17 Oct startup gate</a> <span>model listed, both probes passed, key found in files: {LATEST_RUN.keyLeakFiles}</span></li>
           <li><a href={evidenceUrl(EVIDENCE_FILES.smoke)}>First AMD call (smoke test)</a> <span>HTTP 200, served model, rate-limit headers</span></li>
           <li><a href={evidenceUrl(EVIDENCE_FILES.gate)}>Startup gate</a> <span>model listed, both schema probes passed</span></li>
           <li><a href={evidenceUrl(EVIDENCE_FILES.demo)}>Live demo checks</a> <span>17/17 checks, per-call adapter and latency</span></li>
@@ -282,6 +300,49 @@ export function JudgePage({ onRecord, onOpenCase }: { onRecord: (c: Case, scenar
 
       <MerchantImpact />
     </div>
+  );
+}
+
+function LatestAmdRun() {
+  const r = LATEST_RUN;
+  return (
+    <section id="judge-amd-latest" aria-labelledby="judge-amd-latest-title" className="judge-section judge-amd">
+      <p className="amd-label" role="note">{r.label}</p>
+      <h3 id="judge-amd-latest-title">4 · All four requests on AMD-hosted inference, 17 Oct 2026</h3>
+      <p>
+        The owner ran the live gate on the four canonical orders with the AMD-hosted model. Every understanding and decision step used{" "}
+        <code>vllm:{r.model}</code> (served as <code>{r.servedModel}</code>); policy made every money decision. Copied from committed evidence
+        and checked against it by a test.
+      </p>
+      <dl className="amd-meta">
+        <div><dt>Recorded</dt><dd>{new Date(r.capturedAt).toUTCString().replace("GMT", "UTC")}</dd></div>
+        <div><dt>Startup probes</dt><dd>understanding {r.startup.probes.understanding} · decision {r.startup.probes.decision}</dd></div>
+        <div><dt>Checks</dt><dd>{r.checksPassed}/{r.checksTotal} passed</dd></div>
+        <div><dt>Key found in logs or results</dt><dd>{r.keyLeakFiles} files</dd></div>
+      </dl>
+      <div className="table-wrap">
+        <table className="amd-table">
+          <caption className="sr-only">Recorded outcomes of the four orders on the AMD-hosted model, 17 Oct 2026</caption>
+          <thead>
+            <tr><th scope="col">Order</th><th scope="col">Request</th><th scope="col">Final state</th><th scope="col">Policy</th><th scope="col">Read-back</th><th scope="col">Understanding</th><th scope="col">Decision</th></tr>
+          </thead>
+          <tbody>
+            {r.cases.map((c) => (
+              <tr key={c.orderId}>
+                <th scope="row">#{c.orderId}</th>
+                <td>{c.label}</td>
+                <td><StateBadge state={c.state} /></td>
+                <td>{c.policy}</td>
+                <td>{c.verified === true ? "simulated refund verified" : "not executed"}</td>
+                <td>{(c.latencies[0] / 1000).toFixed(1)} s</td>
+                <td>{(c.latencies[1] / 1000).toFixed(1)} s</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="amd-note">The run used commit {r.gitHead.slice(0, 7)} with uncommitted cloud-backend files that the local refund path does not use. It is separate from the 14 Oct run below.</p>
+    </section>
   );
 }
 

@@ -52,7 +52,7 @@ npm run web:dev                  # http://127.0.0.1:43123
 | Ingress guard, policy gate, simulated execution, read-back verification, audit trail, escalation | **Demonstrated** (fixture AI) |
 | Merchant workspace: Dashboard, Orders, Customers, Support inbox + Copilot, Analytics (with drill-down), Approvals (review-only), Audit trail | **Demonstrated** from recorded cases |
 | Failed verification is never shown as resolved | **Demonstrated** in tests (`apps/web/test/*.test.ts`, benchmark DC-E05). The demo UI has no fault-injection button |
-| Real open model via AMD Token Factory | **Demonstrated locally** (14 Oct 2026, `docs/AMD_EVIDENCE.md`); show it only when the header chip shows the model. Self-hosted vLLM on AMD GPUs: **FUTURE** |
+| Real open model on an AMD-hosted endpoint (DeepSeek-V4-Flash; equivalence with the Token Factory portal not confirmed) | **Demonstrated locally, recorded** (14 Oct 2026, `docs/AMD_EVIDENCE.md`); the public demo runs fixture AI. Self-hosted vLLM on AMD GPUs: **FUTURE** |
 | Approving an escalation from the UI; free-text chat in public; real store connection | **Not available** (labelled in the UI) |
 | Evolus integration | **FUTURE.** Not integrated (`docs/EVOLUS_INTEGRATION.md`) |
 | Real payments | Not planned for the demo. The gateway is simulated |

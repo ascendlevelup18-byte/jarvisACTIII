@@ -4,7 +4,7 @@ import type { HealthPayload } from "./runtime-truth.ts";
 // One /api/health request per page load, shared by every component that asks.
 let pending: Promise<HealthPayload | null> | null = null;
 
-function loadHealth(): Promise<HealthPayload | null> {
+export function loadHealth(): Promise<HealthPayload | null> {
   pending ??= fetch("/api/health")
     .then((res) => (res.ok ? (res.json() as Promise<HealthPayload>) : null))
     .catch(() => null);

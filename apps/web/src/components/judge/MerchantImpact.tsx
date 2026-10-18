@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { evidenceUrl } from "../../lib/recorded-amd-run.ts";
-import { BUSINESS_CASE_FILE, DEFAULT_ASSUMPTIONS, PILOT_MEASURES, PILOT_STEPS, computeImpact, type ImpactAssumptions } from "../../lib/merchant-impact.ts";
+import { BUSINESS_CASE_FILE, DEFAULT_ASSUMPTIONS, LIMITS, PILOT_MEASURES, PILOT_STEPS, clampNote, computeImpact, usedValue, type ImpactAssumptions } from "../../lib/merchant-impact.ts";
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: n !== 0 && Math.abs(n) < 100 ? 2 : 0 });
 const num = (n: number, d = 0) => n.toLocaleString("en-US", { maximumFractionDigits: d });
@@ -40,16 +40,20 @@ export function MerchantImpact() {
       <div className="impact-grid">
         <fieldset className="impact-inputs">
           <legend>Assumptions (all editable)</legend>
-          {FIELDS.map((f) => (
-            <label key={f.key}>
-              <span>{f.label}</span>
-              <span className="impact-input">
-                <input type="number" inputMode="decimal" min={0} max={f.key === "autoResolvedPct" ? 100 : undefined} step={f.step} value={a[f.key]} onChange={(e) => set(f.key, e.target.value)} />
-                {f.suffix && <span className="muted">{f.suffix}</span>}
-              </span>
-              <small>{f.note}</small>
-            </label>
-          ))}
+          {FIELDS.map((f) => {
+            const clamped = clampNote(f.key, a[f.key]);
+            return (
+              <label key={f.key}>
+                <span>{f.label}</span>
+                <span className="impact-input">
+                  <input type="number" inputMode="decimal" min={LIMITS[f.key][0]} max={LIMITS[f.key][1]} step={f.step} value={a[f.key]} aria-invalid={clamped ? true : undefined} onChange={(e) => set(f.key, e.target.value)} />
+                  {f.suffix && <span className="muted">{f.suffix}</span>}
+                </span>
+                {clamped && <small className="impact-clamp" role="status">{clamped}</small>}
+                <small>{f.note}</small>
+              </label>
+            );
+          })}
         </fieldset>
 
         <div className="impact-out" aria-live="polite">
@@ -60,7 +64,7 @@ export function MerchantImpact() {
             <div className={r.netHypothesis >= 0 ? "impact-net" : "impact-net impact-neg"}><dt>Net value hypothesis / month</dt><dd>{usd(r.netHypothesis)}</dd></div>
           </dl>
           <p className="impact-formula">
-            Hours = tickets × closed share × minutes ÷ 60 = {num(a.casesPerMonth)} × {num(a.autoResolvedPct, 1)}% × {num(a.minutesPerCase, 1)} ÷ 60. Processing = JARVIS fee{" "}
+            Hours = tickets × closed share × minutes ÷ 60 = {num(usedValue("casesPerMonth", a.casesPerMonth))} × {num(usedValue("autoResolvedPct", a.autoResolvedPct), 1)}% × {num(usedValue("minutesPerCase", a.minutesPerCase), 1)} ÷ 60. Processing = JARVIS fee{" "}
             {usd(r.jarvisFee)}
             {r.minimumApplies ? " (monthly minimum applies)" : ""} + model cost{" "}
             {a.modelCostPerCase === 0 ? "not included: JARVIS model cost per case has not been measured, so it stays $0 until you enter your provider's price" : usd(r.modelCost)}. {num(r.escalated)} escalations a month still go to people, with the evidence assembled;
