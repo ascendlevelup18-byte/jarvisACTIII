@@ -7,7 +7,7 @@ Branch `feature/actiii-grand-championship`. This file is updated at each gate. P
 |---|---|---|---|
 | Public Judge Mode (Vercel) | **Fixture** (deterministic, not a language model) | none | Labelled in the product |
 | Historical AMD run | **Recorded live**, 14 Oct 2026 | `vllm:DeepSeek-V4-Flash` on `developer.amd.com.cn/radeon/api/v1` | `evals/results/*tf-1*`, `demo-evidence-live-20261014T201902Z.json` |
-| New AMD four-order run | **Not run yet**: needs the owner's run | DeepSeek-V4-Flash | will be `evals/results/live-gate-<time>.json` |
+| New AMD four-order run | **Recorded live, 17 Oct 2026 21:00 UTC: 25/25 checks** | `vllm:DeepSeek-V4-Flash` (served `self-dploy/DeepSeek-V4-Flash`) | `evals/results/live-gate-20261017T210008Z.json`, `demo-evidence-live-20261017T210008Z.json`; shown in Judge Mode §4 |
 | AI Executive Team, local | Fixture by default; **live only in the owner-run script** | `nvidia/nemotron-3-super-120b-a12b:free` via OpenRouter | will be `evals/results/team-live-<time>.json` |
 | Commerce Recovery Mission | Fixture in the browser; live in `team-live-run.ps1 -WithAmd` | OpenRouter team + AMD case | as above |
 | Cloud database | **Applied and tested** on Supabase `jarvis-actiii-cloud` (empty) | — | Section 3 |
@@ -17,7 +17,7 @@ Branch `feature/actiii-grand-championship`. This file is updated at each gate. P
 ## 1. Real model requests made by this sprint
 | Provider | Requests | Cost | Notes |
 |---|---|---|---|
-| AMD | 0 | 0 | Awaiting the owner's run |
+| AMD | about 12 (2 startup probes, 8 for the four orders, 2 for the verifier's repeat order) | within the 1 USD/day endpoint allowance; exact cost not reported by the endpoint | 0 failures, 0 retries, key in files 0 |
 | OpenRouter | 0 | 0 | Only the public model list was read (no key) |
 
 ## 2. Test report (commit of this file)
@@ -73,7 +73,7 @@ The AI Team page is a separate lazy chunk (49 KB), loaded only on `#/ai-team`. L
 **Rollback:** promote `dpl_5GtjQFYi6ChkCYEmCX9ELsvYB5AP` (`be52013`) with `vercel promote`. Fallbacks are `dpl_BHvrCqExwQAPjcEq9ARc32y5viZD` (87bd523), then `dpl_DHM8iQbPJNcWHhaZPbf9VaS3b6ta`. The cloud database is separate from the site, so a site rollback does not touch it. Database rollback: `supabase/rollback/20261017200000_jarvis_core.down.sql`, after a backup.
 
 ## 6. Remaining limitations (exact)
-- No new live AMD evidence yet. AMD main stays **PARTIAL** until the owner's run passes.
+- AMD main stays **PARTIAL** only because the public demo runs fixture AI by design; fresh live evidence exists (17 Oct, 25/25).
 - Gemma stays **BLOCKED**: it is not confirmed available, and we have no hardware proof. Evolus stays **BLOCKED**: there is no workspace or Developer Cloud GPU.
 - The cloud gateway is not deployed. Its Deno wiring (`supabase-deps.ts`) has not run yet; the gateway logic is tested under Node.
 - No backup-and-restore drill has been run against the cloud database.
